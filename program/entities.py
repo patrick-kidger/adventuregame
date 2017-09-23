@@ -1,9 +1,10 @@
 import Maze.config.config as config
 import Maze.program.misc.helpers as helpers
 
+
 class Entity(helpers.HasPositionMixin):
     """Generic entity base class."""
-    display=config.ENTITY_DISPLAY
+    display = config.ENTITY_DISPLAY
     incorporeal = False
     flight = False
     vision = 8
@@ -17,4 +18,4 @@ class Entity(helpers.HasPositionMixin):
         
 class Player(Entity):
     """Holds all player data."""
-    display=config.PLAYER_DISPLAY
+    display = config.PLAYER_DISPLAY

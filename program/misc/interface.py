@@ -22,11 +22,14 @@ class Output(BaseIO):
     
     default_output_kwargs = {'end': ""}
     
-    def __init__(self, opts={}):
+    def __init__(self, opts=None):
+        if opts is None:
+            opts = {}
         self.default_opts = {}
         self.default_opts.update(self.default_output_kwargs)
         self.default_opts.update(opts)
         self.opts = self.default_opts
+        super(Output, self).__init__()
     
     def __call__(self, outputstr, width=None, flush=True, **kwargs):
         updated_opts = dict(self.opts, **kwargs)
@@ -36,12 +39,15 @@ class Output(BaseIO):
         if flush:
             sys.stdout.flush()
             
-    def context(self, opts={}, **kwargs):
+    def context(self, opts=None, **kwargs):
         """Changes the current options to the default options updated with the arguments passed."""
+        if opts is None:
+            opts = {}
         self.opts = dict(self.default_opts, **opts)
         self.opts.update(**kwargs)
-        
-    def flush(self):
+
+    @staticmethod
+    def flush():
         """Flushes stdout."""
         sys.stdout.flush()
         
@@ -53,9 +59,10 @@ class Output(BaseIO):
         """Provides an easy wrapper for the common context of wanting to print a lot
         of lines and only flush at the end."""
         class NoFlushClass(object):
-            def __enter__(noflush_self):
+            def __enter__(*args, **kwargs):
                 self.context(flush=False)
-            def __exit__(noflush_self, type, value, traceback):
+
+            def __exit__(*args, **kwargs):
                 self.context()
                 self.flush()
         return NoFlushClass()

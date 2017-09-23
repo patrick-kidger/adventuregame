@@ -6,7 +6,7 @@ import Maze.config.config as config
 import Maze.config.strings as strings
 import Maze.program.misc.exceptions as exceptions
 import Maze.program.misc.inputs as inputs
-import Maze.program.entity as entity
+import Maze.program.entities as entities
 import Maze.program.tiles as tiles
 
 
@@ -33,13 +33,14 @@ class TileData(object):
                         
     def convert_walls(self):
         """Customises the visuals of all the walls based on adjacent walls."""
-        adjs = {(-1, 0): config.WallAdjacency.DOWN, (1, 0): config.WallAdjacency.UP, (0, -1): config.WallAdjacency.RIGHT, (0, 1): config.WallAdjacency.LEFT}
-        
         for z, tile_level in enumerate(self._tile_data):
             for y, tile_row in enumerate(tile_level):
                 for x, tile in enumerate(tile_row):
                     if tile.wall:
-                        for adj_tile, adj_direction in ((tile_level[y + i][x + j], adjs[i, j]) for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1))):
+                        adj_tiles = (tile_level[y + i][x + j] for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1)))
+                        adj_directions = (config.WallAdjacency.DOWN, config.WallAdjacency.UP,
+                                          config.WallAdjacency.RIGHT, config.WallAdjacency.LEFT)
+                        for adj_tile, adj_direction in zip(adj_tiles, adj_directions):
                             if adj_tile.wall:
                                 adj_tile.adjacent_walls.add(adj_direction)
         
@@ -69,8 +70,9 @@ class Map(object):
     def level(self, z_level):
         """Gets a specified z-level of the map."""
         return self.tile_data.level(z_level)
-        
-    def rel(self, pos, direction):
+
+    @staticmethod
+    def rel(pos, direction):
         """Gets a position based on an existing position and a direction."""
         new_pos = copy.deepcopy(pos)
         if direction == config.Play.UP:
@@ -94,7 +96,8 @@ class Map(object):
         self.tile_data[pos].add_entity(player)
         
     def remove_entity(self, pos, player):
-        """Removes an entityt from the tile in the specified position. Will raise an exception if the entity is not there."""
+        """Removes an entity from the tile in the specified position. Will raise an exception if the entity is not
+        there."""
         self.tile_data[pos].remove_entity(player)
         
     def fall(self, pos):
@@ -114,14 +117,17 @@ class MazeGame(object):
         self.maps_access = maps_access
         self.out = interface.output
         self.inp = interface.input
-        
+
+        self.map = None     # Immediately redefined in reset()
+        self.player = None  # Just defined here for clarity about what instance properties we have
+        self.debug = None   #
         self.reset()
         
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
         self.map = Map()
-        self.player = entity.Player()
-        
+        self.player = entities.Player()
+
         self.debug = False
         
     def start(self):
@@ -148,15 +154,15 @@ class MazeGame(object):
             except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
                 self.inp.invalid_input()
             else:
-                map = self.maps_access.get_map(map_name)
+                map_ = self.maps_access.get_map(map_name)
                 break
         
         # Map
-        self.map.load(map)
-        self.map.add_entity(map.start_pos, self.player)
+        self.map.load(map_)
+        self.map.add_entity(map_.start_pos, self.player)
         
         # Player
-        self.player.set_pos(map.start_pos)
+        self.player.set_pos(map_.start_pos)
         
     def _run(self):
         """The main game loop."""
@@ -164,14 +170,14 @@ class MazeGame(object):
         skip = tools.Object(skip=False)
         self.render()
         while not completed:
-            tick_result = self.tick(skip)
+            tick_result = self._tick(skip)
             completed = tick_result.completed
             skip = tick_result.skip
             if tick_result.render:
                 self.render()
         return tick_result.again
     
-    def tick(self, skip):
+    def _tick(self, skip):
         """A single tick of the game."""
         if skip.skip:
             move_inp, is_move = skip.move_inp, skip.is_move
@@ -202,13 +208,13 @@ class MazeGame(object):
         with self.out.no_flush_context():
             for y, y_row in enumerate(z_level):
                 for x, tile in enumerate(y_row):
-                    #for coord in tools.line(self.player.pos, tools.Object(x=x, y=y), endpoints=False):
-                    #    coord.z = self.player.z
-                    #    intermediate_tile = self.map.tile_data[coord]
-                    #    if intermediate_tile.opaque:
-                    #        self.out(tiles.Tile.display)
-                    #        break
-                    #else:
+                    # for coord in tools.line(self.player.pos, tools.Object(x=x, y=y), endpoints=False):
+                    #     coord.z = self.player.z
+                    #     intermediate_tile = self.map.tile_data[coord]
+                    #     if intermediate_tile.opaque:
+                    #         self.out(tiles.Tile.display)
+                    #         break
+                    # else:
                     self.out(tile.disp())
                 self.out('\n')
             
@@ -222,7 +228,7 @@ class MazeGame(object):
         new_tile = self.map.tile_data[new_pos]
         
         if isinstance(new_tile, tools.qlist.Eater):
-            return False # If we're trying to move outside the edge of the map
+            return False  # If we're trying to move outside the edge of the map
         if new_tile.boundary:
             return False  # Nothing can pass through boundaries
         if new_tile.solid and not entity.incorporeal:

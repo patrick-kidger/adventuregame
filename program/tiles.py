@@ -120,12 +120,14 @@ class Stair(Tile):
     
     
 class Upstair(Stair, Floor):
-    """Flightless entities can use these to move vertically upwards. Corporeal entities cannot move vertically dowanrds."""
+    """Flightless entities can use these to move vertically upwards. Corporeal entities cannot move vertically
+    downwards."""
     definition = '>'
     display = '>'
     
     
 class Downstair(Stair, Ceiling):
-    """Flightless entities can use these to move vertically downwards. Corporeal entities cannot move vertically upwards."""
+    """Flightless entities can use these to move vertically downwards. Corporeal entities cannot move vertically
+    upwards."""
     definition = '<'
     display = '<'
