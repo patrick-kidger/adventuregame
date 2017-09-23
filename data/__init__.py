@@ -1,0 +1,1 @@
+"""This module saves and provides access to all data about maps."""
