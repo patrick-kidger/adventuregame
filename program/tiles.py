@@ -4,7 +4,7 @@ import Maze.program.misc.helpers as helpers
 import Maze.config.config as config
 
 
-class Tile(helpers.HasPositionMixin, tools.DynamicSubclassingMixin, tools.NoneAttributesMixin):
+class Tile(helpers.HasPositionMixin, tools.dynamic_subclassing_by_attr('definition'), tools.NoneAttributesMixin):
     """Represents a single tile of the map."""
     definition = ' '  # The character used when defining a map to use this tilea
     display = ' '     # How the tile appears in-game.
@@ -27,7 +27,7 @@ class Tile(helpers.HasPositionMixin, tools.DynamicSubclassingMixin, tools.NoneAt
         
     def set_from_data(self, single_tile_data):
         """Sets this tile based on the loaded data."""
-        self.pick_subclass('definition', single_tile_data, Tile)
+        self.pick_subclass(single_tile_data)
         
     def _setdisp(self, display):
         """Overrides what this tile is displayed as."""

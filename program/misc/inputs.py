@@ -6,13 +6,17 @@ import Maze.config.config as config
 import Maze.config.strings as strings
 
 
-# Evil metaclass hackery
-class SpecialInputMetaclass(type):
+SpecialInputSubclassTracker = tools.subclass_tracker('inp')
+
+# Evil metaclass hackery, primarily to make debug commands only work when in debug mode.
+# tools.subclass_tracker works via metaclass, so we have to inherit it here.
+class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
     def __getattribute__(cls, item):
         # If this command needs debug mode enabled...
         if item == 'do' and cls.needs_debug:
             
             do = super(SpecialInputMetaclass, cls).__getattribute__(item)
+
             # ... then wrap the command in a function to check if debug is enabled
             def do_debug_wrapper(maze_game, inp_args):
                 if maze_game.debug:
@@ -33,14 +37,14 @@ class SpecialInputMetaclass(type):
         """Default description for a special input is its docstring."""
         return cls.__doc__
 
-
-class SpecialInput(tools.FindableSubclassMixin, metaclass=SpecialInputMetaclass):
+class SpecialInput(SpecialInputSubclassTracker, metaclass=SpecialInputMetaclass):
     """Base class for special inputs."""
     completed = False    # Whether the game ends after this input is received
     render = False       # Whether the game should have its output updated after this input is received
     progress = False     # Whether the game should count this command as a tick for e.g. moving enemies and such.
     skip = tools.Object(skip=False)  # Whether the next tick should be executed without asking for user input.
-    again = False        # Whether the game should be played again after this input is received. Must be paired with completed=True.
+    again = False        # Whether the game should be played again after this input is received. Must be paired with
+                         # completed=True.
     inp = ''             # What string should inputed to get this input
     needs_debug = False  # Whether this input needs debug mode enabled to work
     
@@ -104,6 +108,7 @@ class Help(SpecialInput):
         if maze_game.debug:
             output_matched_commands(Debug.commands, strings.Help.debug_header)
         return super(Help, cls).do(maze_game, inp_args)
+
 
 # Register help with itself. Can't do this via decorator as Help hasn't yet been defined at decoration time.
 Help.commands[config.Input.HELP] = Help

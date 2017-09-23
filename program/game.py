@@ -188,7 +188,7 @@ class MazeGame(object):
                 input_result.skip = tools.Object(skip=False)
         else:
             input_ = move_inp.split(' ')
-            special_input = inputs.SpecialInput.find_subclass('inp', input_[0])
+            special_input = inputs.SpecialInput.find_subclass(input_[0])
             inp_args = tools.qlist(input_[1:], except_val='')
             input_result = special_input.do(self, inp_args)
         if input_result.progress:

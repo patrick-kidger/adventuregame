@@ -102,11 +102,8 @@ class Output(BaseIO):
             self(strings.Sep.ul_sep, end='\n')
 
 
-class BaseInput(BaseIO, tools.DynamicSubclassingMixin):
+class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
     """Handles receiving user input."""
-
-    subclass_strs = dict()
-    
     def __call__(self, inputstr, type_arg=lambda x: x, num_chars=1, end=''):
         if num_chars == -1:
             input_ = input(inputstr)
@@ -136,24 +133,23 @@ class BaseInput(BaseIO, tools.DynamicSubclassingMixin):
             self.interface.output(input_)
         return input_
         
-    def set(self, subclass_str):
+    def set(self, subclass_name):
         """Turns the instance into one of its registered subclasses."""
-        subclass = self.subclass_strs[subclass_str]
-        self.set_subclass(subclass)
+        self.pick_subclass(subclass_name)
         
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
         self.interface.output(config.INVALID_INPUT, end='\n')
         
-        
-@tools.register(config.InputInterfaces.SELECTMAP, BaseInput.subclass_strs)
+
 class SelectMapInput(BaseInput):
-    pass
+    input_name = config.InputInterfaces.SELECTMAP
 
 
-@tools.register(config.InputInterfaces.PLAY, BaseInput.subclass_strs)
 class PlayInput(BaseInput):
     """Handles the inputs for the main playing of the game."""
+    input_name = config.InputInterfaces.PLAY
+
     def move_inp(self, inputstr):
         inp_dict = {config.Move.UP: config.Play.UP,
                     config.Move.DOWN: config.Play.DOWN,
