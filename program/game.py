@@ -1,4 +1,5 @@
 import copy
+import time
 
 import Tools as tools
 
@@ -141,15 +142,16 @@ class MazeGame(object):
         """Gives the menu to select a map."""
         # Map Selection
         map_names = self.maps_access.setup_and_find_map_names()
-        
+
         # Print the map options
         numbers = [strings.MapSelect.option_number.format(number=i) for i in range(len(map_names))]
+        self.out.clear(flush=False)
         self.out.table(header=strings.MapSelect.header, columns=[numbers, map_names])
         
         # Get the selected map option
         while True:
             try:
-                inp = self.inp(strings.MapSelect.input, type_arg=int, num_chars=2, end='\n')
+                inp = self.inp(strings.MapSelect.input, type_arg=int, num_chars=2, end='\n', print_received_input=True)
                 map_name = map_names[inp]
             except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
                 self.inp.invalid_input()
@@ -180,6 +182,7 @@ class MazeGame(object):
     def _tick(self, skip):
         """A single tick of the game."""
         if skip.skip:
+            time.sleep(config.SLEEP_SKIP)
             move_inp, is_move = skip.move_inp, skip.is_move
         else:
             move_inp, is_move = self.inp.move_inp(strings.Play.move)
@@ -204,6 +207,7 @@ class MazeGame(object):
         
     def render(self):
         """Outputs the current game state."""
+        self.out.clear()
         z_level = self.map.level(self.player.z)
         with self.out.no_flush_context():
             for y, y_row in enumerate(z_level):

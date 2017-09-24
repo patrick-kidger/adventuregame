@@ -30,6 +30,13 @@ PLAYER_DISPLAY = '@'
 # The default character to display any entity.
 ENTITY_DISPLAY = 'g'
 
+# Pygame output options
+SCREEN_SIZE = (800, 600)
+SCREEN_BACKGROUND_COLOR = (255, 255, 255)  # White
+FONT_NAME = "Monospace"
+FONT_SIZE = 20
+FONT_COLOR = (0, 0, 0)  # Black
+
 ### Input ###
 # These define the input that the game is expecting, and should line up with e.g.
 # the standard keyboard keycodes. We also define messages regarding the input here.
@@ -87,3 +94,5 @@ class Play(tools.Container):
     RIGHT = 'right'
     VERTICAL_UP = 'vertical_up'
     VERTICAL_DOWN = 'vertical_down'
+
+SLEEP_SKIP = 0.1  # In seconds!

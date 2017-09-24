@@ -25,7 +25,7 @@ class MapSelect(object):
 
 class Play(object):
     """Strings relating to the bulk of playing the game."""
-    move = 'Move: '
+    move = ''  # Depreciated
     variable_set = '{variable} is now {value}'
     variable_get = '{variable} has value {value}'
     variable_get_failed = 'variable {variable} could not be found'

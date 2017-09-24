@@ -1,10 +1,16 @@
-import sys
+import math
+import pygame.ftfont
+import pygame.display
+import pygame.event
 
 import Tools as tools
 
 import Maze.config.config as config
 import Maze.config.strings as strings
-import Maze.lib.getch as getch
+
+
+pygame.ftfont.init()
+pygame.display.init()
 
 
 class BaseIO(object):
@@ -20,7 +26,7 @@ class BaseIO(object):
 class Output(BaseIO):
     """Handles outputting to the screen."""
     
-    default_output_kwargs = {'end': ""}
+    default_output_kwargs = {'end': "", 'flush': True}
     
     def __init__(self, opts=None):
         if opts is None:
@@ -29,16 +35,36 @@ class Output(BaseIO):
         self.default_opts.update(self.default_output_kwargs)
         self.default_opts.update(opts)
         self.opts = self.default_opts
+
+        self.screen = pygame.display.set_mode(config.SCREEN_SIZE)
+        self.font = pygame.ftfont.SysFont(config.FONT_NAME, config.FONT_SIZE)
+        self.text_cursor = (0, 0)
         super(Output, self).__init__()
-    
-    def __call__(self, outputstr, width=None, flush=True, **kwargs):
+
+    def __call__(self, outputstr, width=None, **kwargs):
         updated_opts = dict(self.opts, **kwargs)
         if width is not None:
             outputstr = '{{:{}}}'.format(width).format(outputstr)
-        print(outputstr, **updated_opts)
-        if flush:
-            sys.stdout.flush()
-            
+        outputstr += updated_opts['end']
+        split_outputstr = outputstr.split('\n')
+        text = self.font.render(split_outputstr[0], False, config.FONT_COLOR)
+        text_area = self.screen.blit(text, self.text_cursor)
+        for output_text in split_outputstr[1:]:
+            self.text_cursor = (0, text_area.bottom)
+            text = self.font.render(output_text, False, config.FONT_COLOR)
+            text_area = self.screen.blit(text, self.text_cursor)
+        else:
+            self.text_cursor = text_area.topright
+        if updated_opts['flush']:
+            pygame.display.flip()
+
+    def clear(self, **kwargs):
+        updated_opts = dict(self.opts, **kwargs)
+        self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
+        if updated_opts['flush']:
+            pygame.display.flip()
+        self.text_cursor = (0, 0)
+
     def context(self, opts=None, **kwargs):
         """Changes the current options to the default options updated with the arguments passed."""
         if opts is None:
@@ -48,8 +74,8 @@ class Output(BaseIO):
 
     @staticmethod
     def flush():
-        """Flushes stdout."""
-        sys.stdout.flush()
+        """Updates the display."""
+        pygame.display.flip()
         
     def sep(self, length, **kwargs):
         """Prints a separator of the given length."""
@@ -111,34 +137,36 @@ class Output(BaseIO):
 
 class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
     """Handles receiving user input."""
-    def __call__(self, inputstr, type_arg=lambda x: x, num_chars=1, end=''):
-        if num_chars == -1:
-            input_ = input(inputstr)
-        else:
-            self.interface.output(inputstr)
-            input_ = ''
-            for _ in range(num_chars):
-                input_ += self.get_char()
-            self.interface.output('', end=end)
+    def __call__(self, inputstr='', type_arg=lambda x: x, num_chars=1, end='', print_received_input=False):
+        self.interface.output(inputstr)
+        input_ = ''
+        for _ in tools.rangeinf(num_chars):
+            char, key_code = self.get_char(print_char=print_received_input)
+            if key_code in [pygame.K_KP_ENTER, pygame.K_RETURN]:
+                break
+            else:
+                input_ += char
+        self.interface.output('', end=end)
         return type_arg(input_)
         
     def get_char(self, print_char=True):
-        """Gets a single character from the terminal."""
+        """Gets a single character."""
         while True:
-            raw_input = getch.getch()
-            if raw_input == b'\x03':
+            pygame.event.clear()
+            event = pygame.event.wait()
+            if event.type == pygame.QUIT:
                 raise KeyboardInterrupt
-                
-            try:
-                input_ = str(raw_input, 'utf-8')
-            except UnicodeDecodeError:
-                pass
-            else:
+
+            elif event.type == pygame.KEYDOWN:
+                input_ = event.unicode
+                if input_ == '\r':
+                    input_ = '\n'
+                key_code = event.key
                 break
                 
         if print_char:
             self.interface.output(input_)
-        return input_
+        return input_, key_code
         
     def set(self, subclass_name):
         """Turns the instance into one of its registered subclasses."""
@@ -167,7 +195,8 @@ class PlayInput(BaseInput):
         while True:
             inp = self(inputstr).lower()
             if inp == config.Input.ESCAPE:
-                inp = self('', num_chars=-1)
+                self.interface.output(config.Input.ESCAPE)
+                inp = self('', num_chars=math.inf, print_received_input=True)
             else:
                 self.interface.output('\n')
                 
