@@ -1,3 +1,5 @@
+import Tools as tools
+
 import Maze.data.maps as maps_
 import Maze.program.game as game
 import Maze.program.misc.interface as interface_
@@ -18,6 +20,7 @@ def maze_game_factory(start_game=True):
 def interface_factory():
     """Convenience function to set up the input and outputs of an interface."""
     input_ = interface_.BaseInput()
-    output = interface_.Output()
+    overlays = tools.Object(game=interface_.GraphicsOverlay(), debug=interface_.TextOverlay())
+    output = interface_.Output(overlays)
     interface = interface_.Interface(input_, output)
     return interface

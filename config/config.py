@@ -5,6 +5,7 @@ import Tools as tools
 
 # Pygame output options
 SCREEN_SIZE = (800, 600)
+DEBUG_SCREEN_SIZE = (800, 300)
 SCREEN_BACKGROUND_COLOR = (255, 255, 255)  # White
 FONT_NAME = "Monospace"
 FONT_SIZE = 20

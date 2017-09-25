@@ -1,3 +1,4 @@
+import copy
 import math
 import pygame.ftfont
 import pygame.display
@@ -23,7 +24,21 @@ class BaseIO(object):
         self.interface = interface
 
 
-class Output(BaseIO):
+class BaseOverlay(BaseIO):
+    def __init__(self):
+        self.output = None
+        super(BaseIO, self).__init__()
+
+    def register_output(self, output):
+        """Lets the BaseOverlay instance know what output it is used with."""
+        self.output = output
+
+
+class GraphicsOverlay(BaseOverlay):
+    pass
+
+
+class TextOverlay(BaseOverlay):
     """Handles outputting to the screen."""
     
     default_output_kwargs = {'end': "", 'flush': True}
@@ -36,12 +51,15 @@ class Output(BaseIO):
         self.default_opts.update(opts)
         self.opts = self.default_opts
 
-        self.screen = pygame.display.set_mode(config.SCREEN_SIZE)
+        self.screen = pygame.Surface(config.DEBUG_SCREEN_SIZE)
         self.font = pygame.ftfont.SysFont(config.FONT_NAME, config.FONT_SIZE)
         self.text_cursor = (0, 0)
-        super(Output, self).__init__()
+        super(TextOverlay, self).__init__()
 
     def __call__(self, outputstr, width=None, **kwargs):
+        """Outputs text.
+
+        :int width: Optional. The text with be padded to this width."""
         updated_opts = dict(self.opts, **kwargs)
         if width is not None:
             outputstr = '{{:{}}}'.format(width).format(outputstr)
@@ -56,6 +74,7 @@ class Output(BaseIO):
         else:
             self.text_cursor = text_area.topright
         if updated_opts['flush']:
+            self.output.screen.blit(self.screen, (0, 0))
             pygame.display.flip()
 
     def clear(self, **kwargs):
@@ -72,9 +91,9 @@ class Output(BaseIO):
         self.opts = dict(self.default_opts, **opts)
         self.opts.update(**kwargs)
 
-    @staticmethod
-    def flush():
+    def flush(self):
         """Updates the display."""
+        self.output.screen.blit(self.screen, (0, 0))
         pygame.display.flip()
         
     def sep(self, length, **kwargs):
@@ -82,15 +101,16 @@ class Output(BaseIO):
         self(strings.Sep.sep * length, **kwargs)
         
     def no_flush_context(self):
-        """Provides an easy wrapper for the common context of wanting to print a lot of lines, only flushing at the
-        end."""
+        """Provides an easy wrapper for the common context of wanting to output a lot, only flushing at the end."""
         class NoFlushClass(object):
-            def __enter__(*args, **kwargs):
+            def __enter__(no_flush):
+                no_flush.old_opts = copy.deepcopy(self.opts)
                 self.context(flush=False)
 
-            def __exit__(*args, **kwargs):
-                self.context()
-                self.flush()
+            def __exit__(no_flush, *args, **kwargs):
+                self.context(no_flush.old_opts)
+                if no_flush.old_opts['flush']:
+                    self.flush()
         return NoFlushClass()
 
     def table(self, title, columns, headers=None, edge_space=''):
@@ -161,18 +181,35 @@ class Output(BaseIO):
             self(strings.Sep.ul_sep, end='\n')
 
 
+class Output(BaseIO):
+    """The overall output. It takes its various overlays and then combines them to produce output to the screen."""
+    def __init__(self, overlays):
+        self.overlays = overlays
+        for overlay in self.overlays.values():
+            overlay.register_output(self)
+        self.screen = pygame.display.set_mode(config.SCREEN_SIZE)
+        super(Output, self).__init__()
+
+    def __call__(self, *args, **kwargs):  # Temporary
+        self.overlays.debug(*args, **kwargs)
+
+    def __getattr__(self, item):  # Temporary
+        return getattr(self.overlays.debug, item)
+
+
 class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
     """Handles receiving user input."""
     def __call__(self, inputstr='', type_arg=lambda x: x, num_chars=1, end='', print_received_input=False):
-        self.interface.output(inputstr)
-        input_ = ''
-        for _ in tools.rangeinf(num_chars):
-            char, key_code = self.get_char(print_char=print_received_input)
-            if key_code in [pygame.K_KP_ENTER, pygame.K_RETURN]:
-                break
-            else:
-                input_ += char
-        self.interface.output('', end=end)
+        with self.interface.output.no_flush_context():
+            self.interface.output(inputstr)
+            input_ = ''
+            for _ in tools.rangeinf(num_chars):
+                char, key_code = self.get_char(print_char=print_received_input)
+                if key_code in [pygame.K_KP_ENTER, pygame.K_RETURN]:
+                    break
+                else:
+                    input_ += char
+            self.interface.output(end)
         return type_arg(input_)
         
     def get_char(self, print_char=True):
@@ -191,7 +228,7 @@ class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
                 break
                 
         if print_char:
-            self.interface.output(input_)
+            self.interface.output(input_, flush=True)
         return input_, key_code
         
     def set(self, subclass_name):
@@ -224,8 +261,6 @@ class PlayInput(BaseInput):
             if inp == config.Input.ESCAPE:
                 self.interface.output(config.Input.ESCAPE)
                 inp = self('', num_chars=math.inf, print_received_input=True)
-            else:
-                self.interface.output('\n')
                 
             if inp.split(' ')[0] in config.Input:
                 try:

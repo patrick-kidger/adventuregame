@@ -145,8 +145,9 @@ class MazeGame(object):
 
         # Print the map options
         numbers = [strings.MapSelect.option_number.format(number=i) for i in range(len(map_names))]
-        self.out.clear(flush=False)
-        self.out.table(title=strings.MapSelect.title, columns=[numbers, map_names], headers=strings.MapSelect.headers)
+        with self.out.no_flush_context():
+            self.out.clear(flush=False)
+            self.out.table(title=strings.MapSelect.title, columns=[numbers, map_names], headers=strings.MapSelect.headers)
         
         # Get the selected map option
         while True:
@@ -165,7 +166,7 @@ class MazeGame(object):
         
         # Player
         self.player.set_pos(map_.start_pos)
-        
+
     def _run(self):
         """The main game loop."""
         completed = False
@@ -204,21 +205,14 @@ class MazeGame(object):
             # Do stuff
             pass
         return input_result
-        
+
     def render(self):
         """Outputs the current game state."""
-        self.out.clear()
         z_level = self.map.level(self.player.z)
         with self.out.no_flush_context():
+            self.out.clear()
             for y, y_row in enumerate(z_level):
                 for x, tile in enumerate(y_row):
-                    # for coord in tools.line(self.player.pos, tools.Object(x=x, y=y), endpoints=False):
-                    #     coord.z = self.player.z
-                    #     intermediate_tile = self.map.tile_data[coord]
-                    #     if intermediate_tile.opaque:
-                    #         self.out(tiles.Tile.display)
-                    #         break
-                    # else:
                     self.out(tile.disp())
                 self.out('\n')
             
