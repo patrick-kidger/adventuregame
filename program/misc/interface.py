@@ -82,8 +82,8 @@ class Output(BaseIO):
         self(strings.Sep.sep * length, **kwargs)
         
     def no_flush_context(self):
-        """Provides an easy wrapper for the common context of wanting to print a lot
-        of lines and only flush at the end."""
+        """Provides an easy wrapper for the common context of wanting to print a lot of lines, only flushing at the
+        end."""
         class NoFlushClass(object):
             def __enter__(*args, **kwargs):
                 self.context(flush=False)
@@ -92,23 +92,35 @@ class Output(BaseIO):
                 self.context()
                 self.flush()
         return NoFlushClass()
-        
-    def table(self, header, columns, edge_space=''):
+
+    def table(self, title, columns, headers=None, edge_space=''):
+        """Prints a table in text.
+
+        :str title: A title to put at the top of the table
+        :iter[iter] columns: The component iterables should be the data to put in the columns. Each component iterable
+            should be the same length.
+        :iter[str] headers: Optional. The name of each column. This iter should have the same length as :columns:.
+        :str edge_space: Optional. Any horizontal spacing to put around each element of the table.
+        """
+        if headers is None:
+            header_names = ['' for _ in range(len(columns))]
+        else:
+            header_names = headers
         column_widths = []
         # In case we're passed generators that get consumed
         columns = [list(column) for column in columns]
-        for column in columns:
-            column_width = 0
+        for column, header in zip(columns, header_names):
+            column_width = len(header)
             for column_entry in column:
                 column_width = max(column_width, len(column_entry))
             column_widths.append(column_width)
-        overall_header_width = len(header) + len(edge_space) * 2                      # The width of the header text, plus space to either side of it
+        overall_title_width = len(title) + len(edge_space) * 2                        # The width of the header text, plus space to either side of it
         overall_column_width = (sum(column_widths) +                                  # The width of the columns
                                 len(column_widths) * len(edge_space) * 2 +            # The width of the space either side of the entry in each column
                                 (len(column_widths) - 1) * len(strings.Sep.vert_sep)) # The width of the lines separating columns
-        overall_width = max(overall_header_width, overall_column_width)
-        if overall_header_width > overall_column_width:
-            column_widths[-1] += overall_header_width - overall_column_width
+        overall_width = max(overall_title_width, overall_column_width)
+        if overall_title_width > overall_column_width:
+            column_widths[-1] += overall_title_width - overall_column_width
                            
         rows = zip(*columns)
         
@@ -117,16 +129,30 @@ class Output(BaseIO):
             self.sep(overall_width)
             self(strings.Sep.dl_sep, end='\n')
             self(strings.Sep.ud_sep)
-            self(edge_space + header + edge_space, width=overall_width)
+            self(edge_space + title + edge_space, width=overall_width)
             self(strings.Sep.ud_sep, end='\n')
             self(strings.Sep.udr_sep)
             self.sep(overall_width)
             self(strings.Sep.udl_sep, end='\n')
+            if headers is not None:
+                self(strings.Sep.ud_sep)
+                for header, column_width in zip(headers, column_widths):
+                    self(edge_space)
+                    self(header, width=column_width)
+                    self(edge_space)
+                    self(strings.Sep.ud_sep)
+                self('\n')
+                self(strings.Sep.ud_sep)
+                for column_width in column_widths[:-1]:
+                    self.sep(column_width)
+                    self(strings.Sep.udlr_sep)
+                self.sep(column_widths[-1])
+                self(strings.Sep.ud_sep, end='\n')
             for row in rows:
                 self(strings.Sep.ud_sep)
-                for i, entry in enumerate(row):
+                for entry, column_width in zip(row, column_widths):
                     self(edge_space)
-                    self(entry, width=column_widths[i])
+                    self(entry, width=column_width)
                     self(edge_space)
                     self(strings.Sep.ud_sep)
                 self('\n')
@@ -174,7 +200,7 @@ class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
         
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
-        self.interface.output(config.INVALID_INPUT, end='\n')
+        self.interface.output(strings.Play.INVALID_INPUT, end='\n')
         
 
 class SelectMapInput(BaseInput):
@@ -185,7 +211,8 @@ class PlayInput(BaseInput):
     """Handles the inputs for the main playing of the game."""
     input_name = config.InputInterfaces.PLAY
 
-    def move_inp(self, inputstr):
+    def play_inp(self):
+        """The usual input for playing the game."""
         inp_dict = {config.Move.UP: config.Play.UP,
                     config.Move.DOWN: config.Play.DOWN,
                     config.Move.VERTICAL_UP: config.Play.VERTICAL_UP,
@@ -193,7 +220,7 @@ class PlayInput(BaseInput):
                     config.Move.LEFT: config.Play.LEFT,
                     config.Move.RIGHT: config.Play.RIGHT}
         while True:
-            inp = self(inputstr).lower()
+            inp = self().lower()
             if inp == config.Input.ESCAPE:
                 self.interface.output(config.Input.ESCAPE)
                 inp = self('', num_chars=math.inf, print_received_input=True)

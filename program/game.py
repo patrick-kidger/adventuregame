@@ -146,7 +146,7 @@ class MazeGame(object):
         # Print the map options
         numbers = [strings.MapSelect.option_number.format(number=i) for i in range(len(map_names))]
         self.out.clear(flush=False)
-        self.out.table(header=strings.MapSelect.header, columns=[numbers, map_names])
+        self.out.table(title=strings.MapSelect.title, columns=[numbers, map_names], headers=strings.MapSelect.headers)
         
         # Get the selected map option
         while True:
@@ -183,20 +183,20 @@ class MazeGame(object):
         """A single tick of the game."""
         if skip.skip:
             time.sleep(config.SLEEP_SKIP)
-            move_inp, is_move = skip.move_inp, skip.is_move
+            play_inp, is_move = skip.play_inp, skip.is_move
         else:
-            move_inp, is_move = self.inp.move_inp(strings.Play.move)
+            play_inp, is_move = self.inp.play_inp()
         if is_move:
-            move_result = self.move_entity(move_inp, self.player)
+            move_result = self.move_entity(play_inp, self.player)
             if skip.skip and not move_result:
                 raise exceptions.ProgrammingException('Received an invalid force move command.')
             input_result = tools.Object(completed=False, render=True, progress=True, again=False)
             if not self.player.flight and self.map.fall(self.player.pos):
-                input_result.skip = tools.Object(skip=True, move_inp=config.Play.VERTICAL_DOWN, is_move=True)
+                input_result.skip = tools.Object(skip=True, play_inp=config.Play.VERTICAL_DOWN, is_move=True)
             else:
                 input_result.skip = tools.Object(skip=False)
         else:
-            input_ = move_inp.split(' ')
+            input_ = play_inp.split(' ')
             special_input = inputs.SpecialInput.find_subclass(input_[0])
             inp_args = tools.qlist(input_[1:], except_val='')
             input_result = special_input.do(self, inp_args)

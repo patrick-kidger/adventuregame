@@ -1,5 +1,25 @@
 import Tools as tools
 
+
+### Settings ###
+
+# Pygame output options
+SCREEN_SIZE = (800, 600)
+SCREEN_BACKGROUND_COLOR = (255, 255, 255)  # White
+FONT_NAME = "Monospace"
+FONT_SIZE = 20
+FONT_COLOR = (0, 0, 0)  # Black
+
+# How long to wait at each state when skipping user input.
+SLEEP_SKIP = 0.1  # In seconds!
+
+# The file extension for map files
+MAP_FILE_EXTENSION = 'map'
+
+# The name of the folder containing the map files
+MAP_FOLDER = 'map_data'
+
+
 ### Output ###
 # These determine how the game is rendered onto the screen.
 # Note that this is distinct from the strings module: here we handle the actual game.
@@ -30,12 +50,6 @@ PLAYER_DISPLAY = '@'
 # The default character to display any entity.
 ENTITY_DISPLAY = 'g'
 
-# Pygame output options
-SCREEN_SIZE = (800, 600)
-SCREEN_BACKGROUND_COLOR = (255, 255, 255)  # White
-FONT_NAME = "Monospace"
-FONT_SIZE = 20
-FONT_COLOR = (0, 0, 0)  # Black
 
 ### Input ###
 # These define the input that the game is expecting, and should line up with e.g.
@@ -61,18 +75,10 @@ class Input(Move):
     RENDER = 'render'
     RESET = 'reset'
     CHANGEMAP = 'changemap'
-    
-# The message for input that could not be made sense of
-INVALID_INPUT = 'Invalid input, please try again.'
 
-# The file extension for map files
-MAP_FILE_EXTENSION = 'map'
 
-# The name of the folder containing the map files
-MAP_FOLDER = 'map_data'
-
-### Internal ###
-# These are only used internally, and are put here to keep them consistent throughout the program.
+### Internal Strings ###
+# These are only used internally, and are just put here to keep them consistent throughout the program.
 
 # Used in determining wall adjacency.
 class WallAdjacency(tools.Container):
@@ -94,5 +100,3 @@ class Play(tools.Container):
     RIGHT = 'right'
     VERTICAL_UP = 'vertical_up'
     VERTICAL_DOWN = 'vertical_down'
-
-SLEEP_SKIP = 0.1  # In seconds!

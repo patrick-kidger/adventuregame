@@ -13,24 +13,25 @@ class Sep(object):
     ur_sep   = chr(9492)
     dr_sep   = chr(9484)
     lr_sep   = sep
-    
 
 class MapSelect(object):
     """Strings relating to the selecting of a map."""
-    header = "Choose a map:"
+    title = "Choose a map:"
+
+    headers = ['Code', 'Name']
 
     option_number = "{number:02}"
 
-    input = "Select option: "
+    input = "Select code: "
 
 class Play(object):
     """Strings relating to the bulk of playing the game."""
-    move = ''  # Depreciated
     variable_set = '{variable} is now {value}'
     variable_get = '{variable} has value {value}'
     variable_get_failed = 'variable {variable} could not be found'
     debug_not_enabled = 'Debug mode must be enabled to use this command: \debug True'
-
+    # The message for input that could not be made sense of.
+    INVALID_INPUT = 'Invalid input, please try again. Type \'\help\' for help.'
 
 class Help(object):
     """Strings relating to using the help command."""

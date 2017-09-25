@@ -102,7 +102,7 @@ class Help(SpecialInput):
                 commands_matched_values = (command_dict[x] for x in commands_matched)
                 command_help_strings = [x.description if hasattr(x, 'description') else x
                                         for x in commands_matched_values]
-                maze_game.out.table(header=table_header, columns=[commands_matched, command_help_strings])
+                maze_game.out.table(title=table_header, columns=[commands_matched, command_help_strings])
                 
         output_matched_commands(Help.commands, strings.Help.header)
         if maze_game.debug:
