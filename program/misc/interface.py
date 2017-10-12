@@ -1,5 +1,6 @@
 import copy
 import math
+import re
 import pygame.ftfont
 import pygame.display
 import pygame.event
@@ -8,6 +9,7 @@ import Tools as tools
 
 import Maze.config.config as config
 import Maze.config.strings as strings
+import Maze.program.misc.helpers as helpers
 
 
 pygame.ftfont.init()
@@ -25,13 +27,51 @@ class BaseIO(object):
 
 
 class BaseOverlay(BaseIO):
-    def __init__(self):
+    default_output_kwargs = {}
+
+    def __init__(self, location, size, opts=None):
+        if opts is None:
+            opts = {}
+        self.default_opts = {}
+        self.default_opts.update(self.default_output_kwargs)
+        self.default_opts.update(opts)
+        self.opts = copy.deepcopy(self.default_opts)
+
+        self.location = location
+        self.screen = pygame.Surface(size)
+
         self.output = None
         super(BaseIO, self).__init__()
 
     def register_output(self, output):
         """Lets the BaseOverlay instance know what output it is used with."""
         self.output = output
+
+    def context(self, opts=None, **kwargs):
+        """Changes the current options to the default options updated with the arguments passed."""
+        if opts is None:
+            opts = {}
+        self.opts = dict(self.default_opts, **opts)
+        self.opts.update(**kwargs)
+
+    def no_flush_context(self):
+        """Provides an easy wrapper for the common context of wanting to output a lot without flushing, and then flush
+        at the end."""
+        class NoFlushClass(object):
+            def __enter__(no_flush):
+                no_flush.old_opts = copy.deepcopy(self.opts)
+                self.context(no_flush.old_opts, flush=False)
+
+            def __exit__(no_flush, *args, **kwargs):
+                self.context(no_flush.old_opts)
+                if no_flush.old_opts['flush']:
+                    self.flush()
+        return NoFlushClass()
+
+    def flush(self):
+        """Updates the display."""
+        updated_area = self.output.screen.blit(self.screen, self.location)
+        pygame.display.update(updated_area)
 
 
 class GraphicsOverlay(BaseOverlay):
@@ -43,75 +83,49 @@ class TextOverlay(BaseOverlay):
     
     default_output_kwargs = {'end': "", 'flush': True}
     
-    def __init__(self, opts=None):
-        if opts is None:
-            opts = {}
-        self.default_opts = {}
-        self.default_opts.update(self.default_output_kwargs)
-        self.default_opts.update(opts)
-        self.opts = self.default_opts
-
-        self.screen = pygame.Surface(config.DEBUG_SCREEN_SIZE)
+    def __init__(self, *args, **kwargs):
         self.font = pygame.ftfont.SysFont(config.FONT_NAME, config.FONT_SIZE)
-        self.text_cursor = (0, 0)
-        super(TextOverlay, self).__init__()
+        self.text = ''
+        super(TextOverlay, self).__init__(*args, **kwargs)
 
     def __call__(self, outputstr, width=None, **kwargs):
         """Outputs text.
 
+        :str outputstr: The string to output.
         :int width: Optional. The text with be padded to this width."""
+
         updated_opts = dict(self.opts, **kwargs)
+
+        outputstr += updated_opts['end']
         if width is not None:
             outputstr = '{{:{}}}'.format(width).format(outputstr)
-        outputstr += updated_opts['end']
-        split_outputstr = outputstr.split('\n')
-        text = self.font.render(split_outputstr[0], False, config.FONT_COLOR)
-        text_area = self.screen.blit(text, self.text_cursor)
-        for output_text in split_outputstr[1:]:
-            self.text_cursor = (0, text_area.bottom)
+        self.text += outputstr
+        # \x08 = backspace. \b doesn't work for some reason.
+        self.text = helpers.re_sub_recursive(r'[^\x08]\x08', '', self.text)
+        self.text.lstrip('\b')
+
+        self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
+
+        split_text = self.text.split('\n')
+        text_cursor = (0, 0)
+        for output_text in split_text:
             text = self.font.render(output_text, False, config.FONT_COLOR)
-            text_area = self.screen.blit(text, self.text_cursor)
-        else:
-            self.text_cursor = text_area.topright
+            text_area = self.screen.blit(text, text_cursor)
+            text_cursor = (0, text_area.bottom)
+
         if updated_opts['flush']:
-            self.output.screen.blit(self.screen, (0, 0))
-            pygame.display.flip()
+            self.flush()
 
     def clear(self, **kwargs):
         updated_opts = dict(self.opts, **kwargs)
         self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
         if updated_opts['flush']:
             pygame.display.flip()
-        self.text_cursor = (0, 0)
+        self.text = ''
 
-    def context(self, opts=None, **kwargs):
-        """Changes the current options to the default options updated with the arguments passed."""
-        if opts is None:
-            opts = {}
-        self.opts = dict(self.default_opts, **opts)
-        self.opts.update(**kwargs)
-
-    def flush(self):
-        """Updates the display."""
-        self.output.screen.blit(self.screen, (0, 0))
-        pygame.display.flip()
-        
     def sep(self, length, **kwargs):
         """Prints a separator of the given length."""
         self(strings.Sep.sep * length, **kwargs)
-        
-    def no_flush_context(self):
-        """Provides an easy wrapper for the common context of wanting to output a lot, only flushing at the end."""
-        class NoFlushClass(object):
-            def __enter__(no_flush):
-                no_flush.old_opts = copy.deepcopy(self.opts)
-                self.context(flush=False)
-
-            def __exit__(no_flush, *args, **kwargs):
-                self.context(no_flush.old_opts)
-                if no_flush.old_opts['flush']:
-                    self.flush()
-        return NoFlushClass()
 
     def table(self, title, columns, headers=None, edge_space=''):
         """Prints a table in text.
@@ -183,53 +197,27 @@ class TextOverlay(BaseOverlay):
 
 class Output(BaseIO):
     """The overall output. It takes its various overlays and then combines them to produce output to the screen."""
-    def __init__(self, overlays):
-        self.overlays = overlays
-        for overlay in self.overlays.values():
-            overlay.register_output(self)
+    def __init__(self, debug, game):
+        self.debug = debug
+        self.game = game
+        self.debug.register_output(self)
+        self.game.register_output(self)
+
         self.screen = pygame.display.set_mode(config.SCREEN_SIZE)
+        pygame.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__()
-
-    def __call__(self, *args, **kwargs):  # Temporary
-        self.overlays.debug(*args, **kwargs)
-
-    def __getattr__(self, item):  # Temporary
-        return getattr(self.overlays.debug, item)
 
 
 class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
     """Handles receiving user input."""
-    def __call__(self, inputstr='', type_arg=lambda x: x, num_chars=1, end='', print_received_input=False):
-        with self.interface.output.no_flush_context():
-            self.interface.output(inputstr)
-            input_ = ''
-            for _ in tools.rangeinf(num_chars):
-                char, key_code = self.get_char(print_char=print_received_input)
-                if key_code in [pygame.K_KP_ENTER, pygame.K_RETURN]:
-                    break
-                else:
-                    input_ += char
-            self.interface.output(end)
+    def __call__(self, inputstr='', num_chars=1, end='', print_received_input=False, type_arg=lambda x: x):
+        self.interface.output.debug(inputstr)
+        if print_received_input:
+            input_ = helpers.input_pygame(num_chars, self.interface.output.debug, flush=True)
+        else:
+            input_ = helpers.input_pygame(num_chars)
+        self.interface.output.debug(end)
         return type_arg(input_)
-        
-    def get_char(self, print_char=True):
-        """Gets a single character."""
-        while True:
-            pygame.event.clear()
-            event = pygame.event.wait()
-            if event.type == pygame.QUIT:
-                raise KeyboardInterrupt
-
-            elif event.type == pygame.KEYDOWN:
-                input_ = event.unicode
-                if input_ == '\r':
-                    input_ = '\n'
-                key_code = event.key
-                break
-                
-        if print_char:
-            self.interface.output(input_, flush=True)
-        return input_, key_code
         
     def set(self, subclass_name):
         """Turns the instance into one of its registered subclasses."""
@@ -237,7 +225,7 @@ class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
         
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
-        self.interface.output(strings.Play.INVALID_INPUT, end='\n')
+        self.interface.output.debug(strings.Play.INVALID_INPUT, end='\n')
         
 
 class SelectMapInput(BaseInput):
@@ -259,7 +247,7 @@ class PlayInput(BaseInput):
         while True:
             inp = self().lower()
             if inp == config.Input.ESCAPE:
-                self.interface.output(config.Input.ESCAPE)
+                self.interface.output.debug(config.Input.ESCAPE)
                 inp = self('', num_chars=math.inf, print_received_input=True)
                 
             if inp.split(' ')[0] in config.Input:

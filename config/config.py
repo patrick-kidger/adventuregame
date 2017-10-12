@@ -3,10 +3,17 @@ import Tools as tools
 
 ### Settings ###
 
+WINDOW_NAME = 'Maze Game'
+
 # Pygame output options
-SCREEN_SIZE = (800, 600)
-DEBUG_SCREEN_SIZE = (800, 300)
+SCREEN_SIZE = (800, 600)  # The overall size of the screen
+DEBUG_SCREEN_SIZE = (800, 300)  # The size of the debug overlay
+DEBUG_SCREEN_LOC = (0, 300)  # The location of the debug overlay on the main screen
+GRAPHICS_SCREEN_SIZE = (800, 300)  # The size of the debug overlay
+GRAPHICS_SCREEN_LOC = (0, 0)  # The location of the graphics overlay on hte main screen
 SCREEN_BACKGROUND_COLOR = (255, 255, 255)  # White
+
+# Debug overlay text options
 FONT_NAME = "Monospace"
 FONT_SIZE = 20
 FONT_COLOR = (0, 0, 0)  # Black

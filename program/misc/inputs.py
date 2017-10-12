@@ -23,7 +23,7 @@ class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
                     # Does not need 'cls' passed as an argument as it is already a bound method.
                     returnval = do(maze_game, inp_args)
                 else:
-                    maze_game.out(strings.Play.debug_not_enabled, end='\n')
+                    maze_game.out.debug(strings.Play.debug_not_enabled, end='\n')
                     returnval = SpecialInput  # No special return value, as the input wasn't executed.
                 return returnval
             return do_debug_wrapper
@@ -71,7 +71,7 @@ class Variable(SpecialInput):
             else:
                 variable_value = variable_value_to_set
             tools.deepsetattr(maze_game, variable_name, variable_value)
-            maze_game.out(strings.Play.variable_set.format(variable=variable_name, value=variable_value), end='\n')
+            maze_game.out.debug(strings.Play.variable_set.format(variable=variable_name, value=variable_value), end='\n')
         return super(Variable, cls).do(maze_game, inp_args)
         
     @staticmethod
@@ -102,7 +102,7 @@ class Help(SpecialInput):
                 commands_matched_values = (command_dict[x] for x in commands_matched)
                 command_help_strings = [x.description if hasattr(x, 'description') else x
                                         for x in commands_matched_values]
-                maze_game.out.table(title=table_header, columns=[commands_matched, command_help_strings])
+                maze_game.out.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
                 
         output_matched_commands(Help.commands, strings.Help.header)
         if maze_game.debug:
@@ -187,7 +187,7 @@ class Get(SpecialInput):
         try:
             variable_value = tools.deepgetattr(maze_game, variable_name)
         except AttributeError:
-            maze_game.out(strings.Play.variable_get_failed.format(variable=variable_name), end='\n')
+            maze_game.out.debug(strings.Play.variable_get_failed.format(variable=variable_name), end='\n')
         else:
-            maze_game.out(strings.Play.variable_get.format(variable=variable_name, value=variable_value), end='\n')
+            maze_game.out.debug(strings.Play.variable_get.format(variable=variable_name, value=variable_value), end='\n')
         return super(Get, cls).do(maze_game, inp_args)
