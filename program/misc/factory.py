@@ -21,7 +21,14 @@ def maze_game_factory(start_game=True):
 def interface_factory():
     """Convenience function to set up the input and outputs of an interface."""
     input_ = interface_.BaseInput()
-    output = interface_.Output(game=interface_.GraphicsOverlay(config.GRAPHICS_SCREEN_LOC, config.GRAPHICS_SCREEN_SIZE),
-                               debug=interface_.TextOverlay(config.DEBUG_SCREEN_LOC, config.DEBUG_SCREEN_SIZE))
+
+    game_overlay = interface_.GraphicsOverlay(config.OverlayNames.GAME_NAME, config.GRAPHICS_SCREEN_LOC,
+                                              config.GRAPHICS_SCREEN_SIZE)
+    debug_overlay = interface_.TextOverlay(config.OverlayNames.DEBUG_NAME, config.DEBUG_SCREEN_LOC,
+                                           config.DEBUG_SCREEN_SIZE)
+    overlays = tools.Object(from_dict={config.OverlayNames.GAME_NAME: game_overlay,
+                                       config.OverlayNames.DEBUG_NAME: debug_overlay})
+
+    output = interface_.Output(overlays=overlays)
     interface = interface_.Interface(input_, output)
     return interface

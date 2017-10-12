@@ -27,12 +27,19 @@ class BaseIO(object):
 class BaseOverlay(BaseIO):
     default_output_kwargs = {}
 
-    def __init__(self, location, size):
+    def __init__(self, name, location, size):
+        self.name = name
         self.location = location
         self.screen = pygame.Surface(size)
 
         self.output = None
         super(BaseIO, self).__init__()
+
+    def __call__(self, output_val, flush=False):
+        # Just a convenience, to allow for just calling with flush=True as an argument, rather than putting an
+        # output.flush() on the next line.
+        if flush:
+            self.output.flush(self.name)
 
     def register_output(self, output):
         """Lets the BaseOverlay instance know what output it is used with."""
@@ -51,16 +58,16 @@ class TextOverlay(BaseOverlay):
         self.text = ''
         super(TextOverlay, self).__init__(*args, **kwargs)
 
-    def __call__(self, outputstr, width=None, end=''):
+    def __call__(self, output_val, width=None, end='', **kwargs):
         """Outputs text.
 
         :str outputstr: The string to output.
         :int width: Optional. The text with be padded to this width."""
 
-        outputstr += end
         if width is not None:
-            outputstr = '{{:{}}}'.format(width).format(outputstr)
-        self.text += outputstr
+            output_val = '{{:{}}}'.format(width).format(output_val)
+        output_val += end
+        self.text += output_val
         # \x08 = backspace. \b doesn't work for some reason.
         self.text = helpers.re_sub_recursive(r'[^\x08]\x08', '', self.text)
         self.text.lstrip('\b')
@@ -73,6 +80,7 @@ class TextOverlay(BaseOverlay):
             text = self.font.render(output_text, False, config.FONT_COLOR)
             text_area = self.screen.blit(text, text_cursor)
             text_cursor = (0, text_area.bottom)
+        super(TextOverlay, self).__call__(output_val, **kwargs)
 
     def clear(self):
         self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
@@ -151,35 +159,42 @@ class TextOverlay(BaseOverlay):
 
 class Output(BaseIO):
     """The overall output. It takes its various overlays and then combines them to produce output to the screen."""
-    def __init__(self, debug, game):
-        self.debug = debug
-        self.game = game
-        self.debug.register_output(self)
-        self.game.register_output(self)
+    def __init__(self, overlays):
+        self.overlays = overlays
+        self.overlays.debug.register_output(self)
+        self.overlays.game.register_output(self)
 
         self.screen = pygame.display.set_mode(config.SCREEN_SIZE)
         pygame.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__()
 
-    def flush(self):
-        """Pushes the changes from the overlays to the main screen."""
-        debug_area = self.screen.blit(self.debug.screen, self.debug.location)
-        game_area = self.screen.blit(self.game.screen, self.game.location)
-        pygame.display.update([debug_area, game_area])
+    def flush(self, overlay_names=None):
+        """Pushes the changes from the overlays to the main screen.
+
+        :str or tuple overlay_names: The names of the overlays to update."""
+        updated_areas = []
+        if overlay_names is None:
+            overlays = self.overlays.values()
+        else:
+            if isinstance(overlay_names, str):
+                overlay_names = (overlay_names,)
+            overlays = tuple(self.overlays[overlay_name] for overlay_name in overlay_names)
+
+        for overlay in overlays:
+            updated_area = self.screen.blit(overlay.screen, overlay.location)
+            updated_areas.append(updated_area)
+
+        pygame.display.update(updated_areas)
 
 
 class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
     """Handles receiving user input."""
-    def __call__(self, inputstr='', num_chars=1, end='', print_received_input=False, type_arg=lambda x: x):
-        self.interface.output.debug(inputstr)
-        self.interface.output.flush()
+    def __call__(self, num_chars=1, print_received_input=False, type_arg=lambda x: x):
         if print_received_input:
-            input_ = helpers.input_pygame(num_chars, output=self.interface.output.debug,
+            input_ = helpers.input_pygame(num_chars, output=self.interface.output.overlays.debug,
                                           flush=self.interface.output.flush)
         else:
             input_ = helpers.input_pygame(num_chars)
-        self.interface.output.debug(end)
-        self.interface.output.flush()
         return type_arg(input_)
         
     def set(self, subclass_name):
@@ -188,7 +203,8 @@ class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
         
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
-        self.interface.output.debug(strings.Play.INVALID_INPUT, end='\n')
+        self.interface.output.overlays.debug(strings.Play.INVALID_INPUT, end='\n')
+        self.interface.output.flush('debug')
         
 
 class SelectMapInput(BaseInput):
@@ -209,9 +225,9 @@ class PlayInput(BaseInput):
                     config.Move.RIGHT: config.Play.RIGHT}
         while True:
             inp = self().lower()
-            if inp == config.Input.ESCAPE:
-                self.interface.output.debug(config.Input.ESCAPE)
-                inp = self('', num_chars=math.inf, print_received_input=True)
+            if inp == config.ESCAPE_INPUT:
+                self.interface.output.overlays.debug(config.ESCAPE_INPUT, flush=True)
+                inp = self(num_chars=math.inf, print_received_input=True)
                 
             if inp.split(' ')[0] in config.Input:
                 try:

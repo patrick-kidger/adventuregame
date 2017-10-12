@@ -144,14 +144,17 @@ class MazeGame(object):
         map_names = self.maps_access.setup_and_find_map_names()
         # Print the map options
         numbers = [strings.MapSelect.option_number.format(number=i) for i in range(len(map_names))]
-        self.out.debug.clear()
-        self.out.debug.table(title=strings.MapSelect.title, columns=[numbers, map_names],
+        self.out.overlays.debug.clear()
+        self.out.overlays.debug.table(title=strings.MapSelect.title, columns=[numbers, map_names],
                              headers=strings.MapSelect.headers)
+        self.out.overlays.debug(strings.MapSelect.input)
         self.out.flush()
         # Get the selected map option
         while True:
             try:
-                inp = self.inp(strings.MapSelect.input, type_arg=int, num_chars=2, end='\n', print_received_input=True)
+                inp = self.inp(type_arg=int, num_chars=2, print_received_input=True)
+                self.out.overlays.debug('\n')
+                self.out.flush()
                 map_name = map_names[inp]
             except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
                 self.inp.invalid_input()
@@ -208,11 +211,11 @@ class MazeGame(object):
     def render(self):
         """Outputs the current game state."""
         z_level = self.map.level(self.player.z)
-        self.out.debug.clear()
+        self.out.overlays.debug.clear()
         for y, y_row in enumerate(z_level):
             for x, tile in enumerate(y_row):
-                self.out.debug(tile.disp())
-            self.out.debug('\n')
+                self.out.overlays.debug(tile.disp())
+            self.out.overlays.debug('\n')
         self.out.flush()
             
     def move_entity(self, direction, entity):

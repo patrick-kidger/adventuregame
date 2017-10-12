@@ -65,6 +65,7 @@ ENTITY_DISPLAY = 'g'
 
 # Moving around. All commands here should in lower case.
 class Move(tools.Container):
+    """All valid inputs for moving around."""
     DOWN = 's'
     UP = 'w'
     LEFT = 'a'
@@ -73,20 +74,29 @@ class Move(tools.Container):
     VERTICAL_DOWN = 'f'
     
 class Input(Move):
-    ESCAPE = '\\'
+    """All valid inputs in the console"""
     DEBUG = 'debug'
     HELP = 'help'
     NOCLIP = 'noclip'
     FLY = 'fly'
     GET = 'get'
     QUIT = 'quit'
+    EXIT = 'exit'  # Does the same thing as quit
     RENDER = 'render'
     RESET = 'reset'
     CHANGEMAP = 'changemap'
 
+# Button to open up the console
+ESCAPE_INPUT = '\\'
+
 
 ### Internal Strings ###
 # These are only used internally, and are just put here to keep them consistent throughout the program.
+
+# Names of overlays
+class OverlayNames(tools.Container):
+    DEBUG_NAME = 'debug'
+    GAME_NAME = 'game'
 
 # Used in determining wall adjacency.
 class WallAdjacency(tools.Container):
