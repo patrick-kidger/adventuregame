@@ -33,14 +33,15 @@ class HasPositionMixin(object):
         return self.pos.z
 
 
-def input_pygame(num_chars=1, output=None, **kwargs):
+def input_pygame(num_chars=1, output=None, flush=None):
     """A pygame equivalent to the builtin input() function. (Without being able to pass a prompt string.)
 
     :int num_chars: the number of characters of input that it should accept before automatically preventing further
         input. May be set to math.inf to go forever.
     :callable output: If specified, then each character of the user-typed input will be passed as an argument to this
-        callable, presumably so that it can be outputted to the screen. Any additional keyword arguments are passed as
-        arguments to the output call, if it is made."""
+        callable, presumably so that it can be outputted to the screen.
+    :callable flush: If specified, then this function will be called after each character of the user-typed input has
+        been received, presumably so that if need be, the screen it has been printed to can be flushed."""
 
     def _get_char():
         """Gets a single character."""
@@ -58,7 +59,9 @@ def input_pygame(num_chars=1, output=None, **kwargs):
                     continue  # The modified key will be picked up on the next keystroke.
                 break
         if output is not None:
-            output(char, **kwargs)
+            output(char)
+        if flush is not None:
+            flush()
         return char, key_code
 
     returnstr = ''

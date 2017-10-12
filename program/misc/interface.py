@@ -1,6 +1,4 @@
-import copy
 import math
-import re
 import pygame.ftfont
 import pygame.display
 import pygame.event
@@ -29,14 +27,7 @@ class BaseIO(object):
 class BaseOverlay(BaseIO):
     default_output_kwargs = {}
 
-    def __init__(self, location, size, opts=None):
-        if opts is None:
-            opts = {}
-        self.default_opts = {}
-        self.default_opts.update(self.default_output_kwargs)
-        self.default_opts.update(opts)
-        self.opts = copy.deepcopy(self.default_opts)
-
+    def __init__(self, location, size):
         self.location = location
         self.screen = pygame.Surface(size)
 
@@ -47,56 +38,26 @@ class BaseOverlay(BaseIO):
         """Lets the BaseOverlay instance know what output it is used with."""
         self.output = output
 
-    def context(self, opts=None, **kwargs):
-        """Changes the current options to the default options updated with the arguments passed."""
-        if opts is None:
-            opts = {}
-        self.opts = dict(self.default_opts, **opts)
-        self.opts.update(**kwargs)
-
-    def no_flush_context(self):
-        """Provides an easy wrapper for the common context of wanting to output a lot without flushing, and then flush
-        at the end."""
-        class NoFlushClass(object):
-            def __enter__(no_flush):
-                no_flush.old_opts = copy.deepcopy(self.opts)
-                self.context(no_flush.old_opts, flush=False)
-
-            def __exit__(no_flush, *args, **kwargs):
-                self.context(no_flush.old_opts)
-                if no_flush.old_opts['flush']:
-                    self.flush()
-        return NoFlushClass()
-
-    def flush(self):
-        """Updates the display."""
-        updated_area = self.output.screen.blit(self.screen, self.location)
-        pygame.display.update(updated_area)
-
 
 class GraphicsOverlay(BaseOverlay):
-    pass
+    """Handles outputting graphics to the screen."""
 
 
 class TextOverlay(BaseOverlay):
-    """Handles outputting to the screen."""
-    
-    default_output_kwargs = {'end': "", 'flush': True}
+    """Handles outputting text to the screen."""
     
     def __init__(self, *args, **kwargs):
         self.font = pygame.ftfont.SysFont(config.FONT_NAME, config.FONT_SIZE)
         self.text = ''
         super(TextOverlay, self).__init__(*args, **kwargs)
 
-    def __call__(self, outputstr, width=None, **kwargs):
+    def __call__(self, outputstr, width=None, end=''):
         """Outputs text.
 
         :str outputstr: The string to output.
         :int width: Optional. The text with be padded to this width."""
 
-        updated_opts = dict(self.opts, **kwargs)
-
-        outputstr += updated_opts['end']
+        outputstr += end
         if width is not None:
             outputstr = '{{:{}}}'.format(width).format(outputstr)
         self.text += outputstr
@@ -113,14 +74,8 @@ class TextOverlay(BaseOverlay):
             text_area = self.screen.blit(text, text_cursor)
             text_cursor = (0, text_area.bottom)
 
-        if updated_opts['flush']:
-            self.flush()
-
-    def clear(self, **kwargs):
-        updated_opts = dict(self.opts, **kwargs)
+    def clear(self):
         self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
-        if updated_opts['flush']:
-            pygame.display.flip()
         self.text = ''
 
     def sep(self, length, **kwargs):
@@ -157,42 +112,41 @@ class TextOverlay(BaseOverlay):
             column_widths[-1] += overall_title_width - overall_column_width
                            
         rows = zip(*columns)
-        
-        with self.no_flush_context():
-            self(strings.Sep.dr_sep)
-            self.sep(overall_width)
-            self(strings.Sep.dl_sep, end='\n')
+
+        self(strings.Sep.dr_sep)
+        self.sep(overall_width)
+        self(strings.Sep.dl_sep, end='\n')
+        self(strings.Sep.ud_sep)
+        self(edge_space + title + edge_space, width=overall_width)
+        self(strings.Sep.ud_sep, end='\n')
+        self(strings.Sep.udr_sep)
+        self.sep(overall_width)
+        self(strings.Sep.udl_sep, end='\n')
+        if headers is not None:
             self(strings.Sep.ud_sep)
-            self(edge_space + title + edge_space, width=overall_width)
+            for header, column_width in zip(headers, column_widths):
+                self(edge_space)
+                self(header, width=column_width)
+                self(edge_space)
+                self(strings.Sep.ud_sep)
+            self('\n')
+            self(strings.Sep.ud_sep)
+            for column_width in column_widths[:-1]:
+                self.sep(column_width)
+                self(strings.Sep.udlr_sep)
+            self.sep(column_widths[-1])
             self(strings.Sep.ud_sep, end='\n')
-            self(strings.Sep.udr_sep)
-            self.sep(overall_width)
-            self(strings.Sep.udl_sep, end='\n')
-            if headers is not None:
+        for row in rows:
+            self(strings.Sep.ud_sep)
+            for entry, column_width in zip(row, column_widths):
+                self(edge_space)
+                self(entry, width=column_width)
+                self(edge_space)
                 self(strings.Sep.ud_sep)
-                for header, column_width in zip(headers, column_widths):
-                    self(edge_space)
-                    self(header, width=column_width)
-                    self(edge_space)
-                    self(strings.Sep.ud_sep)
-                self('\n')
-                self(strings.Sep.ud_sep)
-                for column_width in column_widths[:-1]:
-                    self.sep(column_width)
-                    self(strings.Sep.udlr_sep)
-                self.sep(column_widths[-1])
-                self(strings.Sep.ud_sep, end='\n')
-            for row in rows:
-                self(strings.Sep.ud_sep)
-                for entry, column_width in zip(row, column_widths):
-                    self(edge_space)
-                    self(entry, width=column_width)
-                    self(edge_space)
-                    self(strings.Sep.ud_sep)
-                self('\n')
-            self(strings.Sep.ur_sep)
-            self.sep(overall_width)
-            self(strings.Sep.ul_sep, end='\n')
+            self('\n')
+        self(strings.Sep.ur_sep)
+        self.sep(overall_width)
+        self(strings.Sep.ul_sep, end='\n')
 
 
 class Output(BaseIO):
@@ -207,16 +161,25 @@ class Output(BaseIO):
         pygame.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__()
 
+    def flush(self):
+        """Pushes the changes from the overlays to the main screen."""
+        debug_area = self.screen.blit(self.debug.screen, self.debug.location)
+        game_area = self.screen.blit(self.game.screen, self.game.location)
+        pygame.display.update([debug_area, game_area])
+
 
 class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
     """Handles receiving user input."""
     def __call__(self, inputstr='', num_chars=1, end='', print_received_input=False, type_arg=lambda x: x):
         self.interface.output.debug(inputstr)
+        self.interface.output.flush()
         if print_received_input:
-            input_ = helpers.input_pygame(num_chars, self.interface.output.debug, flush=True)
+            input_ = helpers.input_pygame(num_chars, output=self.interface.output.debug,
+                                          flush=self.interface.output.flush)
         else:
             input_ = helpers.input_pygame(num_chars)
         self.interface.output.debug(end)
+        self.interface.output.flush()
         return type_arg(input_)
         
     def set(self, subclass_name):

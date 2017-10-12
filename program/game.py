@@ -142,13 +142,12 @@ class MazeGame(object):
         """Gives the menu to select a map."""
         # Map Selection
         map_names = self.maps_access.setup_and_find_map_names()
-
         # Print the map options
         numbers = [strings.MapSelect.option_number.format(number=i) for i in range(len(map_names))]
-        with self.out.debug.no_flush_context():
-            self.out.debug.clear()
-            self.out.debug.table(title=strings.MapSelect.title, columns=[numbers, map_names], headers=strings.MapSelect.headers)
-        
+        self.out.debug.clear()
+        self.out.debug.table(title=strings.MapSelect.title, columns=[numbers, map_names],
+                             headers=strings.MapSelect.headers)
+        self.out.flush()
         # Get the selected map option
         while True:
             try:
@@ -209,12 +208,12 @@ class MazeGame(object):
     def render(self):
         """Outputs the current game state."""
         z_level = self.map.level(self.player.z)
-        with self.out.debug.no_flush_context():
-            self.out.debug.clear()
-            for y, y_row in enumerate(z_level):
-                for x, tile in enumerate(y_row):
-                    self.out.debug(tile.disp())
-                self.out.debug('\n')
+        self.out.debug.clear()
+        for y, y_row in enumerate(z_level):
+            for x, tile in enumerate(y_row):
+                self.out.debug(tile.disp())
+            self.out.debug('\n')
+        self.out.flush()
             
     def move_entity(self, direction, entity):
         """Moves the entity in the specified direction.
