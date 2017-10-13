@@ -7,6 +7,7 @@ import Maze.config.config as config
 import Maze.config.strings as strings
 import Maze.program.misc.exceptions as exceptions
 import Maze.program.misc.inputs as inputs
+import Maze.program.misc.sdl as sdl
 import Maze.program.entities as entities
 import Maze.program.tiles as tiles
 
@@ -15,41 +16,49 @@ class TileData(object):
     """Holds all the Tiles."""
     def __init__(self):
         self._tile_data = None
+        self.areas = None
         
     def __getitem__(self, item):
         return self._tile_data[item.z, item.y, item.x]
+
+    def __iter__(self):
+        for z, z_level in enumerate(self._tile_data):
+            for y, y_row in enumerate(z_level):
+                for x, tile in enumerate(y_row):
+                    yield tools.Object(x=x, y=y, z=z, tile=tile, y_row=y_row, z_level=z_level)
         
     def load(self, tile_data):
         """Sets the tile data from the loaded tile data."""
         self._tile_data = tools.qlist()
+        self.areas = []
         for z, data_z_level in enumerate(tile_data):
             self._tile_data.append(tools.qlist())
+            max_x = 0
             for y, data_y_row in enumerate(data_z_level):
                 self._tile_data[z].append(tools.qlist())
                 for x, single_tile_data in enumerate(data_y_row):
                     tile = tiles.Tile(pos=tools.Object(z=z, y=y, x=x))
                     tile.set_from_data(single_tile_data)
                     self._tile_data[z][y].append(tile)
+                max_x = max(max_x, x)
+            self.areas.append(tools.Object(x=max_x, y=y))
         self.convert_walls()
                         
     def convert_walls(self):
         """Customises the visuals of all the walls based on adjacent walls."""
-        for z, tile_level in enumerate(self._tile_data):
-            for y, tile_row in enumerate(tile_level):
-                for x, tile in enumerate(tile_row):
-                    if tile.wall:
-                        adj_tiles = (tile_level[y + i][x + j] for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1)))
-                        adj_directions = (config.WallAdjacency.DOWN, config.WallAdjacency.UP,
-                                          config.WallAdjacency.RIGHT, config.WallAdjacency.LEFT)
-                        for adj_tile, adj_direction in zip(adj_tiles, adj_directions):
-                            if adj_tile.wall:
-                                adj_tile.adjacent_walls.add(adj_direction)
-        
-        for tile_level in self._tile_data:
-            for tile_row in tile_level:
-                for tile in tile_row:
-                    if tile.wall:
-                        tile.convert_wall()
+        for tile_data in self:
+            if tile_data.tile.wall:
+                adj_tiles = (tile_data.z_level[tile_data.y + i][tile_data.x + j]
+                             for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1)))
+                adj_directions = (config.WallAdjacency.DOWN, config.WallAdjacency.UP,
+                                  config.WallAdjacency.RIGHT, config.WallAdjacency.LEFT)
+                for adj_tile, adj_direction in zip(adj_tiles, adj_directions):
+                    if adj_tile.wall:
+                        adj_tile.adjacent_walls.add(adj_direction)
+
+        for tile_data in self:
+            if tile_data.tile.wall:
+                tile_data.tile.convert_wall()
                         
     def level(self, z_level):
         """Gets a z level slice of the tile data."""
@@ -62,11 +71,17 @@ class Map(object):
     def __init__(self):
         self.name = None
         self.tile_data = TileData()
+        self.screens = None
 
     def load(self, map_data):
         """Loads the specified map."""
         self.name = map_data.name
         self.tile_data.load(map_data.tile_data)
+        self.screens = [sdl.Surface(((area.x + 1) * config.TILE_X, (area.y + 1) * config.TILE_Y))
+                        for area in self.tile_data.areas]
+        for tile_data in self.tile_data:
+            self.screens[tile_data.z].blit(tile_data.tile.appearance,
+                                           (tile_data.x * config.TILE_X, tile_data.y * config.TILE_Y))
                     
     def level(self, z_level):
         """Gets a specified z-level of the map."""
@@ -210,12 +225,10 @@ class MazeGame(object):
 
     def render(self):
         """Outputs the current game state."""
-        z_level = self.map.level(self.player.z)
-        self.out.overlays.debug.clear()
-        for y, y_row in enumerate(z_level):
-            for x, tile in enumerate(y_row):
-                self.out.overlays.debug(tile.disp())
-            self.out.overlays.debug('\n')
+        self.out.clear_overlays()
+        self.out.overlays.game.screen.blit(self.map.screens[self.player.z], (0, 0))
+        self.out.overlays.game.screen.blit(self.player.appearance,
+                                           (self.player.x * config.TILE_X, self.player.y * config.TILE_Y))
         self.out.flush()
             
     def move_entity(self, direction, entity):

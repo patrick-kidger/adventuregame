@@ -23,9 +23,9 @@ def interface_factory():
     input_ = interface_.BaseInput()
 
     game_overlay = interface_.GraphicsOverlay(config.OverlayNames.GAME_NAME, config.GRAPHICS_SCREEN_LOC,
-                                              config.GRAPHICS_SCREEN_SIZE)
+                                              config.GRAPHICS_SCREEN_SIZE, True)
     debug_overlay = interface_.TextOverlay(config.OverlayNames.DEBUG_NAME, config.DEBUG_SCREEN_LOC,
-                                           config.DEBUG_SCREEN_SIZE)
+                                           config.DEBUG_SCREEN_SIZE, True)
     overlays = tools.Object(from_dict={config.OverlayNames.GAME_NAME: game_overlay,
                                        config.OverlayNames.DEBUG_NAME: debug_overlay})
 

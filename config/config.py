@@ -24,8 +24,14 @@ SLEEP_SKIP = 0.1  # In seconds!
 # The file extension for map files
 MAP_FILE_EXTENSION = 'map'
 
-# The name of the folder containing the map files
+# The names of the folder containing the map files / tile images / entity images respectively
 MAP_FOLDER = 'map_data'
+TILE_FOLDER = 'tile_data'
+ENTITY_FOLDER = 'entity_data'
+
+# The sizes of the tiles, in pixels
+TILE_Y = 32
+TILE_X = 32
 
 
 ### Output ###
@@ -79,6 +85,7 @@ class Input(Move):
     HELP = 'help'
     NOCLIP = 'noclip'
     FLY = 'fly'
+    GHOST = 'ghost'
     GET = 'get'
     QUIT = 'quit'
     EXIT = 'exit'  # Does the same thing as quit

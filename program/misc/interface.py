@@ -1,17 +1,11 @@
 import math
-import pygame.ftfont
-import pygame.display
-import pygame.event
 
 import Tools as tools
 
 import Maze.config.config as config
 import Maze.config.strings as strings
 import Maze.program.misc.helpers as helpers
-
-
-pygame.ftfont.init()
-pygame.display.init()
+import Maze.program.misc.sdl as sdl
 
 
 class BaseIO(object):
@@ -27,10 +21,11 @@ class BaseIO(object):
 class BaseOverlay(BaseIO):
     default_output_kwargs = {}
 
-    def __init__(self, name, location, size):
+    def __init__(self, name, location, size, enabled):
         self.name = name
         self.location = location
-        self.screen = pygame.Surface(size)
+        self.screen = sdl.Surface(size)
+        self.enabled = enabled
 
         self.output = None
         super(BaseIO, self).__init__()
@@ -45,6 +40,9 @@ class BaseOverlay(BaseIO):
         """Lets the BaseOverlay instance know what output it is used with."""
         self.output = output
 
+    def clear(self):
+        self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
+
 
 class GraphicsOverlay(BaseOverlay):
     """Handles outputting graphics to the screen."""
@@ -54,7 +52,7 @@ class TextOverlay(BaseOverlay):
     """Handles outputting text to the screen."""
     
     def __init__(self, *args, **kwargs):
-        self.font = pygame.ftfont.SysFont(config.FONT_NAME, config.FONT_SIZE)
+        self.font = sdl.ftfont.SysFont(config.FONT_NAME, config.FONT_SIZE)
         self.text = ''
         super(TextOverlay, self).__init__(*args, **kwargs)
 
@@ -83,7 +81,7 @@ class TextOverlay(BaseOverlay):
         super(TextOverlay, self).__call__(output_val, **kwargs)
 
     def clear(self):
-        self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
+        super(TextOverlay, self).clear()
         self.text = ''
 
     def sep(self, length, **kwargs):
@@ -164,9 +162,13 @@ class Output(BaseIO):
         self.overlays.debug.register_output(self)
         self.overlays.game.register_output(self)
 
-        self.screen = pygame.display.set_mode(config.SCREEN_SIZE)
-        pygame.display.set_caption(config.WINDOW_NAME)
+        self.screen = sdl.display.set_mode(config.SCREEN_SIZE)
+        sdl.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__()
+
+    def clear_overlays(self):
+        for overlay in self.overlays.values():
+            overlay.clear()
 
     def flush(self, overlay_names=None):
         """Pushes the changes from the overlays to the main screen.
@@ -181,20 +183,21 @@ class Output(BaseIO):
             overlays = tuple(self.overlays[overlay_name] for overlay_name in overlay_names)
 
         for overlay in overlays:
-            updated_area = self.screen.blit(overlay.screen, overlay.location)
-            updated_areas.append(updated_area)
+            if overlay.enabled:
+                updated_area = self.screen.blit(overlay.screen, overlay.location)
+                updated_areas.append(updated_area)
 
-        pygame.display.update(updated_areas)
+        sdl.display.update(updated_areas)
 
 
 class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
     """Handles receiving user input."""
     def __call__(self, num_chars=1, print_received_input=False, type_arg=lambda x: x):
         if print_received_input:
-            input_ = helpers.input_pygame(num_chars, output=self.interface.output.overlays.debug,
+            input_ = helpers.input_(num_chars, output=self.interface.output.overlays.debug,
                                           flush=self.interface.output.flush)
         else:
-            input_ = helpers.input_pygame(num_chars)
+            input_ = helpers.input_(num_chars)
         return type_arg(input_)
         
     def set(self, subclass_name):

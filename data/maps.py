@@ -5,9 +5,10 @@ import collections
 import Tools as tools
 
 import Maze.config.config as config
+import Maze.config.strings as strings
 
 
-class MapsAccess():
+class MapsAccess(object):
     def __init__(self):
         self.map_lookup = {}
         self.setup_and_find_map_names()
@@ -32,7 +33,10 @@ class MapsAccess():
         """Gets the map data corresponding to a particular map."""
         
         # First go and get the raw map data
-        filename = self.map_lookup[map_name]
+        try:
+            filename = self.map_lookup[map_name]
+        except KeyError:
+            raise InvalidMapNameException(strings.Data.Exceptions.no_map_name.format(map_name=map_name))
         parser = self._config_parser()
         file_path = os.path.join(self._map_data_path(), filename)
         parser.read(file_path)
@@ -40,30 +44,33 @@ class MapsAccess():
         
         # Starting position of the player
         start_pos = tools.Object()
-        start_pos_data = [x.strip() for x in raw_map_data['start_pos'].split(',')]
+        try:
+            raw_start_pos_data = raw_map_data['start_pos']
+        except KeyError:
+            raise InvalidMapException(strings.Data.Exceptions.no_entry(entry='start_pos'))
+        start_pos_data = [x.strip() for x in raw_start_pos_data.split(',')]
         for coord in start_pos_data:
             key_val = [x.strip() for x in coord.split('=')]
             start_pos[key_val[0]] = int(key_val[1])
             
         # The tile data
-        raw_tile_data = raw_map_data['map'].strip('\n')
+        try:
+            raw_tile_data = raw_map_data['map'].strip('\n')
+        except KeyError:
+            raise InvalidMapException(strings.Data.Exceptions.no_entry(entry='map', map_name=map_name))
         data_z_levels = raw_tile_data.split('\n\n')
+        if not data_z_levels:
+            raise InvalidMapDataException(strings.Data.Exceptions.misconfigured_map_data.format(map_name=map_name))
         tile_data = []
         for data_z_level in data_z_levels:
             tile_data.append([])
             y_rows = data_z_level.split('\n')
+            if not y_rows:
+                raise InvalidMapDataException(strings.Data.Exceptions.misconfigured_map_data.format(map_name=map_name))
             for y_row in y_rows:
                 tile_data[-1].append(y_row)
                 
         return tools.Object(name=map_name, start_pos=start_pos, tile_data=tile_data)
-
-    @property
-    def longest_map_name_length(self):
-        """Gets the length of the longest map name."""
-        max_len = 0
-        for name in self.map_lookup.keys():
-            max_len = max(max_len, len(name))
-        return max_len
 
     @classmethod
     def _get_map_names_in_file(cls, file_path):
@@ -81,3 +88,15 @@ class MapsAccess():
     def _config_parser():
         """The parser to use to read the map data."""
         return configparser.ConfigParser(delimiters=':')
+
+
+class InvalidMapException(Exception):
+    """Used to indicate that the map that is being read from the input file is not correctly formatted etc."""
+
+
+class InvalidMapNameException(InvalidMapException):
+    """As InvalidMapException; used to indicate that the specified map name does not exist."""
+
+
+class InvalidMapDataException(InvalidMapException):
+    """As InvalidMapException; used to indicate that it is specifically the tile data that has a problem."""

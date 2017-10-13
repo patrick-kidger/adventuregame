@@ -1,10 +1,31 @@
 import re
-import pygame
+import os
 
 import Tools as tools
 
+import Maze.program.misc.sdl as sdl
+
+
+def appearance_metaclass(files_location):
+    class AppearanceMetaclass(type):
+        """Allows for setting an appearance_filename attribute on the class, which will then have an 'appearance'
+        attribute automagically added, which will be a Surface containing the image specified."""
+        def __init__(cls, name, bases, dct):
+            if not hasattr(cls, '_appearance_filename') or cls.appearance_filename != cls._appearance_filename:
+                appearance_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', files_location,
+                                                    cls.appearance_filename)
+                cls.appearance = sdl.image.load(appearance_file_path)
+                # Keep a record of what the current appearance has been set to. So if a subclass doesn't set a new
+                # appearance_filename, we don't need to load up another copy of the image, we can just the one on the
+                # parent class.
+                cls._appearance_filename = cls.appearance_filename
+            super(AppearanceMetaclass, cls).__init__(name, bases, dct)
+    return AppearanceMetaclass
+
 
 class HasPositionMixin(object):
+    """Gives the class a notion of x, y, z position."""
+
     def __init__(self, pos=None):
         self.pos = tools.Object('x', 'y', 'z', default_value=0)
         if pos is not None:
@@ -33,7 +54,7 @@ class HasPositionMixin(object):
         return self.pos.z
 
 
-def input_pygame(num_chars=1, output=None, flush=None):
+def input_(num_chars=1, output=None, flush=None):
     """A pygame equivalent to the builtin input() function. (Without being able to pass a prompt string.)
 
     :int num_chars: the number of characters of input that it should accept before automatically preventing further
@@ -46,16 +67,16 @@ def input_pygame(num_chars=1, output=None, flush=None):
     def _get_char():
         """Gets a single character."""
         while True:
-            pygame.event.clear()
-            event = pygame.event.wait()
-            if event.type == pygame.QUIT:
+            sdl.event.clear()
+            event = sdl.event.wait()
+            if event.type == sdl.QUIT:
                 raise KeyboardInterrupt
-            elif event.type == pygame.KEYDOWN:
+            elif event.type == sdl.KEYDOWN:
                 char = event.unicode
                 if char == '\r':
                     char = '\n'
                 key_code = event.key
-                if key_code in (pygame.K_LSHIFT, pygame.K_RSHIFT):
+                if key_code in sdl.K_SHIFT:
                     continue  # The modified key will be picked up on the next keystroke.
                 break
         if output is not None:
@@ -68,9 +89,9 @@ def input_pygame(num_chars=1, output=None, flush=None):
     i = 0
     while i < num_chars:
         char, key_code = _get_char()
-        if key_code in (pygame.K_KP_ENTER, pygame.K_RETURN):
+        if key_code in sdl.K_ENTER:
             break
-        elif key_code == pygame.K_BACKSPACE:
+        elif key_code == sdl.K_BACKSPACE:
             if i >= 1:
                 returnstr = returnstr[:-1]
                 i -= 1

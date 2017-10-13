@@ -139,6 +139,14 @@ class Fly(Variable):
     variables = ('player.flight',)
     needs_debug = True
 
+
+@tools.register(config.Input.FLY, Debug.commands)
+class Ghost(Variable):
+    """Sets whether the player is incorporeal or not."""
+    inp = config.Input.GHOST
+    variables = ('player.incorporeal',)
+    needs_debug = True
+
     
 @tools.register(config.Input.CHANGEMAP, Debug.commands)
 class ChangeMap(SpecialInput):

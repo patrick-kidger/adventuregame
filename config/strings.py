@@ -39,3 +39,11 @@ class Help(object):
     debug_header = "Debug commands:"
     movement = 'Movement'
     movement_text = 'Use WASDRF to move.'
+
+
+class Data(object):
+    """Strings relating to external data, like choosing maps."""
+    class Exceptions(object):
+        no_map_name = "Map with name {map_name} does not exist."
+        no_entry = "Required field {entry} cannot be found on map {map_name}."
+        misconfigured_map_data = "Map data not formatted correctly on map {map_name}."

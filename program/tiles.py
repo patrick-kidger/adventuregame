@@ -1,13 +1,24 @@
 import Tools as tools
 
-import Maze.program.misc.helpers as helpers
 import Maze.config.config as config
+import Maze.program.misc.helpers as helpers
 
 
-class Tile(helpers.HasPositionMixin, tools.dynamic_subclassing_by_attr('definition'), tools.NoneAttributesMixin):
+DefinitionSubclassing = tools.dynamic_subclassing_by_attr('definition')
+
+class TileMetaclass(DefinitionSubclassing.__class__, helpers.appearance_metaclass(config.TILE_FOLDER)):
+    pass
+
+class Tile(helpers.HasPositionMixin,
+           DefinitionSubclassing,
+           tools.NoneAttributesMixin,
+           metaclass=TileMetaclass):
     """Represents a single tile of the map."""
-    definition = ' '  # The character used when defining a map to use this tilea
-    display = ' '     # How the tile appears in-game.
+    definition = ' '  # The character used when defining a map to use this tile
+    display = ' '     # Depreciated
+    appearance_filename = 'empty.png'  # The name of the image file for this type of tile. The metaclass will
+                                       # automagically add an 'appearance' attribute that is a Surface that actually
+                                       # contains the image.
     solid = False     # Whether corporeal entities cannot pass through it
     floor = False     # Whether entities can move downwards through it vertically
     ceiling = False   # Whether entities can move upwards through it vertically
@@ -29,22 +40,22 @@ class Tile(helpers.HasPositionMixin, tools.dynamic_subclassing_by_attr('definiti
         """Sets this tile based on the loaded data."""
         self.pick_subclass(single_tile_data)
         
-    def _setdisp(self, display):
+    def _setdisp(self, display):  # Depreciated
         """Overrides what this tile is displayed as."""
         self.display = display
         
-    def disp(self):
+    def disp(self):  # Depreciated
         """Determines what this tile will be displayed as."""
         if self.entities:
             return self.entities[0].disp()
         else:
             return self.display
             
-    def add_entity(self, entity):
+    def add_entity(self, entity):  # Depreciated
         """Adds an entity to this tile."""
         self.entities.append(entity)
         
-    def remove_entity(self, entity):
+    def remove_entity(self, entity):  # Depreciated
         """Removes an entity from this tile."""
         self.entities.remove(entity)
             
@@ -53,6 +64,7 @@ class Floor(Tile):
     """Corporeal entitites cannot move downwards through this tile."""
     definition = '+'
     display = '+'
+    appearance_filename = 'floor.png'
     floor = True
 
 
@@ -67,6 +79,7 @@ class Wall(Floor, Ceiling):
     """Corporeal entities cannot move through this tile."""
     _subclass_properties = dict(adjacent_walls=set())
     definition = 'W'
+    appearance_filename = 'wall.png'
     solid = True
     opaque = True
     wall = True  # Denotes that its visuals should affect, and be affected by, adjacent walls.
@@ -116,6 +129,7 @@ class Stair(Tile):
     """Flightless entities can use these to move vertically upwards and downwards"""
     definition = 'X'
     display = 'X'
+    appearance_filename = 'bothstair.png'
     suspend = True
     
     
@@ -124,6 +138,7 @@ class Upstair(Stair, Floor):
     downwards."""
     definition = '>'
     display = '>'
+    appearance_filename = 'upstair.png'
     
     
 class Downstair(Stair, Ceiling):
@@ -131,3 +146,4 @@ class Downstair(Stair, Ceiling):
     upwards."""
     definition = '<'
     display = '<'
+    appearance_filename = 'downstair.png'
