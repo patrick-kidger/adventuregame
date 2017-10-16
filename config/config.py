@@ -39,32 +39,6 @@ TILE_X = 32
 # Note that this is distinct from the strings module: here we handle the actual game.
 # Strings handles the talking-to-the-user interface.
 
-# The special characters for walls, depending on the adjacency of other walls
-class WallChars(tools.Container):
-    UDLR = chr(9580)
-    UDL =  chr(9571)
-    UDR =  chr(9568)
-    ULR =  chr(9577)
-    DLR =  chr(9574)
-    UD =   chr(9553)
-    UL =   chr(9565)
-    DL =   chr(9559)
-    UR =   chr(9562)
-    DR =   chr(9556)
-    LR =   chr(9552)
-    U = 'O'
-    D = 'O'
-    L = 'O'
-    R = 'O'
-    COLUMN = 'O'
-
-# The character to represent the player.
-PLAYER_DISPLAY = '@'
-
-# The default character to display any entity.
-ENTITY_DISPLAY = 'g'
-
-
 ### Input ###
 # These define the input that the game is expecting, and should line up with e.g.
 # the standard keyboard keycodes. We also define messages regarding the input here.

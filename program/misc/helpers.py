@@ -6,21 +6,34 @@ import Tools as tools
 import Maze.program.misc.sdl as sdl
 
 
-def appearance_metaclass(files_location):
+def appearance_from_filename(files_location):
+    """Allows for setting an appearance_filename attribute on the class, which will then have an 'appearance' attribute
+    automagically added, which will be a Surface containing the image specified."""
+
     class AppearanceMetaclass(type):
-        """Allows for setting an appearance_filename attribute on the class, which will then have an 'appearance'
-        attribute automagically added, which will be a Surface containing the image specified."""
         def __init__(cls, name, bases, dct):
-            if not hasattr(cls, '_appearance_filename') or cls.appearance_filename != cls._appearance_filename:
-                appearance_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', files_location,
-                                                    cls.appearance_filename)
-                cls.appearance = sdl.image.load(appearance_file_path)
-                # Keep a record of what the current appearance has been set to. So if a subclass doesn't set a new
-                # appearance_filename, we don't need to load up another copy of the image, we can just the one on the
-                # parent class.
-                cls._appearance_filename = cls.appearance_filename
+            cls.update_appearance()
             super(AppearanceMetaclass, cls).__init__(name, bases, dct)
-    return AppearanceMetaclass
+
+    class Appearance(object, metaclass=AppearanceMetaclass):
+        _appearance_filename = None
+        appearance_filename = None
+
+        @tools.combomethod
+        def update_appearance(self_or_cls):
+            """Should be called after setting appearance_filename, to update the appearance. It may be called as either
+            a class or an instance method, which will set the appearance attribute on the class or instance
+            respectively."""
+            if self_or_cls.appearance_filename != self_or_cls._appearance_filename:
+                appearance_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', files_location,
+                                                    self_or_cls.appearance_filename)
+                self_or_cls.appearance = sdl.image.load(appearance_file_path)
+                # Keep a record of what the current appearance has been set to. So if e.g. a subclass doesn't set a new
+                # appearance_filename, we don't need to load up another copy of the image, we can just use the
+                # appearance attribute on the parent class.
+                self_or_cls._appearance_filename = self_or_cls.appearance_filename
+
+    return Appearance
 
 
 class HasPositionMixin(object):

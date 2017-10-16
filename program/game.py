@@ -107,15 +107,6 @@ class Map(object):
             raise exceptions.ProgrammingException('Unexpected direction "{direction}"'.format(direction=direction))
         return new_pos
         
-    def add_entity(self, pos, player):
-        """Adds an entity to the tile in the specified position."""
-        self.tile_data[pos].add_entity(player)
-        
-    def remove_entity(self, pos, player):
-        """Removes an entity from the tile in the specified position. Will raise an exception if the entity is not
-        there."""
-        self.tile_data[pos].remove_entity(player)
-        
     def fall(self, pos):
         """Whether or not a flightless entity will fall through the specified position.
         
@@ -179,7 +170,6 @@ class MazeGame(object):
         
         # Map
         self.map.load(map_)
-        self.map.add_entity(map_.start_pos, self.player)
         
         # Player
         self.player.set_pos(map_.start_pos)
@@ -254,8 +244,5 @@ class MazeGame(object):
         if direction == config.Play.VERTICAL_DOWN:
             if (old_tile.floor or new_tile.ceiling) and not entity.incorporeal:
                 return False  # Corporeal entities cannot pass through solid floors and ceilings.
-                
-        self.map.remove_entity(current_pos, entity)
-        self.map.add_entity(new_pos, entity)
         entity.set_pos(new_pos)
         return True
