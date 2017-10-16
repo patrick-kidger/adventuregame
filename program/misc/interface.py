@@ -5,6 +5,7 @@ import Tools as tools
 import Maze.config.config as config
 import Maze.config.strings as strings
 import Maze.program.misc.helpers as helpers
+import Maze.program.misc.inputs as inputs
 import Maze.program.misc.sdl as sdl
 
 
@@ -21,10 +22,11 @@ class BaseIO(object):
 class BaseOverlay(BaseIO):
     default_output_kwargs = {}
 
-    def __init__(self, name, location, size, enabled):
+    def __init__(self, name, location, size, background_color, enabled):
         self.name = name
         self.location = location
         self.screen = sdl.Surface(size)
+        self.background_color = background_color
         self.enabled = enabled
 
         self.output = None
@@ -40,8 +42,19 @@ class BaseOverlay(BaseIO):
         """Lets the BaseOverlay instance know what output it is used with."""
         self.output = output
 
-    def clear(self):
-        self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
+    def toggle(self):
+        """Toggles whether or not this overlay is enabled."""
+        self.enabled = not self.enabled
+
+    def clear(self, flush=False):
+        """Clears the overlay of everything that has been printed to it."""
+        self.wipe(flush)
+
+    def wipe(self, flush=False):
+        """Fills the overlay with its background color."""
+        self.screen.fill(self.background_color)
+        if flush:
+            self.output.flush(self.name)
 
 
 class GraphicsOverlay(BaseOverlay):
@@ -70,7 +83,7 @@ class TextOverlay(BaseOverlay):
         self.text = helpers.re_sub_recursive(r'[^\x08]\x08', '', self.text)
         self.text.lstrip('\b')
 
-        self.screen.fill(config.SCREEN_BACKGROUND_COLOR)
+        self.wipe()
 
         split_text = self.text.split('\n')
         text_cursor = (0, 0)
@@ -80,8 +93,8 @@ class TextOverlay(BaseOverlay):
             text_cursor = (0, text_area.bottom)
         super(TextOverlay, self).__call__(output_val, **kwargs)
 
-    def clear(self):
-        super(TextOverlay, self).clear()
+    def clear(self, flush=False):
+        super(TextOverlay, self).clear(flush)
         self.text = ''
 
     def sep(self, length, **kwargs):
@@ -166,10 +179,6 @@ class Output(BaseIO):
         sdl.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__()
 
-    def clear_overlays(self):
-        for overlay in self.overlays.values():
-            overlay.clear()
-
     def flush(self, overlay_names=None):
         """Pushes the changes from the overlays to the main screen.
 
@@ -190,58 +199,60 @@ class Output(BaseIO):
         sdl.display.update(updated_areas)
 
 
-class BaseInput(BaseIO, tools.dynamic_subclassing_by_attr('input_name')):
+class Input(BaseIO):
     """Handles receiving user input."""
-    def __call__(self, num_chars=1, print_received_input=False, type_arg=lambda x: x):
-        if print_received_input:
-            input_ = helpers.input_(num_chars, output=self.interface.output.overlays.debug,
-                                          flush=self.interface.output.flush)
-        else:
-            input_ = helpers.input_(num_chars)
+    def debug_inp(self, num_chars=math.inf, type_arg=lambda x: x):
+        """Input into the debug console"""
+        debug_console_enabled = self.interface.output.overlays.debug.enabled
+        self.interface.output.overlays.debug.enabled = True
+        input_ = helpers.input_(num_chars=num_chars,
+                                output=self.interface.output.overlays.debug,
+                                flush=self.interface.output.flush,
+                                done=(sdl.K_KP_ENTER, sdl.K_RETURN, sdl.K_ESCAPE, sdl.K_BACKSLASH))
+        self.interface.output.overlays.debug.enabled = debug_console_enabled
         return type_arg(input_)
-        
-    def set(self, subclass_name):
-        """Turns the instance into one of its registered subclasses."""
-        self.pick_subclass(subclass_name)
-        
+
+    def debug_command(self, command):
+        """Finds the debug command corresponding to the string inputted. Returns either the command (as a function,
+        needing a maze game instance to be passed to it), or None, if it could not find a corresponding command."""
+        command_split = command.split(' ')
+        command_name = command_split[0]
+        if command_name in config.DebugInput:
+            command_args = tools.qlist(command_split[1:], except_val='')
+            special_input = inputs.SpecialInput.find_subclass(command_name)
+            return lambda maze_game: special_input.do(maze_game, command_args)
+        else:
+            self.invalid_input()
+            return None
+
+    def play_inp(self):
+        """The usual input for playing the game."""
+        move_commands = {config.Move.UP: config.Play.UP,
+                         config.Move.DOWN: config.Play.DOWN,
+                         config.Move.VERTICAL_UP: config.Play.VERTICAL_UP,
+                         config.Move.VERTICAL_DOWN: config.Play.VERTICAL_DOWN,
+                         config.Move.LEFT: config.Play.LEFT,
+                         config.Move.RIGHT: config.Play.RIGHT}
+        while True:
+            inp = helpers.input_(num_chars=1).lower()
+            if inp == config.OPEN_CONSOLE:
+                self.interface.output.overlays.debug.enabled = not self.interface.output.overlays.debug.enabled
+                self.interface.output.flush()
+
+            if (inp == config.OPEN_CONSOLE or inp == config.SELECT_CONSOLE) and self.interface.output.overlays.debug.enabled:
+                debug_inp = self.debug_inp()
+                debug_com = self.debug_command(debug_inp)
+                if debug_com is not None:
+                    return debug_com, False
+
+            if inp in move_commands:
+                return move_commands[inp], True
+
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
         self.interface.output.overlays.debug(strings.Play.INVALID_INPUT, end='\n')
         self.interface.output.flush('debug')
-        
 
-class SelectMapInput(BaseInput):
-    input_name = config.InputInterfaces.SELECTMAP
-
-
-class PlayInput(BaseInput):
-    """Handles the inputs for the main playing of the game."""
-    input_name = config.InputInterfaces.PLAY
-
-    def play_inp(self):
-        """The usual input for playing the game."""
-        inp_dict = {config.Move.UP: config.Play.UP,
-                    config.Move.DOWN: config.Play.DOWN,
-                    config.Move.VERTICAL_UP: config.Play.VERTICAL_UP,
-                    config.Move.VERTICAL_DOWN: config.Play.VERTICAL_DOWN,
-                    config.Move.LEFT: config.Play.LEFT,
-                    config.Move.RIGHT: config.Play.RIGHT}
-        while True:
-            inp = self().lower()
-            if inp == config.ESCAPE_INPUT:
-                self.interface.output.overlays.debug(config.ESCAPE_INPUT, flush=True)
-                inp = self(num_chars=math.inf, print_received_input=True)
-                
-            if inp.split(' ')[0] in config.Input:
-                try:
-                    returnstr = inp_dict[inp]
-                except KeyError:
-                    returnstr = inp
-                is_move = inp in config.Move
-                return returnstr, is_move
-            else:
-                self.invalid_input()
-            
         
 class Interface(object):
     """Wrapper around Output and Input, in order to provide the overall interface."""

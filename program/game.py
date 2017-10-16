@@ -6,7 +6,6 @@ import Tools as tools
 import Maze.config.config as config
 import Maze.config.strings as strings
 import Maze.program.misc.exceptions as exceptions
-import Maze.program.misc.inputs as inputs
 import Maze.program.misc.sdl as sdl
 import Maze.program.entities as entities
 import Maze.program.tiles as tiles
@@ -139,9 +138,7 @@ class MazeGame(object):
         
     def start(self):
         """Starts the game."""
-        self.inp.set(config.InputInterfaces.SELECTMAP)
         self.map_select()
-        self.inp.set(config.InputInterfaces.PLAY)
         return self._run()
         
     def map_select(self):
@@ -150,15 +147,18 @@ class MazeGame(object):
         map_names = self.maps_access.setup_and_find_map_names()
         # Print the map options
         numbers = [strings.MapSelect.option_number.format(number=i) for i in range(len(map_names))]
+
+        debug_enabled = self.out.overlays.debug.enabled
+        self.out.overlays.debug.enabled = True
         self.out.overlays.debug.clear()
         self.out.overlays.debug.table(title=strings.MapSelect.title, columns=[numbers, map_names],
-                             headers=strings.MapSelect.headers)
+                                      headers=strings.MapSelect.headers)
         self.out.overlays.debug(strings.MapSelect.input)
         self.out.flush()
         # Get the selected map option
         while True:
             try:
-                inp = self.inp(type_arg=int, num_chars=2, print_received_input=True)
+                inp = self.inp.debug_inp(num_chars=2, type_arg=int)
                 self.out.overlays.debug('\n')
                 self.out.flush()
                 map_name = map_names[inp]
@@ -167,7 +167,10 @@ class MazeGame(object):
             else:
                 map_ = self.maps_access.get_map(map_name)
                 break
-        
+
+        self.out.overlays.debug.enabled = debug_enabled
+        self.out.overlays.debug.clear()
+
         # Map
         self.map.load(map_)
         
@@ -176,7 +179,8 @@ class MazeGame(object):
 
     def _run(self):
         """The main game loop."""
-        completed = False
+        completed = False  # Game has not yet finished
+        # Information to be carried over to the next tick, if we don't allow input in this one.
         skip = tools.Object(skip=False)
         self.render()
         while not completed:
@@ -194,6 +198,7 @@ class MazeGame(object):
             play_inp, is_move = skip.play_inp, skip.is_move
         else:
             play_inp, is_move = self.inp.play_inp()
+
         if is_move:
             move_result = self.move_entity(play_inp, self.player)
             if skip.skip and not move_result:
@@ -204,10 +209,8 @@ class MazeGame(object):
             else:
                 input_result.skip = tools.Object(skip=False)
         else:
-            input_ = play_inp.split(' ')
-            special_input = inputs.SpecialInput.find_subclass(input_[0])
-            inp_args = tools.qlist(input_[1:], except_val='')
-            input_result = special_input.do(self, inp_args)
+            input_result = play_inp(self)
+
         if input_result.progress:
             # Do stuff
             pass
@@ -215,7 +218,7 @@ class MazeGame(object):
 
     def render(self):
         """Outputs the current game state."""
-        self.out.clear_overlays()
+        self.out.overlays.game.clear()
         self.out.overlays.game.screen.blit(self.map.screens[self.player.z], (0, 0))
         self.out.overlays.game.screen.blit(self.player.appearance,
                                            (self.player.x * config.TILE_X, self.player.y * config.TILE_Y))

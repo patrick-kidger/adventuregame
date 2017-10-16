@@ -37,6 +37,7 @@ class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
         """Default description for a special input is its docstring."""
         return cls.__doc__
 
+
 class SpecialInput(SpecialInputSubclassTracker, metaclass=SpecialInputMetaclass):
     """Base class for special inputs."""
     completed = False    # Whether the game ends after this input is received
@@ -89,7 +90,7 @@ class Variable(SpecialInput):
 
 class Help(SpecialInput):
     """Displays the available commands."""
-    inp = config.Input.HELP
+    inp = config.DebugInput.HELP
     commands = collections.OrderedDict({strings.Help.movement: strings.Help.movement_text})
     description = "Displays this help menu."
     
@@ -113,88 +114,96 @@ class Help(SpecialInput):
 
 
 # Register help with itself. Can't do this via decorator as Help hasn't yet been defined at decoration time.
-Help.commands[config.Input.HELP] = Help
-        
-            
-@tools.register(config.Input.DEBUG, Help.commands)
+Help.commands[config.DebugInput.HELP] = Help
+
+
+class Clear(SpecialInput):
+    """Clears the debug console of text."""
+    inp = config.DebugInput.CLEAR
+
+    @classmethod
+    def do(cls, maze_game, inp_args):
+        maze_game.out.overlays.debug.clear(flush=True)
+        return super(Clear, cls).do(maze_game, inp_args)
+
+
+@tools.register(config.DebugInput.DEBUG, Help.commands)
 class Debug(Variable):
     """Sets the debug state."""
-    inp = config.Input.DEBUG
+    inp = config.DebugInput.DEBUG
     variables = ('debug',)
     commands = collections.OrderedDict()
 
 
-@tools.register(config.Input.NOCLIP, Debug.commands)
+@tools.register(config.DebugInput.NOCLIP, Debug.commands)
 class NoClip(Variable):
     """Sets whether the player is incorporeal or not."""
-    inp = config.Input.NOCLIP
+    inp = config.DebugInput.NOCLIP
     variables = ('player.incorporeal', 'player.flight')
     needs_debug = True
     
  
-@tools.register(config.Input.FLY, Debug.commands)
+@tools.register(config.DebugInput.FLY, Debug.commands)
 class Fly(Variable):
     """Sets whether the player can fly or not."""
-    inp = config.Input.FLY
+    inp = config.DebugInput.FLY
     variables = ('player.flight',)
     needs_debug = True
 
 
-@tools.register(config.Input.FLY, Debug.commands)
+@tools.register(config.DebugInput.FLY, Debug.commands)
 class Ghost(Variable):
     """Sets whether the player is incorporeal or not."""
-    inp = config.Input.GHOST
+    inp = config.DebugInput.GHOST
     variables = ('player.incorporeal',)
     needs_debug = True
 
     
-@tools.register(config.Input.CHANGEMAP, Debug.commands)
+@tools.register(config.DebugInput.CHANGEMAP, Debug.commands)
 class ChangeMap(SpecialInput):
     """Changes the map."""
-    inp = config.Input.CHANGEMAP
+    inp = config.DebugInput.CHANGEMAP
     render = True
     needs_debug = True
     
     @classmethod
     def do(cls, maze_game, inp_args):
-        maze_game.inp.set(config.InputInterfaces.SELECTMAP)
         maze_game.map_select()
-        maze_game.inp.set(config.InputInterfaces.PLAY)
         return super(ChangeMap, cls).do(maze_game, inp_args)
 
 
-@tools.register(config.Input.QUIT, Help.commands)
+@tools.register(config.DebugInput.QUIT, Help.commands)
 class Quit(SpecialInput):
     """Quits the game."""
-    inp = config.Input.QUIT
+    inp = config.DebugInput.QUIT
     completed = True
 
 
-@tools.register(config.Input.EXIT, Help.commands)
+@tools.register(config.DebugInput.EXIT, Help.commands)
 class Exit(Quit):
     """Quits the game."""
-    inp = config.Input.EXIT
+    inp = config.DebugInput.EXIT
     
 
-@tools.register(config.Input.RENDER, Help.commands)
+@tools.register(config.DebugInput.RENDER, Help.commands)
 class Render(SpecialInput):
     """Displays the current game state."""
-    inp = config.Input.RENDER
+    inp = config.DebugInput.RENDER
     render = True
     
 
-@tools.register(config.Input.RESET, Help.commands)
+@tools.register(config.DebugInput.RESET, Help.commands)
 class Reset(SpecialInput):
     """Resets the game."""
-    inp = config.Input.RESET
+    inp = config.DebugInput.RESET
     completed = True
     again = True
 
     
-@tools.register(config.Input.GET, Debug.commands)
+@tools.register(config.DebugInput.GET, Debug.commands)
 class Get(SpecialInput):
     """Gets the value of a variable."""
-    inp = config.Input.GET
+    inp = config.DebugInput.GET
     needs_debug = True
     
     @classmethod

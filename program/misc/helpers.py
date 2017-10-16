@@ -1,5 +1,6 @@
 import re
 import os
+import math
 
 import Tools as tools
 
@@ -67,7 +68,7 @@ class HasPositionMixin(object):
         return self.pos.z
 
 
-def input_(num_chars=1, output=None, flush=None):
+def input_(num_chars=math.inf, output=None, flush=None, done=(sdl.K_KP_ENTER, sdl.K_RETURN, sdl.K_ESCAPE)):
     """A pygame equivalent to the builtin input() function. (Without being able to pass a prompt string.)
 
     :int num_chars: the number of characters of input that it should accept before automatically preventing further
@@ -102,7 +103,7 @@ def input_(num_chars=1, output=None, flush=None):
     i = 0
     while i < num_chars:
         char, key_code = _get_char()
-        if key_code in sdl.K_ENTER:
+        if key_code in done:
             break
         elif key_code == sdl.K_BACKSPACE:
             if i >= 1:

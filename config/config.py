@@ -9,9 +9,10 @@ WINDOW_NAME = 'Maze Game'
 SCREEN_SIZE = (800, 600)  # The overall size of the screen
 DEBUG_SCREEN_SIZE = (800, 300)  # The size of the debug overlay
 DEBUG_SCREEN_LOC = (0, 300)  # The location of the debug overlay on the main screen
-GRAPHICS_SCREEN_SIZE = (800, 300)  # The size of the debug overlay
+DEBUG_BACKGROUND_COLOR = (200, 200, 200)  # Grey
+GRAPHICS_SCREEN_SIZE = (800, 600)  # The size of the debug overlay
 GRAPHICS_SCREEN_LOC = (0, 0)  # The location of the graphics overlay on hte main screen
-SCREEN_BACKGROUND_COLOR = (255, 255, 255)  # White
+GRAPHICS_BACKGROUND_COLOR = (255, 255, 255)  # White
 
 # Debug overlay text options
 FONT_NAME = "Monospace"
@@ -53,9 +54,10 @@ class Move(tools.Container):
     VERTICAL_UP = 'r'
     VERTICAL_DOWN = 'f'
     
-class Input(Move):
+class DebugInput(tools.Container):
     """All valid inputs in the console"""
     DEBUG = 'debug'
+    CLEAR = 'clear'
     HELP = 'help'
     NOCLIP = 'noclip'
     FLY = 'fly'
@@ -67,8 +69,10 @@ class Input(Move):
     RESET = 'reset'
     CHANGEMAP = 'changemap'
 
-# Button to open up the console
-ESCAPE_INPUT = '\\'
+# Button to toglge the console
+OPEN_CONSOLE = '\\'
+# Button to select the console
+SELECT_CONSOLE = '/'
 
 
 ### Internal Strings ###
@@ -85,11 +89,6 @@ class WallAdjacency(tools.Container):
     UP = 'up'
     LEFT = 'left'
     RIGHT = 'right'
-
-# Our different input states
-class InputInterfaces(tools.Container):
-    PLAY = 'play'
-    SELECTMAP = 'selectmap'
 
 # Playing the game
 class Play(tools.Container):

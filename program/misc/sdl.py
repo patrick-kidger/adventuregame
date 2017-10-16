@@ -21,6 +21,8 @@ K_RSHIFT = pygame.K_RSHIFT
 K_BACKSPACE = pygame.K_BACKSPACE
 K_RETURN = pygame.K_RETURN
 K_KP_ENTER = pygame.K_KP_ENTER
+K_ESCAPE = pygame.K_ESCAPE
+K_BACKSLASH = pygame.K_BACKSLASH
 
 
 # Emulate its modules
