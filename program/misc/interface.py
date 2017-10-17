@@ -4,6 +4,7 @@ import Tools as tools
 
 import Maze.config.config as config
 import Maze.config.strings as strings
+import Maze.program.misc.exceptions as exceptions
 import Maze.program.misc.helpers as helpers
 import Maze.program.misc.inputs as inputs
 import Maze.program.misc.sdl as sdl
@@ -19,7 +20,27 @@ class BaseIO(object):
         self.interface = interface
 
 
-class BaseOverlay(BaseIO):
+class EnablerMixin(object):
+    def __init__(self, enabled):
+        self.enabled = enabled
+        super(EnablerMixin, self).__init__()
+
+    def enable(self):
+        """Sets the enabled attribute temporarily. Used with a with statement."""
+
+        class EnablerClass(tools.WithAnder):
+            def __enter__(self_enabler):
+                self_enabler.enabled = self.enabled
+                self.enabled = True
+
+            def __exit__(self_enabler, exc_type, exc_val, exc_tb):
+                self.enabled = self_enabler.enabled
+
+        return EnablerClass()
+
+
+class BaseOverlay(EnablerMixin, BaseIO):
+    """Abstract base class for all overlays. An 'overlay' is a layer on the screen that may be outputted to."""
     default_output_kwargs = {}
 
     def __init__(self, name, location, size, background_color, enabled):
@@ -27,20 +48,14 @@ class BaseOverlay(BaseIO):
         self.location = location
         self.screen = sdl.Surface(size)
         self.background_color = background_color
-        self.enabled = enabled
 
-        self.output = None
-        super(BaseIO, self).__init__()
+        super(BaseOverlay, self).__init__(enabled)
 
     def __call__(self, output_val, flush=False):
         # Just a convenience, to allow for just calling with flush=True as an argument, rather than putting an
         # output.flush() on the next line.
         if flush:
-            self.output.flush(self.name)
-
-    def register_output(self, output):
-        """Lets the BaseOverlay instance know what output it is used with."""
-        self.output = output
+            self.interface.output.flush(self.name)
 
     def toggle(self):
         """Toggles whether or not this overlay is enabled."""
@@ -54,7 +69,7 @@ class BaseOverlay(BaseIO):
         """Fills the overlay with its background color."""
         self.screen.fill(self.background_color)
         if flush:
-            self.output.flush(self.name)
+            self.interface.output.flush(self.name)
 
 
 class GraphicsOverlay(BaseOverlay):
@@ -172,12 +187,15 @@ class Output(BaseIO):
     """The overall output. It takes its various overlays and then combines them to produce output to the screen."""
     def __init__(self, overlays):
         self.overlays = overlays
-        self.overlays.debug.register_output(self)
-        self.overlays.game.register_output(self)
 
         self.screen = sdl.display.set_mode(config.SCREEN_SIZE)
         sdl.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__()
+
+    def register_interface(self, interface):
+        for overlay in self.overlays.values():
+            overlay.register_interface(interface)
+        super(Output, self).register_interface(interface)
 
     def flush(self, overlay_names=None):
         """Pushes the changes from the overlays to the main screen.
@@ -199,17 +217,48 @@ class Output(BaseIO):
         sdl.display.update(updated_areas)
 
 
-class Input(BaseIO):
-    """Handles receiving user input."""
+class BaseListener(EnablerMixin, BaseIO):
+    """An abstract base class for listeners. 'Listeners' are actually just used to interpret input from the user. The
+    actual listening is done by their parent Input."""
+    valid_inputs = set()
+
+    def __init__(self, name, enabled):
+        self.name = name
+        super(BaseListener, self).__init__(enabled)
+
+
+class PlayListener(BaseListener):
+    valid_inputs = config.Move + (config.OPEN_CONSOLE, config.SELECT_CONSOLE)
+
+    def __call__(self, inp):
+        if inp == config.OPEN_CONSOLE:
+            self.interface.output.overlays.debug.enabled = not self.interface.output.overlays.debug.enabled
+            self.interface.output.flush('debug')
+
+        if (inp == config.OPEN_CONSOLE or inp == config.SELECT_CONSOLE) and self.interface.output.overlays.debug.enabled:
+            with self.interface.input.enable_listener('debug'):
+                debug_command = self.interface.input()
+                if debug_command is not None:
+                    return debug_command, False
+
+        if inp in config.Move:
+            return config.Move.Direction[inp], True
+
+
+class TextListener(BaseListener):
+    valid_inputs = tools.ContainsAll()
+
+    def __call__(self):
+        debug_inp = self.debug_inp()
+        debug_com = self.debug_command(debug_inp)
+
     def debug_inp(self, num_chars=math.inf, type_arg=lambda x: x):
         """Input into the debug console"""
-        debug_console_enabled = self.interface.output.overlays.debug.enabled
-        self.interface.output.overlays.debug.enabled = True
-        input_ = helpers.input_(num_chars=num_chars,
-                                output=self.interface.output.overlays.debug,
-                                flush=self.interface.output.flush,
-                                done=(sdl.K_KP_ENTER, sdl.K_RETURN, sdl.K_ESCAPE, sdl.K_BACKSLASH))
-        self.interface.output.overlays.debug.enabled = debug_console_enabled
+        with self.interface.output.overlays.debug.enable() and self.enable_listener('debug'):
+            input_ = helpers.input_(num_chars=num_chars,
+                                    output=self.interface.output.overlays.debug,
+                                    flush=self.interface.output.flush,
+                                    done=(sdl.K_KP_ENTER, sdl.K_RETURN, sdl.K_ESCAPE, sdl.K_BACKSLASH))
         return type_arg(input_)
 
     def debug_command(self, command):
@@ -225,33 +274,50 @@ class Input(BaseIO):
             self.invalid_input()
             return None
 
-    def play_inp(self):
-        """The usual input for playing the game."""
-        move_commands = {config.Move.UP: config.Play.UP,
-                         config.Move.DOWN: config.Play.DOWN,
-                         config.Move.VERTICAL_UP: config.Play.VERTICAL_UP,
-                         config.Move.VERTICAL_DOWN: config.Play.VERTICAL_DOWN,
-                         config.Move.LEFT: config.Play.LEFT,
-                         config.Move.RIGHT: config.Play.RIGHT}
-        while True:
-            inp = helpers.input_(num_chars=1).lower()
-            if inp == config.OPEN_CONSOLE:
-                self.interface.output.overlays.debug.enabled = not self.interface.output.overlays.debug.enabled
-                self.interface.output.flush()
-
-            if (inp == config.OPEN_CONSOLE or inp == config.SELECT_CONSOLE) and self.interface.output.overlays.debug.enabled:
-                debug_inp = self.debug_inp()
-                debug_com = self.debug_command(debug_inp)
-                if debug_com is not None:
-                    return debug_com, False
-
-            if inp in move_commands:
-                return move_commands[inp], True
-
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
         self.interface.output.overlays.debug(strings.Play.INVALID_INPUT, end='\n')
         self.interface.output.flush('debug')
+
+
+class Input(BaseIO):
+    """Handles receiving user input."""
+    def __init__(self, listeners):
+        self.listeners = listeners
+        enabled_listeners = [listener for listener in listeners.values() if listener.enabled]
+        if len(enabled_listeners) != 1:
+            raise exceptions.ProgrammingException(strings.Input.Exceptions.NOT_ONE_LISTENER_ENABLED.format(num=len(enabled_listeners)))
+        self.enabled_listener = enabled_listeners[0]
+        super(Input, self).__init__()
+
+    def __call__(self):
+        while True:
+            inp = helpers.input_(num_chars=1).lower()
+            if inp in self.enabled_listener.valid_inputs:
+                return self.enabled_listener(inp)
+
+    def register_interface(self, interface):
+        for listener in self.listeners.values():
+            listener.register_interface(interface)
+        super(Input, self).register_interface(interface)
+
+    def enable_listener(self, listener_name):
+        """Enables the listener with the specified name, and disable the currently enabled listener. The currently
+        enabled listener will be restored afterwards. Used with a with statement."""
+        class EnableOnlyListener(tools.WithAnder):
+            def __enter__(self_enable):
+                self.enabled_listener.enabled = False
+                self_enable.old_enabled_listener = self.enabled_listener
+                new_listener = self.listeners[listener_name]
+                new_listener.enabled = True
+                self.enabled_listener = new_listener
+
+            def __exit__(self_enable, exc_type, exc_val, exc_tb):
+                self.enabled_listener.enabled = False
+                self_enable.old_enabled_listener.enabled = True
+                self.enabled_listener = self_enable.old_enabled_listener
+
+        return EnableOnlyListener()
 
         
 class Interface(object):

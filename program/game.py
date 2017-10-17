@@ -103,7 +103,7 @@ class Map(object):
         elif direction == config.Play.VERTICAL_DOWN:
             new_pos.z -= 1
         else:
-            raise exceptions.ProgrammingException('Unexpected direction "{direction}"'.format(direction=direction))
+            raise exceptions.ProgrammingException(strings.Play.Exceptions.UNEXPECTED_DIRECTION.format(direction=direction))
         return new_pos
         
     def fall(self, pos):
@@ -197,12 +197,12 @@ class MazeGame(object):
             time.sleep(config.SLEEP_SKIP)
             play_inp, is_move = skip.play_inp, skip.is_move
         else:
-            play_inp, is_move = self.inp.play_inp()
+            play_inp, is_move = self.inp()
 
         if is_move:
             move_result = self.move_entity(play_inp, self.player)
             if skip.skip and not move_result:
-                raise exceptions.ProgrammingException('Received an invalid force move command.')
+                raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_FORCE_MOVE)
             input_result = tools.Object(completed=False, render=True, progress=True, again=False)
             if not self.player.flight and self.map.fall(self.player.pos):
                 input_result.skip = tools.Object(skip=True, play_inp=config.Play.VERTICAL_DOWN, is_move=True)

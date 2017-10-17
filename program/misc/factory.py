@@ -20,15 +20,31 @@ def maze_game_factory(start_game=True):
 
 def interface_factory():
     """Convenience function to set up the input and outputs of an interface."""
-    input_ = interface_.Input()
 
-    game_overlay = interface_.GraphicsOverlay(config.OverlayNames.GAME_NAME, config.GRAPHICS_SCREEN_LOC,
-                                              config.GRAPHICS_SCREEN_SIZE, config.GRAPHICS_BACKGROUND_COLOR, True)
-    debug_overlay = interface_.TextOverlay(config.OverlayNames.DEBUG_NAME, config.DEBUG_SCREEN_LOC,
-                                           config.DEBUG_SCREEN_SIZE, config.DEBUG_BACKGROUND_COLOR, False)
+    # Input
+    game_listener = interface_.PlayListener(name=config.ListenerNames.DEBUG_NAME,
+                                            enabled=False)
+    debug_listener = interface_.TextListener(name=config.ListenerNames.DEBUG_NAME,
+                                             enabled=True)
+    listeners = tools.Object(from_dict={config.ListenerNames.GAME_NAME: game_listener,
+                                        config.ListenerNames.DEBUG_NAME: debug_listener})
+    input_ = interface_.Input(listeners)
+
+    # Output
+    game_overlay = interface_.GraphicsOverlay(name=config.OverlayNames.GAME_NAME,
+                                              location=config.GRAPHICS_SCREEN_LOC,
+                                              size=config.GRAPHICS_SCREEN_SIZE,
+                                              background_color=config.GRAPHICS_BACKGROUND_COLOR,
+                                              enabled=True)
+    debug_overlay = interface_.TextOverlay(name=config.OverlayNames.DEBUG_NAME,
+                                           location=config.DEBUG_SCREEN_LOC,
+                                           size=config.DEBUG_SCREEN_SIZE,
+                                           background_color=config.DEBUG_BACKGROUND_COLOR,
+                                           enabled=False)
     overlays = tools.Object(from_dict={config.OverlayNames.GAME_NAME: game_overlay,
                                        config.OverlayNames.DEBUG_NAME: debug_overlay})
+    output = interface_.Output(overlays)
 
-    output = interface_.Output(overlays=overlays)
+    # Interface
     interface = interface_.Interface(input_, output)
     return interface

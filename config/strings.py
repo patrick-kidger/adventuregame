@@ -31,7 +31,15 @@ class Play(object):
     variable_get_failed = 'variable {variable} could not be found'
     debug_not_enabled = 'Debug mode must be enabled to use this command: \debug True'
     # The message for input that could not be made sense of.
-    INVALID_INPUT = 'Invalid input, please try again. Type \'\help\' for help.'
+    INVALID_INPUT = 'Invalid input, please try again. Type \'help\' for help.'
+
+    class Exceptions(object):
+        UNEXPECTED_DIRECTION = 'Unexpected direction "{direction}"'
+        INVALID_FORCE_MOVE = 'Received an invalid force move command.'
+
+class Input(object):
+    class Exceptions(object):
+        NOT_ONE_LISTENER_ENABLED = 'There should only be one input listener enabled. Instead, {num=num} have been enabled.'
 
 class Help(object):
     """Strings relating to using the help command."""

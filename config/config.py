@@ -53,6 +53,8 @@ class Move(tools.Container):
     RIGHT = 'd'
     VERTICAL_UP = 'r'
     VERTICAL_DOWN = 'f'
+    Direction = {DOWN: Play.DOWN, UP: Play.UP, LEFT: Play.LEFT, RIGHT: Play.RIGHT, VERTICAL_UP: Play.VERTICAL_UP,
+                 VERTICAL_DOWN: Play.VERTICAL_DOWN}
     
 class DebugInput(tools.Container):
     """All valid inputs in the console"""
@@ -80,6 +82,11 @@ SELECT_CONSOLE = '/'
 
 # Names of overlays
 class OverlayNames(tools.Container):
+    DEBUG_NAME = 'debug'
+    GAME_NAME = 'game'
+
+# Names of listeners
+class ListenerNames(tools.Container):
     DEBUG_NAME = 'debug'
     GAME_NAME = 'game'
 
