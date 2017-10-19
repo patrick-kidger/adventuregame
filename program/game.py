@@ -4,6 +4,7 @@ import time
 import Tools as tools
 
 import Maze.config.config as config
+import Maze.config.internal_strings as internal_strings
 import Maze.config.strings as strings
 import Maze.program.misc.exceptions as exceptions
 import Maze.program.misc.sdl as sdl
@@ -49,8 +50,8 @@ class TileData(object):
             if tile_data.tile.wall:
                 adj_tiles = (tile_data.z_level[tile_data.y + i][tile_data.x + j]
                              for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1)))
-                adj_directions = (config.WallAdjacency.DOWN, config.WallAdjacency.UP,
-                                  config.WallAdjacency.RIGHT, config.WallAdjacency.LEFT)
+                adj_directions = (internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.UP,
+                                  internal_strings.WallAdjacency.RIGHT, internal_strings.WallAdjacency.LEFT)
                 for adj_tile, adj_direction in zip(adj_tiles, adj_directions):
                     if adj_tile.wall:
                         adj_tile.adjacent_walls.add(adj_direction)
@@ -90,17 +91,17 @@ class Map(object):
     def rel(pos, direction):
         """Gets a position based on an existing position and a direction."""
         new_pos = copy.deepcopy(pos)
-        if direction == config.Play.UP:
+        if direction == internal_strings.Play.UP:
             new_pos.y -= 1
-        elif direction == config.Play.DOWN:
+        elif direction == internal_strings.Play.DOWN:
             new_pos.y += 1
-        elif direction == config.Play.LEFT:
+        elif direction == internal_strings.Play.LEFT:
             new_pos.x -= 1
-        elif direction == config.Play.RIGHT:
+        elif direction == internal_strings.Play.RIGHT:
             new_pos.x += 1
-        elif direction == config.Play.VERTICAL_UP:
+        elif direction == internal_strings.Play.VERTICAL_UP:
             new_pos.z += 1
-        elif direction == config.Play.VERTICAL_DOWN:
+        elif direction == internal_strings.Play.VERTICAL_DOWN:
             new_pos.z -= 1
         else:
             raise exceptions.ProgrammingException(strings.Play.Exceptions.UNEXPECTED_DIRECTION.format(direction=direction))
@@ -113,7 +114,7 @@ class Map(object):
         this_tile = self.tile_data[pos]
         if this_tile.suspend:
             return False
-        pos_beneath = self.rel(pos, config.Play.VERTICAL_DOWN)
+        pos_beneath = self.rel(pos, internal_strings.Play.VERTICAL_DOWN)
         return not(self.tile_data[pos_beneath].ceiling or this_tile.floor)
 
     
@@ -158,7 +159,7 @@ class MazeGame(object):
         # Get the selected map option
         while True:
             try:
-                inp = self.inp.debug_inp(num_chars=2, type_arg=int)
+                inp = self.inp(internal_strings.ListenerNames.DEBUG, type_arg=int, num_chars=2)
                 self.out.overlays.debug('\n')
                 self.out.flush()
                 map_name = map_names[inp]
@@ -197,7 +198,7 @@ class MazeGame(object):
             time.sleep(config.SLEEP_SKIP)
             play_inp, is_move = skip.play_inp, skip.is_move
         else:
-            play_inp, is_move = self.inp()
+            play_inp, is_move = self.inp(internal_strings.ListenerNames.GAME)
 
         if is_move:
             move_result = self.move_entity(play_inp, self.player)
@@ -205,7 +206,7 @@ class MazeGame(object):
                 raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_FORCE_MOVE)
             input_result = tools.Object(completed=False, render=True, progress=True, again=False)
             if not self.player.flight and self.map.fall(self.player.pos):
-                input_result.skip = tools.Object(skip=True, play_inp=config.Play.VERTICAL_DOWN, is_move=True)
+                input_result.skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN, is_move=True)
             else:
                 input_result.skip = tools.Object(skip=False)
         else:
@@ -239,12 +240,12 @@ class MazeGame(object):
             return False  # Nothing can pass through boundaries
         if new_tile.solid and not entity.incorporeal:
             return False  # Corporeal entities cannot pass through solid barriers
-        if direction == config.Play.VERTICAL_UP:
+        if direction == internal_strings.Play.VERTICAL_UP:
             if (old_tile.ceiling or new_tile.floor) and not entity.incorporeal:
                 return False  # Corporeal entities cannot pass through solid floors and ceilings.
             if not((old_tile.suspend and new_tile.suspend) or entity.flight):
                 return False  # Flightless entities require a asuspension to move vertically upwards
-        if direction == config.Play.VERTICAL_DOWN:
+        if direction == internal_strings.Play.VERTICAL_DOWN:
             if (old_tile.floor or new_tile.ceiling) and not entity.incorporeal:
                 return False  # Corporeal entities cannot pass through solid floors and ceilings.
         entity.set_pos(new_pos)

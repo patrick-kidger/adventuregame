@@ -1,5 +1,6 @@
 import Tools as tools
 
+import Maze.config.internal_strings as internal_strings
 
 ### Settings ###
 
@@ -53,8 +54,9 @@ class Move(tools.Container):
     RIGHT = 'd'
     VERTICAL_UP = 'r'
     VERTICAL_DOWN = 'f'
-    Direction = {DOWN: Play.DOWN, UP: Play.UP, LEFT: Play.LEFT, RIGHT: Play.RIGHT, VERTICAL_UP: Play.VERTICAL_UP,
-                 VERTICAL_DOWN: Play.VERTICAL_DOWN}
+    Direction = {DOWN: internal_strings.Play.DOWN, UP: internal_strings.Play.UP, LEFT: internal_strings.Play.LEFT,
+                 RIGHT: internal_strings.Play.RIGHT, VERTICAL_UP: internal_strings.Play.VERTICAL_UP,
+                 VERTICAL_DOWN: internal_strings.Play.VERTICAL_DOWN}
     
 class DebugInput(tools.Container):
     """All valid inputs in the console"""
@@ -71,37 +73,7 @@ class DebugInput(tools.Container):
     RESET = 'reset'
     CHANGEMAP = 'changemap'
 
-# Button to toglge the console
+# Button to toggle the console
 OPEN_CONSOLE = '\\'
 # Button to select the console
 SELECT_CONSOLE = '/'
-
-
-### Internal Strings ###
-# These are only used internally, and are just put here to keep them consistent throughout the program.
-
-# Names of overlays
-class OverlayNames(tools.Container):
-    DEBUG_NAME = 'debug'
-    GAME_NAME = 'game'
-
-# Names of listeners
-class ListenerNames(tools.Container):
-    DEBUG_NAME = 'debug'
-    GAME_NAME = 'game'
-
-# Used in determining wall adjacency.
-class WallAdjacency(tools.Container):
-    DOWN = 'down'
-    UP = 'up'
-    LEFT = 'left'
-    RIGHT = 'right'
-
-# Playing the game
-class Play(tools.Container):
-    DOWN = 'down'
-    UP = 'up'
-    LEFT = 'left'
-    RIGHT = 'right'
-    VERTICAL_UP = 'vertical_up'
-    VERTICAL_DOWN = 'vertical_down'

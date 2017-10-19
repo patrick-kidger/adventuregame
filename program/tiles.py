@@ -1,6 +1,7 @@
 import Tools as tools
 
 import Maze.config.config as config
+import Maze.config.internal_strings as internal_strings
 import Maze.program.misc.helpers as helpers
 
 
@@ -64,22 +65,22 @@ class Wall(Floor, Ceiling):
     opaque = True
     wall = True  # Denotes that its visuals should affect, and be affected by, adjacent walls.
 
-    wall_codes = {frozenset([config.WallAdjacency.UP, config.WallAdjacency.DOWN, config.WallAdjacency.LEFT, config.WallAdjacency.RIGHT]): 'wall_udlr.png',
-                  frozenset([config.WallAdjacency.UP, config.WallAdjacency.DOWN, config.WallAdjacency.LEFT                            ]): 'wall_udl.png',
-                  frozenset([config.WallAdjacency.UP, config.WallAdjacency.DOWN,                            config.WallAdjacency.RIGHT]): 'wall_udr.png',
-                  frozenset([config.WallAdjacency.UP,                            config.WallAdjacency.LEFT, config.WallAdjacency.RIGHT]): 'wall_ulr.png',
-                  frozenset([                         config.WallAdjacency.DOWN, config.WallAdjacency.LEFT, config.WallAdjacency.RIGHT]): 'wall_dlr.png',
-                  frozenset([config.WallAdjacency.UP, config.WallAdjacency.DOWN                                                       ]): 'wall_ud.png',
-                  frozenset([config.WallAdjacency.UP,                            config.WallAdjacency.LEFT                            ]): 'wall_ul.png',
-                  frozenset([                         config.WallAdjacency.DOWN, config.WallAdjacency.LEFT                            ]): 'wall_dl.png',
-                  frozenset([config.WallAdjacency.UP,                                                       config.WallAdjacency.RIGHT]): 'wall_ur.png',
-                  frozenset([                         config.WallAdjacency.DOWN,                            config.WallAdjacency.RIGHT]): 'wall_dr.png',
-                  frozenset([                                                    config.WallAdjacency.LEFT, config.WallAdjacency.RIGHT]): 'wall_lr.png',
-                  frozenset([config.WallAdjacency.UP                                                                                  ]): 'wall_u.png',
-                  frozenset([                         config.WallAdjacency.DOWN                                                       ]): 'wall_d.png',
-                  frozenset([                                                    config.WallAdjacency.LEFT                            ]): 'wall_l.png',
-                  frozenset([                                                                               config.WallAdjacency.RIGHT]): 'wall_r.png',
-                  frozenset([                                                                                                         ]): 'wall_column.png'}
+    wall_codes = {frozenset([internal_strings.WallAdjacency.UP, internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.LEFT, internal_strings.WallAdjacency.RIGHT]): 'wall_udlr.png',
+                  frozenset([internal_strings.WallAdjacency.UP, internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.LEFT                                      ]): 'wall_udl.png',
+                  frozenset([internal_strings.WallAdjacency.UP, internal_strings.WallAdjacency.DOWN,                                      internal_strings.WallAdjacency.RIGHT]): 'wall_udr.png',
+                  frozenset([internal_strings.WallAdjacency.UP,                                      internal_strings.WallAdjacency.LEFT, internal_strings.WallAdjacency.RIGHT]): 'wall_ulr.png',
+                  frozenset([                                   internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.LEFT, internal_strings.WallAdjacency.RIGHT]): 'wall_dlr.png',
+                  frozenset([internal_strings.WallAdjacency.UP, internal_strings.WallAdjacency.DOWN                                                                           ]): 'wall_ud.png',
+                  frozenset([internal_strings.WallAdjacency.UP,                                      internal_strings.WallAdjacency.LEFT                                      ]): 'wall_ul.png',
+                  frozenset([                                   internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.LEFT                                      ]): 'wall_dl.png',
+                  frozenset([internal_strings.WallAdjacency.UP,                                                                           internal_strings.WallAdjacency.RIGHT]): 'wall_ur.png',
+                  frozenset([                                   internal_strings.WallAdjacency.DOWN,                                      internal_strings.WallAdjacency.RIGHT]): 'wall_dr.png',
+                  frozenset([                                                                        internal_strings.WallAdjacency.LEFT, internal_strings.WallAdjacency.RIGHT]): 'wall_lr.png',
+                  frozenset([internal_strings.WallAdjacency.UP                                                                                                                ]): 'wall_u.png',
+                  frozenset([                                   internal_strings.WallAdjacency.DOWN                                                                           ]): 'wall_d.png',
+                  frozenset([                                                                        internal_strings.WallAdjacency.LEFT                                      ]): 'wall_l.png',
+                  frozenset([                                                                                                             internal_strings.WallAdjacency.RIGHT]): 'wall_r.png',
+                  frozenset([                                                                                                                                                 ]): 'wall_column.png'}
     
     def convert_wall(self):    
         """Sets this tile to a custom visual based on adjacent walls."""

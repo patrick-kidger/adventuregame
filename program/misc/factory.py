@@ -1,6 +1,7 @@
 import Tools as tools
 
 import Maze.config.config as config
+import Maze.config.internal_strings as internal_strings
 import Maze.data.maps as maps_
 import Maze.program.game as game
 import Maze.program.misc.interface as interface_
@@ -20,30 +21,30 @@ def maze_game_factory(start_game=True):
 
 def interface_factory():
     """Convenience function to set up the input and outputs of an interface."""
-
-    # Input
-    game_listener = interface_.PlayListener(name=config.ListenerNames.DEBUG_NAME,
-                                            enabled=False)
-    debug_listener = interface_.TextListener(name=config.ListenerNames.DEBUG_NAME,
-                                             enabled=True)
-    listeners = tools.Object(from_dict={config.ListenerNames.GAME_NAME: game_listener,
-                                        config.ListenerNames.DEBUG_NAME: debug_listener})
-    input_ = interface_.Input(listeners)
-
     # Output
-    game_overlay = interface_.GraphicsOverlay(name=config.OverlayNames.GAME_NAME,
+    game_overlay = interface_.GraphicsOverlay(name=internal_strings.OverlayNames.GAME,
                                               location=config.GRAPHICS_SCREEN_LOC,
                                               size=config.GRAPHICS_SCREEN_SIZE,
                                               background_color=config.GRAPHICS_BACKGROUND_COLOR,
                                               enabled=True)
-    debug_overlay = interface_.TextOverlay(name=config.OverlayNames.DEBUG_NAME,
+    debug_overlay = interface_.TextOverlay(name=internal_strings.OverlayNames.DEBUG,
                                            location=config.DEBUG_SCREEN_LOC,
                                            size=config.DEBUG_SCREEN_SIZE,
                                            background_color=config.DEBUG_BACKGROUND_COLOR,
                                            enabled=False)
-    overlays = tools.Object(from_dict={config.OverlayNames.GAME_NAME: game_overlay,
-                                       config.OverlayNames.DEBUG_NAME: debug_overlay})
+    overlays = tools.Object(from_dict={internal_strings.OverlayNames.GAME: game_overlay,
+                                       internal_strings.OverlayNames.DEBUG: debug_overlay})
     output = interface_.Output(overlays)
+
+    # Input
+    game_listener = interface_.PlayListener(name=internal_strings.ListenerNames.DEBUG,
+                                            enabled=False)
+    debug_listener = interface_.TextListener(name=internal_strings.ListenerNames.DEBUG,
+                                             overlay=debug_overlay,
+                                             enabled=True)
+    listeners = tools.Object(from_dict={internal_strings.ListenerNames.GAME: game_listener,
+                                        internal_strings.ListenerNames.DEBUG: debug_listener})
+    input_ = interface_.Input(listeners)
 
     # Interface
     interface = interface_.Interface(input_, output)
