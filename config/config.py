@@ -7,11 +7,11 @@ import Maze.config.internal_strings as internal_strings
 WINDOW_NAME = 'Maze Game'
 
 # Pygame output options
-SCREEN_SIZE = (800, 600)  # The overall size of the screen
-DEBUG_SCREEN_SIZE = (800, 300)  # The size of the debug overlay
+SCREEN_SIZE = (1600, 900)  # The overall size of the screen
+DEBUG_SCREEN_SIZE = (1600, 600)  # The size of the debug overlay
 DEBUG_SCREEN_LOC = (0, 300)  # The location of the debug overlay on the main screen
 DEBUG_BACKGROUND_COLOR = (200, 200, 200)  # Grey
-GRAPHICS_SCREEN_SIZE = (800, 600)  # The size of the debug overlay
+GRAPHICS_SCREEN_SIZE = (1600, 900)  # The size of the debug overlay
 GRAPHICS_SCREEN_LOC = (0, 0)  # The location of the graphics overlay on hte main screen
 GRAPHICS_BACKGROUND_COLOR = (255, 255, 255)  # White
 
@@ -21,7 +21,9 @@ FONT_SIZE = 20
 FONT_COLOR = (0, 0, 0)  # Black
 
 # How long to wait at each state when skipping user input.
-SLEEP_SKIP = 0.1  # In seconds!
+SKIP_PAUSE = 0.1  # In seconds
+# How long to pause between ticks of the game
+TICK_PAUSE = 0.01  # In seconds
 
 # The file extension for map files
 MAP_FILE_EXTENSION = 'map'

@@ -2,27 +2,27 @@
 start_pos: z=0, x=1, y=1
 map:
  WWWWWW
- W++++W
- W++++W
- W++++W
- W++++W
- W++++W
- W>+++W
+ W....W
+ W....W
+ W....W
+ W....W
+ W....W
+ W>...W
  WWWWWW
  
  WWWWWW
  W    W
  W    WWWW
  W       W
- W   +++>W
- W   +WWWW
- W<+++W
+ W   ...>W
+ W   .WWWW
+ W<...W
  WWWWWW
  
  WWWWWW
  W    W
  W    WWWW
- W   >+++W
+ W   >...W
  W      <W
  W    WWWW
  W    W
@@ -58,7 +58,7 @@ map:
  WWWWWW
  W    W
  W    WWWW
- W  +<   W
+ W  .<   W
  W       W
  W    WWWW
  W    W

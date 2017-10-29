@@ -1,3 +1,11 @@
-class ProgrammingException(Exception):
-    """Used to indicate a problem that has probably occurred as a result
-    of an internal problem, likely because of incorrect code."""
+class BaseGameException(Exception):
+    """Base exception for all exceptions raised during the game's runtime."""
+
+
+class ProgrammingException(BaseGameException):
+    """Raised due to an internal problems, likely because of incorrect code."""
+
+
+class NoTileDefinitionException(BaseGameException):
+    """Raised when interpreting a map's tile data, and one of the characters does not correspond to any known tile
+    definition."""

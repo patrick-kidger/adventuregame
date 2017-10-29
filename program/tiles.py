@@ -2,6 +2,8 @@ import Tools as tools
 
 import Maze.config.config as config
 import Maze.config.internal_strings as internal_strings
+import Maze.config.strings as strings
+import Maze.program.misc.exceptions as exceptions
 import Maze.program.misc.helpers as helpers
 
 
@@ -34,19 +36,22 @@ class Tile(helpers.HasPositionMixin,
         
     def set_from_data(self, single_tile_data):
         """Sets this tile based on the loaded data."""
-        self.pick_subclass(single_tile_data)
+        try:
+            self.pick_subclass(single_tile_data)
+        except KeyError:
+            raise exceptions.NoTileDefinitionException(strings.MapSelect.Exceptions.NO_TILE_DEFINITION.format(definition=single_tile_data))
 
 
 class Tile2(Tile):
     """Exactly the same as Tile, just with a different definition. When the parser reads a .map file, it strips all
     leading whitespace - which might include spaces that are meant to mean empty tiles. This allows for explicitly
     setting empty tiles as the first tile on a line in the .map file."""
-    definition = '.'
+    definition = ','
 
             
 class Floor(Tile):
     """Corporeal entitites cannot move downwards through this tile."""
-    definition = '+'
+    definition = '.'
     appearance_filename = 'floor.png'
     floor = True
 

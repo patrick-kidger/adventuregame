@@ -25,23 +25,18 @@ def interface_factory():
     game_overlay = interface_.GraphicsOverlay(name=internal_strings.OverlayNames.GAME,
                                               location=config.GRAPHICS_SCREEN_LOC,
                                               size=config.GRAPHICS_SCREEN_SIZE,
-                                              background_color=config.GRAPHICS_BACKGROUND_COLOR,
-                                              enabled=True)
+                                              background_color=config.GRAPHICS_BACKGROUND_COLOR)
     debug_overlay = interface_.TextOverlay(name=internal_strings.OverlayNames.DEBUG,
                                            location=config.DEBUG_SCREEN_LOC,
                                            size=config.DEBUG_SCREEN_SIZE,
-                                           background_color=config.DEBUG_BACKGROUND_COLOR,
-                                           enabled=False)
+                                           background_color=config.DEBUG_BACKGROUND_COLOR)
     overlays = tools.Object(from_dict={internal_strings.OverlayNames.GAME: game_overlay,
                                        internal_strings.OverlayNames.DEBUG: debug_overlay})
     output = interface_.Output(overlays)
 
     # Input
-    game_listener = interface_.PlayListener(name=internal_strings.ListenerNames.DEBUG,
-                                            enabled=False)
-    debug_listener = interface_.TextListener(name=internal_strings.ListenerNames.DEBUG,
-                                             overlay=debug_overlay,
-                                             enabled=True)
+    game_listener = interface_.PlayListener(name=internal_strings.ListenerNames.DEBUG)
+    debug_listener = interface_.DebugListener(name=internal_strings.ListenerNames.DEBUG, overlay=debug_overlay)
     listeners = tools.Object(from_dict={internal_strings.ListenerNames.GAME: game_listener,
                                         internal_strings.ListenerNames.DEBUG: debug_listener})
     input_ = interface_.Input(listeners)

@@ -68,10 +68,11 @@ class TileData(object):
 class Map(object):
     """Holds all map data."""
     
-    def __init__(self):
+    def __init__(self, background_color):
         self.name = None
         self.tile_data = TileData()
         self.screens = None
+        self.background_color = background_color
 
     def load(self, map_data):
         """Loads the specified map."""
@@ -79,6 +80,8 @@ class Map(object):
         self.tile_data.load(map_data.tile_data)
         self.screens = [sdl.Surface(((area.x + 1) * config.TILE_X, (area.y + 1) * config.TILE_Y))
                         for area in self.tile_data.areas]
+        for screen in self.screens:
+            screen.fill(self.background_color)
         for tile_data in self.tile_data:
             self.screens[tile_data.z].blit(tile_data.tile.appearance,
                                            (tile_data.x * config.TILE_X, tile_data.y * config.TILE_Y))
@@ -104,7 +107,7 @@ class Map(object):
         elif direction == internal_strings.Play.VERTICAL_DOWN:
             new_pos.z -= 1
         else:
-            raise exceptions.ProgrammingException(strings.Play.Exceptions.UNEXPECTED_DIRECTION.format(direction=direction))
+            raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_DIRECTION.format(direction=direction))
         return new_pos
         
     def fall(self, pos):
@@ -122,8 +125,8 @@ class MazeGame(object):
     """Main game."""
     def __init__(self, maps_access, interface):
         self.maps_access = maps_access
-        self.out = interface.output
-        self.inp = interface.input
+        self.out = interface.out
+        self.inp = interface.inp
 
         self.map = None     # Immediately redefined in reset()
         self.player = None  # Just defined here for clarity about what instance properties we have
@@ -132,7 +135,7 @@ class MazeGame(object):
         
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
-        self.map = Map()
+        self.map = Map(self.out.overlays.game.background_color)
         self.player = entities.Player()
 
         self.debug = False
@@ -147,29 +150,27 @@ class MazeGame(object):
         # Map Selection
         map_names = self.maps_access.setup_and_find_map_names()
         # Print the map options
-        numbers = [strings.MapSelect.option_number.format(number=i) for i in range(len(map_names))]
+        numbers = [strings.MapSelect.OPTION_NUMBER.format(number=i) for i in range(len(map_names))]
 
         debug_enabled = self.out.overlays.debug.enabled
-        self.out.overlays.debug.enabled = True
+        self.out.overlays.debug.enable()
         self.out.overlays.debug.clear()
-        self.out.overlays.debug.table(title=strings.MapSelect.title, columns=[numbers, map_names],
-                                      headers=strings.MapSelect.headers)
-        self.out.overlays.debug(strings.MapSelect.input)
-        self.out.flush()
+        self.out.overlays.debug.table(title=strings.MapSelect.TITLE, columns=[numbers, map_names],
+                                      headers=strings.MapSelect.HEADERS)
         # Get the selected map option
         while True:
+            self.out.overlays.debug(strings.MapSelect.PROMPT)
+            self.out.flush()
+            inp, input_type = self.inp(internal_strings.ListenerNames.DEBUG, num_chars=2, command=False, wait=True)
             try:
-                inp = self.inp(internal_strings.ListenerNames.DEBUG, type_arg=int, num_chars=2)
-                self.out.overlays.debug('\n')
-                self.out.flush()
-                map_name = map_names[inp]
+                map_name = map_names[int(inp)]
             except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
-                self.inp.invalid_input()
+                self.inp.listeners.debug.invalid_input()
             else:
                 map_ = self.maps_access.get_map(map_name)
                 break
 
-        self.out.overlays.debug.enabled = debug_enabled
+        self.out.overlays.debug.enable(debug_enabled)
         self.out.overlays.debug.clear()
 
         # Map
@@ -180,41 +181,46 @@ class MazeGame(object):
 
     def _run(self):
         """The main game loop."""
-        completed = False  # Game has not yet finished
-        # Information to be carried over to the next tick, if we don't allow input in this one.
-        skip = tools.Object(skip=False)
-        self.render()
-        while not completed:
-            tick_result = self._tick(skip)
-            completed = tick_result.completed
-            skip = tick_result.skip
-            if tick_result.render:
-                self.render()
+        with self.out.overlays.game.use() + self.inp.enable_listener(internal_strings.ListenerNames.GAME):
+            completed = False  # Game has not yet finished
+            # Information to be carried over to the next tick, if we don't allow input in this one.
+            skip = tools.Object(skip=False)
+            self.render()
+            while not completed:
+                tick_result = self._tick(skip)
+                completed = tick_result.completed
+                skip = tick_result.skip
+                if tick_result.render:
+                    self.render()
         return tick_result.again
     
     def _tick(self, skip):
         """A single tick of the game."""
         if skip.skip:
-            time.sleep(config.SLEEP_SKIP)
-            play_inp, is_move = skip.play_inp, skip.is_move
+            time.sleep(config.SKIP_PAUSE)
+            play_inp, input_type = skip.play_inp, skip.input_type
         else:
-            play_inp, is_move = self.inp(internal_strings.ListenerNames.GAME)
+            time.sleep(config.TICK_PAUSE)
+            play_inp, input_type = self.inp()
 
-        if is_move:
+        input_result = tools.Object(completed=False, render=True, progress=True, again=False,
+                                    skip=tools.Object(skip=False))
+
+        if input_type == internal_strings.InputTypes.MOVEMENT:
             move_result = self.move_entity(play_inp, self.player)
             if skip.skip and not move_result:
                 raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_FORCE_MOVE)
-            input_result = tools.Object(completed=False, render=True, progress=True, again=False)
             if not self.player.flight and self.map.fall(self.player.pos):
-                input_result.skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN, is_move=True)
-            else:
-                input_result.skip = tools.Object(skip=False)
-        else:
-            input_result = play_inp(self)
+                input_result.skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN,
+                                                 input_type=internal_strings.InputTypes.MOVEMENT)
 
-        if input_result.progress:
-            # Do stuff
+        elif input_type == internal_strings.InputTypes.DEBUG:
+            input_result = play_inp(self)
+        elif input_type == internal_strings.InputTypes.NO_INPUT:
             pass
+        else:
+            raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
+
         return input_result
 
     def render(self):

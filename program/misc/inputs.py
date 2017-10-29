@@ -23,7 +23,7 @@ class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
                     # Does not need 'cls' passed as an argument as it is already a bound method.
                     returnval = do(maze_game, inp_args)
                 else:
-                    maze_game.out.overlays.debug(strings.Play.debug_not_enabled, end='\n', flush=True)
+                    maze_game.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n', flush=True)
                     returnval = SpecialInput  # No special return value, as the input wasn't executed.
                 return returnval
             return do_debug_wrapper
@@ -42,7 +42,6 @@ class SpecialInput(SpecialInputSubclassTracker, metaclass=SpecialInputMetaclass)
     """Base class for special inputs."""
     completed = False    # Whether the game ends after this input is received
     render = False       # Whether the game should have its output updated after this input is received
-    progress = False     # Whether the game should count this command as a tick for e.g. moving enemies and such.
     skip = tools.Object(skip=False)  # Whether the next tick should be executed without asking for user input.
     again = False        # Whether the game should be played again after this input is received. Must be paired with
                          # completed=True.
@@ -72,7 +71,7 @@ class Variable(SpecialInput):
             else:
                 variable_value = variable_value_to_set
             tools.deepsetattr(maze_game, variable_name, variable_value)
-            maze_game.out.overlays.debug(strings.Play.variable_set.format(variable=variable_name, value=variable_value),
+            maze_game.out.overlays.debug(strings.Play.VARIABLE_SET.format(variable=variable_name, value=variable_value),
                                          end='\n', flush=True)
         return super(Variable, cls).do(maze_game, inp_args)
         
@@ -91,7 +90,7 @@ class Variable(SpecialInput):
 class Help(SpecialInput):
     """Displays the available commands."""
     inp = config.DebugInput.HELP
-    commands = collections.OrderedDict({strings.Help.movement: strings.Help.movement_text})
+    commands = collections.OrderedDict({strings.Help.MOVEMENT: strings.Help.MOVEMENT_TEXT})
     description = "Displays this help menu."
     
     @classmethod
@@ -106,9 +105,9 @@ class Help(SpecialInput):
                                         for x in commands_matched_values]
                 maze_game.out.overlays.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
                 
-        output_matched_commands(Help.commands, strings.Help.header)
+        output_matched_commands(Help.commands, strings.Help.HEADER)
         if maze_game.debug:
-            output_matched_commands(Debug.commands, strings.Help.debug_header)
+            output_matched_commands(Debug.commands, strings.Help.DEBUG_HEADER)
         maze_game.out.flush('debug')
         return super(Help, cls).do(maze_game, inp_args)
 
@@ -117,6 +116,7 @@ class Help(SpecialInput):
 Help.commands[config.DebugInput.HELP] = Help
 
 
+@tools.register(config.DebugInput.CLEAR, Help.commands)
 class Clear(SpecialInput):
     """Clears the debug console of text."""
     inp = config.DebugInput.CLEAR
@@ -137,7 +137,7 @@ class Debug(Variable):
 
 @tools.register(config.DebugInput.NOCLIP, Debug.commands)
 class NoClip(Variable):
-    """Sets whether the player is incorporeal or not."""
+    """Sets whether the player is incorporeal and can fly or not."""
     inp = config.DebugInput.NOCLIP
     variables = ('player.incorporeal', 'player.flight')
     needs_debug = True
@@ -151,7 +151,7 @@ class Fly(Variable):
     needs_debug = True
 
 
-@tools.register(config.DebugInput.FLY, Debug.commands)
+@tools.register(config.DebugInput.GHOST, Debug.commands)
 class Ghost(Variable):
     """Sets whether the player is incorporeal or not."""
     inp = config.DebugInput.GHOST
@@ -212,9 +212,9 @@ class Get(SpecialInput):
         try:
             variable_value = tools.deepgetattr(maze_game, variable_name)
         except AttributeError:
-            maze_game.out.overlays.debug(strings.Play.variable_get_failed.format(variable=variable_name), end='\n',
+            maze_game.out.overlays.debug(strings.Play.VARIABLE_GET_FAILED.format(variable=variable_name), end='\n',
                                          flush=True)
         else:
-            maze_game.out.overlays.debug(strings.Play.variable_get.format(variable=variable_name, value=variable_value),
+            maze_game.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name, value=variable_value),
                                          end='\n', flush=True)
         return super(Get, cls).do(maze_game, inp_args)

@@ -68,60 +68,41 @@ class HasPositionMixin(object):
         return self.pos.z
 
 
-def input_(num_chars=math.inf, output=None, flush=None, done=(sdl.K_KP_ENTER, sdl.K_RETURN, sdl.K_ESCAPE)):
-    """A pygame equivalent to the builtin input() function. (Without being able to pass a prompt string.)
+class EnablerMixin(object):
+    def __init__(self, enabled):
+        self.enabled = enabled
+        super(EnablerMixin, self).__init__()
 
-    :int num_chars: the number of characters of input that it should accept before automatically preventing further
-        input. May be set to math.inf to go forever.
-    :callable output: If specified, then each character of the user-typed input will be passed as an argument to this
-        callable, presumably so that it can be outputted to the screen.
-    :callable flush: If specified, then this function will be called after each character of the user-typed input has
-        been received, presumably so that if need be, the screen it has been printed to can be flushed."""
+    def toggle(self):
+        self.enabled = not self.enabled
 
-    def _get_char():
-        """Gets a single character."""
-        while True:
-            sdl.event.clear()
-            event = sdl.event.wait()
-            if event.type == sdl.QUIT:
-                raise KeyboardInterrupt
-            elif event.type == sdl.KEYDOWN:
-                char = event.unicode
-                if char == '\r':
-                    char = '\n'
-                key_code = event.key
-                if key_code in sdl.K_SHIFT:
-                    continue  # The modified key will be picked up on the next keystroke.
-                break
-        if output is not None:
-            output(char)
-        if flush is not None:
-            flush()
-        return char, key_code
+    def enable(self, state=True):
+        self.enabled = state
 
-    returnstr = ''
-    i = 0
-    while i < num_chars:
-        char, key_code = _get_char()
-        if key_code in done:
-            break
-        elif key_code == sdl.K_BACKSPACE:
-            if i >= 1:
-                returnstr = returnstr[:-1]
-                i -= 1
-        else:
-            returnstr += char
-            i += 1
-    return returnstr
+    def disable(self):
+        self.enabled = False
+
+    def use(self):
+        """Sets the enabled attribute temporarily. Used with a with statement."""
+
+        class EnablerClass(tools.WithAnder):
+            def __enter__(self_enabler):
+                self_enabler.enabled = self.enabled
+                self.enabled = True
+
+            def __exit__(self_enabler, exc_type, exc_val, exc_tb):
+                self.enabled = self_enabler.enabled
+
+        return EnablerClass()
 
 
 def re_sub_recursive(pattern, sub, inputstr):
     patt = re.compile(pattern)
-    inputstrlen = len(inputstr)
-    inputstr = patt.sub(sub, inputstr)
 
-    while len(inputstr) != inputstrlen:
-        inputstrlen = len(inputstr)
+    old_inputstr = inputstr
+    inputstr = patt.sub(sub, inputstr)
+    while old_inputstr != inputstr:
+        old_inputstr = inputstr
         inputstr = patt.sub(sub, inputstr)
 
     return inputstr

@@ -29,3 +29,9 @@ class Play(tools.Container):
     RIGHT = 'right'
     VERTICAL_UP = 'vertical_up'
     VERTICAL_DOWN = 'vertical_down'
+
+# Input types
+class InputTypes(tools.Container):
+    MOVEMENT = 'move'
+    NO_INPUT = 'no_input'
+    DEBUG = 'debug'

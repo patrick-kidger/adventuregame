@@ -3,6 +3,7 @@ import math
 import Tools as tools
 
 import Maze.config.config as config
+import Maze.config.internal_strings as internal_strings
 import Maze.config.strings as strings
 import Maze.program.misc.exceptions as exceptions
 import Maze.program.misc.helpers as helpers
@@ -12,54 +13,33 @@ import Maze.program.misc.sdl as sdl
 
 class BaseIO(object):
     def __init__(self):
-        self.interface = None
+        self.inp = None
+        self.out = None
         super(BaseIO, self).__init__()
         
     def register_interface(self, interface):
         """Lets the BaseIO instance know what interface it is used with."""
-        self.interface = interface
+        self.inp = interface.inp
+        self.out = interface.out
 
 
-class EnablerMixin(object):
-    def __init__(self, enabled):
-        self.enabled = enabled
-        super(EnablerMixin, self).__init__()
-
-    def enable(self):
-        """Sets the enabled attribute temporarily. Used with a with statement."""
-
-        class EnablerClass(tools.WithAnder):
-            def __enter__(self_enabler):
-                self_enabler.enabled = self.enabled
-                self.enabled = True
-
-            def __exit__(self_enabler, exc_type, exc_val, exc_tb):
-                self.enabled = self_enabler.enabled
-
-        return EnablerClass()
-
-
-class BaseOverlay(EnablerMixin, BaseIO):
+class BaseOverlay(helpers.EnablerMixin, BaseIO):
     """Abstract base class for all overlays. An 'overlay' is a layer on the screen that may be outputted to."""
     default_output_kwargs = {}
 
-    def __init__(self, name, location, size, background_color, enabled):
+    def __init__(self, name, location, size, background_color):
         self.name = name
         self.location = location
         self.screen = sdl.Surface(size)
         self.background_color = background_color
 
-        super(BaseOverlay, self).__init__(enabled)
+        super(BaseOverlay, self).__init__(enabled=False)
 
     def __call__(self, output_val, flush=False):
         # Just a convenience, to allow for just calling with flush=True as an argument, rather than putting an
         # output.flush() on the next line.
         if flush:
             self.flush()
-
-    def toggle(self):
-        """Toggles whether or not this overlay is enabled."""
-        self.enabled = not self.enabled
 
     def clear(self, flush=False):
         """Clears the overlay of everything that has been printed to it."""
@@ -72,7 +52,7 @@ class BaseOverlay(EnablerMixin, BaseIO):
             self.flush()
 
     def flush(self):
-        self.interface.output.flush(self.name)
+        self.out.flush(self.name)
 
 
 class GraphicsOverlay(BaseOverlay):
@@ -117,7 +97,7 @@ class TextOverlay(BaseOverlay):
 
     def sep(self, length, **kwargs):
         """Prints a separator of the given length."""
-        self(strings.Sep.sep * length, **kwargs)
+        self(strings.Sep.SEP * length, **kwargs)
 
     def table(self, title, columns, headers=None, edge_space=''):
         """Prints a table in text.
@@ -141,49 +121,49 @@ class TextOverlay(BaseOverlay):
                 column_width = max(column_width, len(column_entry))
             column_widths.append(column_width)
         overall_title_width = len(title) + len(edge_space) * 2                        # The width of the header text, plus space to either side of it
-        overall_column_width = (sum(column_widths) +                                  # The width of the columns
-                                len(column_widths) * len(edge_space) * 2 +            # The width of the space either side of the entry in each column
-                                (len(column_widths) - 1) * len(strings.Sep.vert_sep)) # The width of the lines separating columns
+        overall_column_width = (sum(column_widths) +  # The width of the columns
+                                len(column_widths) * len(edge_space) * 2 +  # The width of the space either side of the entry in each column
+                                (len(column_widths) - 1) * len(strings.Sep.VERT_SEP)) # The width of the lines separating columns
         overall_width = max(overall_title_width, overall_column_width)
         if overall_title_width > overall_column_width:
             column_widths[-1] += overall_title_width - overall_column_width
                            
         rows = zip(*columns)
 
-        self(strings.Sep.dr_sep)
+        self(strings.Sep.DR_SEP)
         self.sep(overall_width)
-        self(strings.Sep.dl_sep, end='\n')
-        self(strings.Sep.ud_sep)
+        self(strings.Sep.DL_SEP, end='\n')
+        self(strings.Sep.UD_SEP)
         self(edge_space + title + edge_space, width=overall_width)
-        self(strings.Sep.ud_sep, end='\n')
-        self(strings.Sep.udr_sep)
+        self(strings.Sep.UD_SEP, end='\n')
+        self(strings.Sep.UDR_SEP)
         self.sep(overall_width)
-        self(strings.Sep.udl_sep, end='\n')
+        self(strings.Sep.UDL_SEP, end='\n')
         if headers is not None:
-            self(strings.Sep.ud_sep)
+            self(strings.Sep.UD_SEP)
             for header, column_width in zip(headers, column_widths):
                 self(edge_space)
                 self(header, width=column_width)
                 self(edge_space)
-                self(strings.Sep.ud_sep)
+                self(strings.Sep.UD_SEP)
             self('\n')
-            self(strings.Sep.ud_sep)
+            self(strings.Sep.UD_SEP)
             for column_width in column_widths[:-1]:
                 self.sep(column_width)
-                self(strings.Sep.udlr_sep)
+                self(strings.Sep.UDLR_SEP)
             self.sep(column_widths[-1])
-            self(strings.Sep.ud_sep, end='\n')
+            self(strings.Sep.UD_SEP, end='\n')
         for row in rows:
-            self(strings.Sep.ud_sep)
+            self(strings.Sep.UD_SEP)
             for entry, column_width in zip(row, column_widths):
                 self(edge_space)
                 self(entry, width=column_width)
                 self(edge_space)
-                self(strings.Sep.ud_sep)
+                self(strings.Sep.UD_SEP)
             self('\n')
-        self(strings.Sep.ur_sep)
+        self(strings.Sep.UR_SEP)
         self.sep(overall_width)
-        self(strings.Sep.ul_sep, end='\n')
+        self(strings.Sep.UL_SEP, end='\n')
 
 
 class Output(BaseIO):
@@ -220,31 +200,68 @@ class Output(BaseIO):
         sdl.display.update(updated_areas)
 
 
-class BaseListener(EnablerMixin, BaseIO):
+class BaseListener(BaseIO):
     """An abstract base class for listeners."""
-    valid_inputs = set()
-
-    def __init__(self, name, enabled):
+    def __init__(self, name):
         self.name = name
-        super(BaseListener, self).__init__(enabled)
+        super(BaseListener, self).__init__()
 
 
 class PlayListener(BaseListener):
     def __call__(self):
-        while True:
-            inp = helpers.input_(num_chars=1).lower()
-            if inp == config.OPEN_CONSOLE:
-                self.interface.output.overlays.debug.enabled = not self.interface.output.overlays.debug.enabled
-                self.interface.output.flush('debug')
+        char, key_code = sdl.text_stream(single_event=True)
 
-            if (inp == config.OPEN_CONSOLE or inp == config.SELECT_CONSOLE) and self.interface.output.overlays.debug.enabled:
-                input_ = self.interface.input('debug')
-                input_command = self.debug_command(input_)
-                if input_command is not None:
-                    return input_command, False
+        if char in config.Move:
+            return config.Move.Direction[char], internal_strings.InputTypes.MOVEMENT
 
-            if inp in config.Move:
-                return config.Move.Direction[inp], True
+        if char == config.OPEN_CONSOLE:
+            self.out.overlays.debug.toggle()
+            self.out.flush()
+
+        if char in (config.OPEN_CONSOLE, config.SELECT_CONSOLE) and self.out.overlays.debug.enabled:
+            self.inp.add_listener(internal_strings.ListenerNames.DEBUG)
+
+        return None, internal_strings.InputTypes.NO_INPUT
+
+
+class TextListener(BaseListener):
+    def __init__(self, overlay, name):
+        self.overlay = overlay
+        super(TextListener, self).__init__(name)
+
+
+class DebugListener(TextListener):
+    def __init__(self, overlay, name):
+        self.text = ''
+        super(DebugListener, self).__init__(overlay, name)
+
+    def __call__(self, num_chars=math.inf, command=True, wait=False):
+        return_lambda = None
+        first_pass = True
+        while wait or first_pass:
+            first_pass = False
+            self.text, char, key_code = sdl.modify_text(self.text,
+                                                        char_done=(config.OPEN_CONSOLE, config.SELECT_CONSOLE),
+                                                        output=self.overlay,
+                                                        flush=self.overlay.flush)
+
+            if key_code in sdl.K_ENTER or len(self.text) >= num_chars:
+                self.overlay('\n')
+                self.overlay.flush()
+                self.text = self.text[:num_chars if num_chars != math.inf else None]  # Infinity not supported in slices
+                return_lambda = self.debug_command(self.text) if command else self.text
+                self.text = ''
+                wait = False
+            if key_code == sdl.K_ESCAPE or char == config.OPEN_CONSOLE:
+                self.overlay.enabled = False
+            if key_code == sdl.K_ESCAPE or char in (config.OPEN_CONSOLE, config.SELECT_CONSOLE):
+                self.inp.remove_listener(internal_strings.ListenerNames.DEBUG)
+
+        if return_lambda is not None:
+            input_type = internal_strings.InputTypes.DEBUG
+        else:
+            input_type = internal_strings.InputTypes.NO_INPUT
+        return return_lambda, input_type
 
     def debug_command(self, command):
         """Finds the debug command corresponding to the string inputted. Returns either the command (as a function,
@@ -261,66 +278,60 @@ class PlayListener(BaseListener):
 
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
-        self.interface.output.overlays.debug(strings.Play.INVALID_INPUT, end='\n')
-        self.interface.output.flush('debug')
-
-
-class TextListener(BaseListener):
-    def __init__(self, overlay, name, enabled):
-        self.overlay = overlay
-        super(TextListener, self).__init__(name, enabled)
-
-    def __call__(self, num_chars=math.inf):
-        with self.overlay.enable():
-            input_ = helpers.input_(num_chars=num_chars,
-                                    output=self.overlay,
-                                    flush=self.overlay.flush,
-                                    done=(sdl.K_KP_ENTER, sdl.K_RETURN, sdl.K_ESCAPE, sdl.K_BACKSLASH))
-        return input_
+        self.overlay(strings.Play.INVALID_INPUT, end='\n')
+        self.overlay.flush()
 
 
 class Input(BaseIO):
     """Handles receiving user input."""
     def __init__(self, listeners):
         self.listeners = listeners
-        enabled_listeners = [listener for listener in listeners.values() if listener.enabled]
-        if len(enabled_listeners) != 1:
-            raise exceptions.ProgrammingException(strings.Input.Exceptions.NOT_ONE_LISTENER_ENABLED.format(num=len(enabled_listeners)))
-        self.enabled_listener = enabled_listeners[0]
+        self.enabled_listeners = []
         super(Input, self).__init__()
 
-    def __call__(self, listener_name=None, type_arg=lambda x: x, *args, **kwargs):
+    def __call__(self, listener_name=None, *args, **kwargs):
         with self.enable_listener(listener_name) if listener_name is not None else tools.WithNothing():
-            return type_arg(self.enabled_listener(*args, **kwargs))
+            return self.enabled_listener(*args, **kwargs)
 
     def register_interface(self, interface):
         for listener in self.listeners.values():
             listener.register_interface(interface)
         super(Input, self).register_interface(interface)
 
+    def add_listener(self, listener_name):
+        listener = self.listeners[listener_name]
+        self.enabled_listeners.append(listener)
+
+    def remove_listener(self, listener_name):
+        if self.enabled_listeners[-1].name == listener_name:
+            self.enabled_listeners.pop()
+        else:
+            raise exceptions.ProgrammingException(strings.Input.Exceptions.INVALID_LISTENER_REMOVAL.format(listener=listener_name))
+
     def enable_listener(self, listener_name):
         """Enables the listener with the specified name, and disable the currently enabled listener. The currently
         enabled listener will be restored afterwards. Used with a with statement."""
+
         class EnableOnlyListener(tools.WithAnder):
             def __enter__(self_enable):
-                self.enabled_listener.enabled = False
-                self_enable.old_enabled_listener = self.enabled_listener
-                new_listener = self.listeners[listener_name]
-                new_listener.enabled = True
-                self.enabled_listener = new_listener
+                self.add_listener(listener_name)
 
             def __exit__(self_enable, exc_type, exc_val, exc_tb):
-                self.enabled_listener.enabled = False
-                self_enable.old_enabled_listener.enabled = True
-                self.enabled_listener = self_enable.old_enabled_listener
+                self.remove_listener(listener_name)
 
         return EnableOnlyListener()
+
+    @property
+    def enabled_listener(self):
+        if len(self.enabled_listeners) == 0:
+            raise exceptions.ProgrammingException(strings.Input.Exceptions.NO_LISTENER)
+        return self.enabled_listeners[-1]
 
         
 class Interface(object):
     """Wrapper around Output and Input, in order to provide the overall interface."""
-    def __init__(self, input_, output):
-        self.input = input_
-        self.output = output
-        self.input.register_interface(self)
-        self.output.register_interface(self)
+    def __init__(self, inp, out):
+        self.inp = inp
+        self.out = out
+        self.inp.register_interface(self)
+        self.out.register_interface(self)
