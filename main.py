@@ -1,4 +1,4 @@
-import Maze.program.misc.factory as factory
+import program.factory.factory as factory
 
     
 def play(start_game=True, return_game=False):

@@ -1,1 +1,1 @@
-"""This modules handles configuration."""
+"""This module handles configuration."""

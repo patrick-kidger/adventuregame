@@ -1,11 +1,10 @@
 import os
 import configparser
 import collections
-
 import Tools as tools
 
-import Maze.config.config as config
-import Maze.config.strings as strings
+import config.config as config
+import config.strings as strings
 
 
 class MapsAccess(object):

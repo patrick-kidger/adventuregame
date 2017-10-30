@@ -39,7 +39,7 @@ class Play(object):
 class Input(object):
     class Exceptions(object):
         NO_LISTENER = 'No listener enabled.'
-        INVALID_LISTENER_REMOVAL = 'Tried to remove listener {listener}, which is not the currently enabled listener.'
+        INVALID_LISTENER_REMOVAL = 'Tried to remove listener "{listener}", which is not the currently enabled listener.'
 
 class Help(object):
     """Strings relating to using the help command."""

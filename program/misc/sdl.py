@@ -5,6 +5,8 @@ import pygame.ftfont
 import pygame.display
 import pygame.event
 
+import program.misc.exceptions as exceptions
+
 # Initialise the pygame modules
 pygame.ftfont.init()
 pygame.display.init()
@@ -59,7 +61,7 @@ def text_stream(single_event=False, discard_old=True):
     def _text_stream(events):
         for event_ in events:
             if event_.type == QUIT:
-                raise KeyboardInterrupt
+                raise exceptions.CloseException()
             elif event_.type == KEYDOWN:
                 key_code = event_.key
                 if key_code in K_SHIFT:

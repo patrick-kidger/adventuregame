@@ -1,10 +1,11 @@
 import Tools as tools
 
-import Maze.config.config as config
-import Maze.config.internal_strings as internal_strings
-import Maze.config.strings as strings
-import Maze.program.misc.exceptions as exceptions
-import Maze.program.misc.helpers as helpers
+import config.config as config
+import config.internal_strings as internal_strings
+import config.strings as strings
+
+import program.misc.exceptions as exceptions
+import program.misc.helpers as helpers
 
 
 DefinitionSubclassing = tools.dynamic_subclassing_by_attr('definition')

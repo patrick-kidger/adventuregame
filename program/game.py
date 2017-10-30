@@ -3,13 +3,13 @@ import time
 
 import Tools as tools
 
-import Maze.config.config as config
-import Maze.config.internal_strings as internal_strings
-import Maze.config.strings as strings
-import Maze.program.misc.exceptions as exceptions
-import Maze.program.misc.sdl as sdl
-import Maze.program.entities as entities
-import Maze.program.tiles as tiles
+import config.config as config
+import config.internal_strings as internal_strings
+import config.strings as strings
+import program.misc.exceptions as exceptions
+import program.misc.sdl as sdl
+import program.entities as entities
+import program.tiles as tiles
 
 
 class TileData(object):
@@ -142,8 +142,13 @@ class MazeGame(object):
         
     def start(self):
         """Starts the game."""
-        self.map_select()
-        return self._run()
+        try:
+            self.map_select()
+            play_again = self._run()
+        except exceptions.CloseException:
+            return False
+        else:
+            return play_again
         
     def map_select(self):
         """Gives the menu to select a map."""
@@ -204,8 +209,8 @@ class MazeGame(object):
                                     skip=tools.Object(skip=False))
 
         if input_type == internal_strings.InputTypes.MOVEMENT:
-            move_result = self.move_entity(play_inp, self.player)
-            if skip.skip and not move_result:
+            did_move = self.move_entity(play_inp, self.player)
+            if skip.skip and not did_move:
                 raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_FORCE_MOVE)
             if not self.player.flight and self.map.fall(self.player.pos):
                 input_result.skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN,

@@ -1,6 +1,6 @@
 import Tools as tools
 
-import Maze.config.internal_strings as internal_strings
+import config.internal_strings as internal_strings
 
 ### Settings ###
 
@@ -60,8 +60,8 @@ class Move(tools.Container):
                  RIGHT: internal_strings.Play.RIGHT, VERTICAL_UP: internal_strings.Play.VERTICAL_UP,
                  VERTICAL_DOWN: internal_strings.Play.VERTICAL_DOWN}
     
-class DebugInput(tools.Container):
-    """All valid inputs in the console"""
+class DebugCommands(tools.Container):
+    """All valid commands in the console"""
     DEBUG = 'debug'
     CLEAR = 'clear'
     HELP = 'help'
@@ -70,7 +70,8 @@ class DebugInput(tools.Container):
     GHOST = 'ghost'
     GET = 'get'
     QUIT = 'quit'
-    EXIT = 'exit'  # Does the same thing as quit
+    EXIT = 'exit'   # Does the same thing as quit
+    CLOSE = 'close'  # Does not do the same thing as quit
     RENDER = 'render'
     RESET = 'reset'
     CHANGEMAP = 'changemap'

@@ -1,9 +1,14 @@
 import collections
-
 import Tools as tools
 
-import Maze.config.config as config
-import Maze.config.strings as strings
+import config.config as config
+import config.strings as strings
+
+import program.misc.exceptions as exceptions
+
+
+def get_command(command_name):
+    return SpecialInput.find_subclass(command_name)
 
 
 SpecialInputSubclassTracker = tools.subclass_tracker('inp')
@@ -89,7 +94,7 @@ class Variable(SpecialInput):
 
 class Help(SpecialInput):
     """Displays the available commands."""
-    inp = config.DebugInput.HELP
+    inp = config.DebugCommands.HELP
     commands = collections.OrderedDict({strings.Help.MOVEMENT: strings.Help.MOVEMENT_TEXT})
     description = "Displays this help menu."
     
@@ -113,13 +118,13 @@ class Help(SpecialInput):
 
 
 # Register help with itself. Can't do this via decorator as Help hasn't yet been defined at decoration time.
-Help.commands[config.DebugInput.HELP] = Help
+Help.commands[config.DebugCommands.HELP] = Help
 
 
-@tools.register(config.DebugInput.CLEAR, Help.commands)
+@tools.register(config.DebugCommands.CLEAR, Help.commands)
 class Clear(SpecialInput):
     """Clears the debug console of text."""
-    inp = config.DebugInput.CLEAR
+    inp = config.DebugCommands.CLEAR
 
     @classmethod
     def do(cls, maze_game, inp_args):
@@ -127,42 +132,42 @@ class Clear(SpecialInput):
         return super(Clear, cls).do(maze_game, inp_args)
 
 
-@tools.register(config.DebugInput.DEBUG, Help.commands)
+@tools.register(config.DebugCommands.DEBUG, Help.commands)
 class Debug(Variable):
     """Sets the debug state."""
-    inp = config.DebugInput.DEBUG
+    inp = config.DebugCommands.DEBUG
     variables = ('debug',)
     commands = collections.OrderedDict()
 
 
-@tools.register(config.DebugInput.NOCLIP, Debug.commands)
+@tools.register(config.DebugCommands.NOCLIP, Debug.commands)
 class NoClip(Variable):
     """Sets whether the player is incorporeal and can fly or not."""
-    inp = config.DebugInput.NOCLIP
+    inp = config.DebugCommands.NOCLIP
     variables = ('player.incorporeal', 'player.flight')
     needs_debug = True
     
  
-@tools.register(config.DebugInput.FLY, Debug.commands)
+@tools.register(config.DebugCommands.FLY, Debug.commands)
 class Fly(Variable):
     """Sets whether the player can fly or not."""
-    inp = config.DebugInput.FLY
+    inp = config.DebugCommands.FLY
     variables = ('player.flight',)
     needs_debug = True
 
 
-@tools.register(config.DebugInput.GHOST, Debug.commands)
+@tools.register(config.DebugCommands.GHOST, Debug.commands)
 class Ghost(Variable):
     """Sets whether the player is incorporeal or not."""
-    inp = config.DebugInput.GHOST
+    inp = config.DebugCommands.GHOST
     variables = ('player.incorporeal',)
     needs_debug = True
 
     
-@tools.register(config.DebugInput.CHANGEMAP, Debug.commands)
+@tools.register(config.DebugCommands.CHANGEMAP, Debug.commands)
 class ChangeMap(SpecialInput):
     """Changes the map."""
-    inp = config.DebugInput.CHANGEMAP
+    inp = config.DebugCommands.CHANGEMAP
     render = True
     needs_debug = True
     
@@ -172,38 +177,48 @@ class ChangeMap(SpecialInput):
         return super(ChangeMap, cls).do(maze_game, inp_args)
 
 
-@tools.register(config.DebugInput.QUIT, Help.commands)
+@tools.register(config.DebugCommands.QUIT, Help.commands)
 class Quit(SpecialInput):
-    """Quits the game."""
-    inp = config.DebugInput.QUIT
+    """Quits the game back to the main screen."""
+    inp = config.DebugCommands.QUIT
     completed = True
 
 
-@tools.register(config.DebugInput.EXIT, Help.commands)
+@tools.register(config.DebugCommands.EXIT, Help.commands)
 class Exit(Quit):
-    """Quits the game."""
-    inp = config.DebugInput.EXIT
+    """Quits the game back to the main screen."""
+    inp = config.DebugCommands.EXIT
+
+
+@tools.register(config.DebugCommands.CLOSE, Help.commands)
+class Close(SpecialInput):
+    """Closes the whole game."""
+    inp = config.DebugCommands.CLOSE
+
+    @classmethod
+    def do(cls, maze_game, inp_args):
+        raise exceptions.CloseException()
     
 
-@tools.register(config.DebugInput.RENDER, Help.commands)
+@tools.register(config.DebugCommands.RENDER, Help.commands)
 class Render(SpecialInput):
     """Displays the current game state."""
-    inp = config.DebugInput.RENDER
+    inp = config.DebugCommands.RENDER
     render = True
     
 
-@tools.register(config.DebugInput.RESET, Help.commands)
+@tools.register(config.DebugCommands.RESET, Help.commands)
 class Reset(SpecialInput):
     """Resets the game."""
-    inp = config.DebugInput.RESET
+    inp = config.DebugCommands.RESET
     completed = True
     again = True
 
     
-@tools.register(config.DebugInput.GET, Debug.commands)
+@tools.register(config.DebugCommands.GET, Debug.commands)
 class Get(SpecialInput):
     """Gets the value of a variable."""
-    inp = config.DebugInput.GET
+    inp = config.DebugCommands.GET
     needs_debug = True
     
     @classmethod

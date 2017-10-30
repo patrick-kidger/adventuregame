@@ -1,1 +1,1 @@
-from Maze.main import play
+from main import play

@@ -1,10 +1,8 @@
 import re
 import os
-import math
-
 import Tools as tools
 
-import Maze.program.misc.sdl as sdl
+import program.misc.sdl as sdl
 
 
 def appearance_from_filename(files_location):

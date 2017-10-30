@@ -1,5 +1,6 @@
-import Maze.config.config as config
-import Maze.program.misc.helpers as helpers
+import config.config as config
+
+import program.misc.helpers as helpers
 
 
 class Entity(helpers.HasPositionMixin, helpers.appearance_from_filename(config.ENTITY_FOLDER)):
