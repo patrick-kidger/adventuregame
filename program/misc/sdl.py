@@ -54,7 +54,7 @@ K_SHIFT = (K_LSHIFT, K_RSHIFT)
 K_ENTER = (K_KP_ENTER, K_RETURN)
 
 
-def text_stream(single_event=False):
+def text_stream(single_event=False, discard_old=True):
     """A generator providing a stream of all of the text input."""
     def _text_stream(events):
         for event_ in events:
@@ -71,6 +71,8 @@ def text_stream(single_event=False):
 
     if single_event:
         events = (event.poll(),)
+        if discard_old:
+            event.clear()
         return next(_text_stream(events), (None, None))
     else:
         events = event.get()

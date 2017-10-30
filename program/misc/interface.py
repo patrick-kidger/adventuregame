@@ -209,7 +209,7 @@ class BaseListener(BaseIO):
 
 class PlayListener(BaseListener):
     def __call__(self):
-        char, key_code = sdl.text_stream(single_event=True)
+        char, key_code = sdl.text_stream(single_event=True, discard_old=True)
 
         if char in config.Move:
             return config.Move.Direction[char], internal_strings.InputTypes.MOVEMENT

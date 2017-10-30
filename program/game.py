@@ -152,26 +152,23 @@ class MazeGame(object):
         # Print the map options
         numbers = [strings.MapSelect.OPTION_NUMBER.format(number=i) for i in range(len(map_names))]
 
-        debug_enabled = self.out.overlays.debug.enabled
-        self.out.overlays.debug.enable()
-        self.out.overlays.debug.clear()
-        self.out.overlays.debug.table(title=strings.MapSelect.TITLE, columns=[numbers, map_names],
-                                      headers=strings.MapSelect.HEADERS)
-        # Get the selected map option
-        while True:
-            self.out.overlays.debug(strings.MapSelect.PROMPT)
-            self.out.flush()
-            inp, input_type = self.inp(internal_strings.ListenerNames.DEBUG, num_chars=2, command=False, wait=True)
-            try:
-                map_name = map_names[int(inp)]
-            except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
-                self.inp.listeners.debug.invalid_input()
-            else:
-                map_ = self.maps_access.get_map(map_name)
-                break
-
-        self.out.overlays.debug.enable(debug_enabled)
-        self.out.overlays.debug.clear()
+        with self.out.overlays.debug.use():
+            self.out.overlays.debug.clear()
+            self.out.overlays.debug.table(title=strings.MapSelect.TITLE, columns=[numbers, map_names],
+                                          headers=strings.MapSelect.HEADERS)
+            # Get the selected map option
+            while True:
+                self.out.overlays.debug(strings.MapSelect.PROMPT)
+                self.out.flush()
+                inp, input_type = self.inp(internal_strings.ListenerNames.DEBUG, num_chars=2, command=False, wait=True)
+                try:
+                    map_name = map_names[int(inp)]
+                except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
+                    self.inp.listeners.debug.invalid_input()
+                else:
+                    map_ = self.maps_access.get_map(map_name)
+                    break
+            self.out.overlays.debug.clear()
 
         # Map
         self.map.load(map_)
