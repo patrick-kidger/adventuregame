@@ -24,7 +24,7 @@ def appearance_from_filename(files_location):
             a class or an instance method, which will set the appearance attribute on the class or instance
             respectively."""
             if self_or_cls.appearance_filename != self_or_cls._appearance_filename:
-                appearance_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', files_location,
+                appearance_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'images', files_location,
                                                     self_or_cls.appearance_filename)
                 self_or_cls.appearance = sdl.image.load(appearance_file_path)
                 # Keep a record of what the current appearance has been set to. So if e.g. a subclass doesn't set a new

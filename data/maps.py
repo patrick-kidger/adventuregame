@@ -10,17 +10,17 @@ import config.strings as strings
 class MapsAccess(object):
     def __init__(self):
         self.map_lookup = {}
+        self.map_data_path = os.path.join(os.path.dirname(__file__), config.MAP_FOLDER)
         self.setup_and_find_map_names()
         
     def setup_and_find_map_names(self):
         """Refreshes this instance's internal data storage, and returns a list of all the map names."""
         lookup = collections.OrderedDict()
-        
-        map_data_path = self._map_data_path()
-        for dirpath, dirnames, filenames in os.walk(map_data_path):
+
+        for dirpath, dirnames, filenames in os.walk(self.map_data_path):
             for filename in filenames:
                 if filename.endswith('.' + config.MAP_FILE_EXTENSION):
-                    file_path = os.path.join(map_data_path, filename)
+                    file_path = os.path.join(self.map_data_path, filename)
                     map_names_in_file = self._get_map_names_in_file(file_path)
                     for map_name in map_names_in_file:
                         lookup[map_name] = filename
@@ -37,7 +37,7 @@ class MapsAccess(object):
         except KeyError:
             raise InvalidMapNameException(strings.Data.Exceptions.NO_MAP_NAME.format(map_name=map_name))
         parser = self._config_parser()
-        file_path = os.path.join(self._map_data_path(), filename)
+        file_path = os.path.join(self.map_data_path, filename)
         parser.read(file_path)
         raw_map_data = parser[map_name]
         
@@ -77,11 +77,6 @@ class MapsAccess(object):
         parser = cls._config_parser()
         parser.read(file_path)
         return parser.sections()
-        
-    @staticmethod
-    def _map_data_path():
-        """The path that the map data can be found in."""
-        return os.path.join(os.path.dirname(__file__), config.MAP_FOLDER)
 
     @staticmethod
     def _config_parser():

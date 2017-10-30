@@ -132,7 +132,7 @@ class Input(base.BaseIO):
                 self.add_listener(listener_name)
 
             def __exit__(self_enable, exc_type, exc_val, exc_tb):
-                if exc_type is not exceptions.CloseException:
+                if exc_type is None or not issubclass(exc_type, exceptions.LeaveGameException):
                     self.remove_listener(listener_name)
 
         return EnableOnlyListener()

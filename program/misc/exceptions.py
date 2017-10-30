@@ -2,8 +2,16 @@ class BaseGameException(Exception):
     """Base exception for all exceptions raised during the game's runtime."""
 
 
-class CloseException(BaseGameException):
-    """Indicates that the whole game should be closed."""
+class LeaveGameException(BaseGameException):
+    """Base exception for all exceptions involving leaving the current game."""
+
+
+class CloseException(LeaveGameException):
+    """Indicates that the whole application should be closed."""
+
+
+class QuitException(LeaveGameException):
+    """Indicates that the current game should be exited from."""
 
 
 class ProgrammingException(BaseGameException):

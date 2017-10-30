@@ -30,8 +30,8 @@ MAP_FILE_EXTENSION = 'map'
 
 # The names of the folder containing the map files / tile images / entity images respectively
 MAP_FOLDER = 'map_data'
-TILE_FOLDER = 'tile_data'
-ENTITY_FOLDER = 'entity_data'
+TILE_FOLDER = 'tiles'
+ENTITY_FOLDER = 'entities'
 
 # The sizes of the tiles, in pixels
 TILE_Y = 32
