@@ -4,7 +4,7 @@ import collections
 import Tools as tools
 
 import config.config as config
-import config.strings as strings
+import config.internal_strings as internal_strings
 
 
 class MapsAccess(object):
@@ -35,7 +35,7 @@ class MapsAccess(object):
         try:
             filename = self.map_lookup[map_name]
         except KeyError:
-            raise InvalidMapNameException(strings.Data.Exceptions.NO_MAP_NAME.format(map_name=map_name))
+            raise InvalidMapNameException(internal_strings.Exceptions.NO_MAP_NAME.format(map_name=map_name))
         parser = self._config_parser()
         file_path = os.path.join(self.map_data_path, filename)
         parser.read(file_path)
@@ -46,7 +46,7 @@ class MapsAccess(object):
         try:
             raw_start_pos_data = raw_map_data['start_pos']
         except KeyError:
-            raise InvalidMapException(strings.Data.Exceptions.NO_ENTRY(entry='start_pos'))
+            raise InvalidMapException(internal_strings.Exceptions.NO_ENTRY(entry='start_pos'))
         start_pos_data = [x.strip() for x in raw_start_pos_data.split(',')]
         for coord in start_pos_data:
             key_val = [x.strip() for x in coord.split('=')]
@@ -56,16 +56,16 @@ class MapsAccess(object):
         try:
             raw_tile_data = raw_map_data['map'].strip('\n')
         except KeyError:
-            raise InvalidMapException(strings.Data.Exceptions.NO_ENTRY(entry='map', map_name=map_name))
+            raise InvalidMapException(internal_strings.Exceptions.NO_ENTRY(entry='map', map_name=map_name))
         data_z_levels = raw_tile_data.split('\n\n')
         if not data_z_levels:
-            raise InvalidMapDataException(strings.Data.Exceptions.MISCONFIGURED_MAP_DATA.format(map_name=map_name))
+            raise InvalidMapDataException(internal_strings.Exceptions.MISCONFIGURED_MAP_DATA.format(map_name=map_name))
         tile_data = []
         for data_z_level in data_z_levels:
             tile_data.append([])
             y_rows = data_z_level.split('\n')
             if not y_rows:
-                raise InvalidMapDataException(strings.Data.Exceptions.MISCONFIGURED_MAP_DATA.format(map_name=map_name))
+                raise InvalidMapDataException(internal_strings.Exceptions.MISCONFIGURED_MAP_DATA.format(map_name=map_name))
             for y_row in y_rows:
                 tile_data[-1].append(y_row)
                 

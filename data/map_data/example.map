@@ -39,3 +39,66 @@ map:
  W    W
  W    W
  WWWWWW
+
+[Example3]
+start_pos: z=0, x=1, y=1
+map:
+ WWWWWW
+ W.W..W
+ W.W..W
+ W.W..W
+ W.>..W
+ W....W
+ W.W..W
+ WWWWWW
+
+ WWWWWW
+ W .  W
+ W .  W
+ W .  W
+ W <  W
+ W    W
+ W    W
+ WWWWWW
+
+[Example4]
+start_pos: z=0, x=1, y=1
+map:
+ WWWWWW
+ W.W..W
+ W.W..W
+ W.W..W
+ W.>..W
+ W....W
+ W.W..W
+ WWWWWW
+
+ WWWWWW
+ W .  W
+ W .  W
+ W .  W
+ W <  W
+ W    W
+ W    W
+ WWWWWW
+
+[Example5]
+start_pos: z=0, x=1, y=1
+map:
+ WWWWWW
+ W.W..W
+ W.W..W
+ W.W..W
+ W.>..W
+ W....W
+ W.W..W
+ WWWWWW
+
+ WWWWWW
+ W .  W
+ W .  W
+ W .  W
+ W <  W
+ W    W
+ W    W
+ WWWWWW

@@ -40,7 +40,7 @@ class Tile(helpers.HasPositionMixin,
         try:
             self.pick_subclass(single_tile_data)
         except KeyError:
-            raise exceptions.NoTileDefinitionException(strings.MapSelect.Exceptions.NO_TILE_DEFINITION.format(definition=single_tile_data))
+            raise exceptions.NoTileDefinitionException(internal_strings.Exceptions.NO_TILE_DEFINITION.format(definition=single_tile_data))
 
 
 class Tile2(Tile):

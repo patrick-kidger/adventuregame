@@ -8,76 +8,108 @@ import config.strings as strings
 
 import program.interface.base as base
 
-import program.misc.exceptions as exceptions
 import program.misc.commands as commands
+import program.misc.exceptions as exceptions
+import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 
 
-class BaseListener(base.BaseIO):
+class BaseListener(base.BaseIO, helpers.NameMixin):
     """An abstract base class for listeners."""
+    def __init__(self, *args, **kwargs):
+        self.inp_result = None, internal_strings.InputTypes.NO_INPUT
+        super(BaseListener, self).__init__(*args, **kwargs)
 
-    def __init__(self, name):
-        self.name = name
-        super(BaseListener, self).__init__()
+    def __call__(self):
+        self.inp_result = None, internal_strings.InputTypes.NO_INPUT
+
+        first_pass = True
+        while first_pass or self.repeat:
+            first_pass = False
+            handled = False
+            done = False
+
+            event = sdl.event_stream(single_event=True, discard_old=True)
+            char, key_code = sdl.text_event(event)
+
+            if char == config.OPEN_CONSOLE:
+                self.out.overlays.debug.toggle()
+                self.out.flush()
+                handled = True
+
+            if char in (config.OPEN_CONSOLE, config.SELECT_CONSOLE) and self.out.overlays.debug.enabled:
+                self.inp.add_listener('debug')
+                handled = True
+
+            if not handled:
+                done = self._handle(event)
+            if done:  # For use with self.repeat=True.
+                break
+        return self.inp_result
+
+
+class OverlayListener(BaseListener):
+    """Allows associating an overlay with a listener."""
+    def __init__(self, overlay, *args, **kwargs):
+        self.overlay = overlay
+        super(OverlayListener, self).__init__(*args, **kwargs)
+
+
+class MenuListener(OverlayListener):
+    repeat = True
+
+    def _handle(self):
+        pass
 
 
 class PlayListener(BaseListener):
-    def __call__(self):
-        char, key_code = sdl.text_stream(single_event=True, discard_old=True)
+    repeat = False
 
+    def _handle(self, event):
+        char, key_code = sdl.text_event(event)
         if char in config.Move:
-            return config.Move.Direction[char], internal_strings.InputTypes.MOVEMENT
-
-        if char == config.OPEN_CONSOLE:
-            self.out.overlays.debug.toggle()
-            self.out.flush()
-
-        if char in (config.OPEN_CONSOLE, config.SELECT_CONSOLE) and self.out.overlays.debug.enabled:
-            self.inp.add_listener(internal_strings.ListenerNames.DEBUG)
-
-        return None, internal_strings.InputTypes.NO_INPUT
+            self.inp_result = config.Move.Direction[char], internal_strings.InputTypes.MOVEMENT
 
 
-class TextListener(BaseListener):
-    def __init__(self, overlay, name):
-        self.overlay = overlay
-        super(TextListener, self).__init__(name)
+class TextListener(OverlayListener):
+    repeat = False
+
+    def __init__(self, overlay, name, *args, **kwargs):
+        self.text = ''
+        super(TextListener, self).__init__(overlay, name, *args, **kwargs)
+
+    def _modify_text(self, char, key_code):
+        if char is not None:
+            should_output = True
+            if key_code == sdl.K_BACKSPACE:
+                # Disable outputting backspaces if we're not actually modifying the tet with them.
+                if len(self.text) == 0:
+                    should_output = False
+                self.text = self.text[:-1]
+            else:
+                self.text += char
+
+            if should_output:
+                self.overlay(char)
+                self.overlay.flush()
 
 
 class DebugListener(TextListener):
-    def __init__(self, overlay, name):
-        self.text = ''
-        super(DebugListener, self).__init__(overlay, name)
+    def _handle(self, event):
+        char, key_code = sdl.text_event(event)
 
-    def __call__(self, num_chars=math.inf, command=True, wait=False):
-        return_lambda = None
-        first_pass = True
-        while wait or first_pass:
-            first_pass = False
-            self.text, char, key_code = sdl.modify_text(self.text,
-                                                        char_done=(config.OPEN_CONSOLE, config.SELECT_CONSOLE),
-                                                        output=self.overlay,
-                                                        flush=self.overlay.flush)
-
-            if key_code in sdl.K_ENTER or len(self.text) >= num_chars:
-                self.overlay('\n')
-                self.overlay.flush()
-                self.text = self.text[:num_chars if num_chars != math.inf else None]  # Infinity not supported in slices
-                return_lambda = self.debug_command(self.text) if command else self.text
-                self.text = ''
-                wait = False
-            if key_code == sdl.K_ESCAPE or char == config.OPEN_CONSOLE:
-                self.overlay.enabled = False
-            if key_code == sdl.K_ESCAPE or char in (config.OPEN_CONSOLE, config.SELECT_CONSOLE):
-                self.inp.remove_listener(internal_strings.ListenerNames.DEBUG)
-
-        if return_lambda is not None:
-            input_type = internal_strings.InputTypes.DEBUG
+        if key_code in sdl.K_ENTER:
+            self.overlay('\n')
+            self.overlay.flush()
+            self.inp_result = self._debug_command(self.text), internal_strings.InputTypes.DEBUG
+            self.text = ''
+        elif key_code == sdl.K_ESCAPE:
+            self.overlay.enabled = False
+            self.inp.remove_listener('debug')
         else:
-            input_type = internal_strings.InputTypes.NO_INPUT
-        return return_lambda, input_type
+            self._modify_text(char, key_code)
 
-    def debug_command(self, command):
+    def _debug_command(self, command):
         """Finds the debug command corresponding to the string inputted. Returns either the command (as a function,
         needing a maze game instance to be passed to it), or None, if it could not find a corresponding command."""
         command_split = command.split(' ')
@@ -87,10 +119,10 @@ class DebugListener(TextListener):
             special_input = commands.get_command(command_name)
             return lambda maze_game: special_input.do(maze_game, command_args)
         else:
-            self.invalid_input()
+            self._invalid_input()
             return None
 
-    def invalid_input(self):
+    def _invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
         self.overlay(strings.Play.INVALID_INPUT, end='\n')
         self.overlay.flush()
@@ -99,10 +131,10 @@ class DebugListener(TextListener):
 class Input(base.BaseIO):
     """Handles receiving user input."""
 
-    def __init__(self, listeners):
+    def __init__(self, listeners, *args, **kwargs):
         self.listeners = listeners
         self.enabled_listeners = []
-        super(Input, self).__init__()
+        super(Input, self).__init__(*args, **kwargs)
 
     def __call__(self, listener_name=None, *args, **kwargs):
         with self.enable_listener(listener_name) if listener_name is not None else tools.WithNothing():
@@ -121,7 +153,7 @@ class Input(base.BaseIO):
         if self.enabled_listeners[-1].name == listener_name:
             self.enabled_listeners.pop()
         else:
-            raise exceptions.ListenerRemovalException(strings.Input.Exceptions.INVALID_LISTENER_REMOVAL.format(listener=listener_name))
+            raise exceptions.ListenerRemovalException(internal_strings.Exceptions.INVALID_LISTENER_REMOVAL.format(listener=listener_name))
 
     def enable_listener(self, listener_name):
         """Enables the listener with the specified name, and disable the currently enabled listener. The currently
@@ -140,5 +172,5 @@ class Input(base.BaseIO):
     @property
     def enabled_listener(self):
         if len(self.enabled_listeners) == 0:
-            raise exceptions.ProgrammingException(strings.Input.Exceptions.NO_LISTENER)
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.NO_LISTENER)
         return self.enabled_listeners[-1]

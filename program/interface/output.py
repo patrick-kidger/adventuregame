@@ -1,23 +1,30 @@
+import Tools as tools
+
+
 import config.config as config
+import config.internal_strings as internal_strings
 import config.strings as strings
 
 import program.interface.base as base
+import program.interface.menu_elements as menu_elements
 
+import program.misc.exceptions as exceptions
 import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 
 
-class BaseOverlay(helpers.EnablerMixin, base.BaseIO):
+class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
     """Abstract base class for all overlays. An 'overlay' is a layer on the screen that may be outputted to."""
     default_output_kwargs = {}
 
-    def __init__(self, name, location, size, background_color):
-        self.name = name
+    def __init__(self, name, location, size, background_color, *args, **kwargs):
         self.location = location
         self.screen = sdl.Surface(size)
         self.background_color = background_color
 
-        super(BaseOverlay, self).__init__(enabled=False)
+        self.reset()
+
+        super(BaseOverlay, self).__init__(name=name, enabled=False, *args, **kwargs)
 
     def __call__(self, output_val, flush=False):
         # Just a convenience, to allow for just calling with flush=True as an argument, rather than putting an
@@ -28,12 +35,16 @@ class BaseOverlay(helpers.EnablerMixin, base.BaseIO):
     def clear(self, flush=False):
         """Clears the overlay of everything that has been printed to it."""
         self.wipe(flush)
+        self.reset()
 
     def wipe(self, flush=False):
         """Fills the overlay with its background color."""
         self.screen.fill(self.background_color)
         if flush:
             self.flush()
+
+    def reset(self):
+        """Resets all extra data associated with this overlay."""
 
     def flush(self):
         self.out.flush(self.name)
@@ -43,13 +54,52 @@ class GraphicsOverlay(BaseOverlay):
     """Handles outputting graphics to the screen."""
 
 
-class TextOverlay(BaseOverlay):
-    """Handles outputting text to the screen."""
+class MenuOverlay(GraphicsOverlay, base.FontMixin):
+    """A graphics overlay for menus."""
+    def reset(self):
+        self.menu_elements = {}
 
-    def __init__(self, *args, **kwargs):
-        self.font = sdl.ftfont.SysFont(config.FONT_NAME, config.FONT_SIZE)
-        self.text = ''
-        super(TextOverlay, self).__init__(*args, **kwargs)
+    def list(self, title, entries, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
+        list_screen = self._align(menu_elements.List.size, horz_alignment, vert_alignment)
+        created_list = menu_elements.List(list_screen, title, entries, self.font)
+        return created_list
+
+    def submit(self, text, horz_alignment=internal_strings.Alignment.RIGHT, vert_alignment=internal_strings.Alignment.BOTTOM):
+        submit_button = self.button(text, horz_alignment, vert_alignment)
+        # TODO
+        return submit_button
+
+    def button(self, text, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
+        button_screen = self._align(menu_elements.Button.size, horz_alignment, vert_alignment)
+        created_button = menu_elements.Button(button_screen, text, self.font)
+        return created_button
+
+    def _align(self, image_rect, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
+        screen_rect = self.screen.get_rect()
+        if horz_alignment == internal_strings.Alignment.LEFT:
+            horz_pos = 0
+        elif horz_alignment == internal_strings.Alignment.RIGHT:
+            horz_pos = screen_rect.width - image_rect.width
+        elif horz_alignment == internal_strings.Alignment.CENTER:
+            horz_pos = (screen_rect.width - image_rect.width) // 2
+        else:
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_ALIGNMENT.format(alignment=horz_alignment))
+
+        if vert_alignment == internal_strings.Alignment.TOP:
+            vert_pos = 0
+        elif vert_alignment == internal_strings.Alignment.LEFT:
+            vert_pos = screen_rect.height - image_rect.height
+        elif vert_alignment == internal_strings.Alignment.CENTER:
+            vert_pos = (screen_rect.height - image_rect.height) // 2
+        else:
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_ALIGNMENT.format(alignment=vert_alignment))
+
+        image_rect = sdl.Rect(horz_pos, vert_pos, image_rect.width, image_rect.height)
+        return self.screen.subsurface(image_rect)
+
+
+class TextOverlay(BaseOverlay, base.FontMixin):
+    """Handles outputting text to the screen."""
 
     def __call__(self, output_val, width=None, end='', **kwargs):
         """Outputs text.
@@ -70,13 +120,12 @@ class TextOverlay(BaseOverlay):
         split_text = self.text.split('\n')
         text_cursor = (0, 0)
         for output_text in split_text:
-            text = self.font.render(output_text, False, config.FONT_COLOR)
+            text = self.render_text(output_text)
             text_area = self.screen.blit(text, text_cursor)
             text_cursor = (0, text_area.bottom)
         super(TextOverlay, self).__call__(output_val, **kwargs)
 
-    def clear(self, flush=False):
-        super(TextOverlay, self).clear(flush)
+    def reset(self):
         self.text = ''
 
     def sep(self, length, **kwargs):
@@ -156,12 +205,12 @@ class TextOverlay(BaseOverlay):
 class Output(base.BaseIO):
     """The overall output. It takes its various overlays and then combines them to produce output to the screen."""
 
-    def __init__(self, overlays):
+    def __init__(self, overlays, *args, **kwargs):
         self.overlays = overlays
 
         self.screen = sdl.display.set_mode(config.SCREEN_SIZE)
         sdl.display.set_caption(config.WINDOW_NAME)
-        super(Output, self).__init__()
+        super(Output, self).__init__(*args, **kwargs)
 
     def register_interface(self, interface):
         for overlay in self.overlays.values():
@@ -171,7 +220,7 @@ class Output(base.BaseIO):
     def flush(self, overlay_names=None):
         """Pushes the changes from the overlays to the main screen.
 
-        :str or tuple overlay_names: The names of the overlays to update."""
+        :str or tuple[str] overlay_names: The names of the overlays to update."""
         updated_areas = []
         if overlay_names is None:
             overlays = self.overlays.values()

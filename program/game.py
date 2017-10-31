@@ -107,7 +107,7 @@ class Map(object):
         elif direction == internal_strings.Play.VERTICAL_DOWN:
             new_pos.z -= 1
         else:
-            raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_DIRECTION.format(direction=direction))
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_DIRECTION.format(direction=direction))
         return new_pos
         
     def fall(self, pos):
@@ -152,38 +152,50 @@ class MazeGame(object):
         
     def map_select(self):
         """Gives the menu to select a map."""
-        # Map Selection
         map_names = self.maps_access.setup_and_find_map_names()
+
+        with self.out.overlays.menu.use() + self.inp.enable_listener('menu'):
+            self.out.overlays.menu.clear()
+            menu_list = self.out.overlays.menu.list(title=strings.MapSelect.TITLE, entries=map_names)
+            self.out.overlays.menu.submit(strings.MapSelect.SELECT_MAP)
+            menu_results, input_type = self.inp()
+            selected_index = menu_results[menu_list]
+
+            map_name = map_names[selected_index]
+            map_ = self.maps_access.get_map(map_name)
+
+
         # Print the map options
-        numbers = [strings.MapSelect.OPTION_NUMBER.format(number=i) for i in range(len(map_names))]
+        # numbers = [strings.MapSelect.OPTION_NUMBER.format(number=i) for i in range(len(map_names))]
+        #
+        # with self.out.overlays.debug.use():
+        #     self.out.overlays.debug.clear()
+        #     self.out.overlays.debug.table(title=strings.MapSelect.TITLE, columns=[numbers, map_names],
+        #                                   headers=strings.MapSelect.HEADERS)
+        #     # Get the selected map option
+        #     while True:
+        #         self.out.overlays.debug(strings.MapSelect.PROMPT)
+        #         self.out.flush()
+        #         inp, input_type = self.inp('debug', num_chars=2, command=False, wait=True)
+        #         try:
+        #             map_name = map_names[int(inp)]
+        #         except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
+        #             self.inp.listeners.debug.invalid_input()
+        #         else:
+        #             map_ = self.maps_access.get_map(map_name)
+        #             break
+        #     self.out.overlays.debug.clear()
 
-        with self.out.overlays.debug.use():
-            self.out.overlays.debug.clear()
-            self.out.overlays.debug.table(title=strings.MapSelect.TITLE, columns=[numbers, map_names],
-                                          headers=strings.MapSelect.HEADERS)
-            # Get the selected map option
-            while True:
-                self.out.overlays.debug(strings.MapSelect.PROMPT)
-                self.out.flush()
-                inp, input_type = self.inp(internal_strings.ListenerNames.DEBUG, num_chars=2, command=False, wait=True)
-                try:
-                    map_name = map_names[int(inp)]
-                except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
-                    self.inp.listeners.debug.invalid_input()
-                else:
-                    map_ = self.maps_access.get_map(map_name)
-                    break
-            self.out.overlays.debug.clear()
 
-        # Map
+        # Load map
         self.map.load(map_)
         
-        # Player
+        # Load player
         self.player.set_pos(map_.start_pos)
 
     def _run(self):
         """The main game loop."""
-        with self.out.overlays.game.use() + self.inp.enable_listener(internal_strings.ListenerNames.GAME):
+        with self.out.overlays.game.use() + self.inp.enable_listener('game'):
             completed = False  # Game has not yet finished
             # Information to be carried over to the next tick, if we don't allow input in this one.
             skip = tools.Object(skip=False)
@@ -211,7 +223,7 @@ class MazeGame(object):
         if input_type == internal_strings.InputTypes.MOVEMENT:
             did_move = self.move_entity(play_inp, self.player)
             if skip.skip and not did_move:
-                raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_FORCE_MOVE)
+                raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_FORCE_MOVE)
             if not self.player.flight and self.map.fall(self.player.pos):
                 input_result.skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN,
                                                  input_type=internal_strings.InputTypes.MOVEMENT)
@@ -221,7 +233,7 @@ class MazeGame(object):
         elif input_type == internal_strings.InputTypes.NO_INPUT:
             pass
         else:
-            raise exceptions.ProgrammingException(strings.Play.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
 
         return input_result
 
