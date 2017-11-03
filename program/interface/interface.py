@@ -6,3 +6,6 @@ class Interface(object):
         self.out = out
         self.inp.register_interface(self)
         self.out.register_interface(self)
+
+    def register_game(self, maze_game):
+        self.inp.register_game(maze_game)

@@ -2,6 +2,9 @@ import re
 import os
 import Tools as tools
 
+import config.internal_strings as internal_strings
+
+import program.misc.exceptions as exceptions
 import program.misc.sdl as sdl
 
 
@@ -74,6 +77,35 @@ def image_from_filename(files_location):
     return ImageGetter
 
 
+class AlignmentMixin(object):
+    def _align(self, image_rect, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
+        screen_rect = self.screen.get_rect()
+        if horz_alignment == internal_strings.Alignment.LEFT:
+            horz_pos = 0
+        elif horz_alignment == internal_strings.Alignment.RIGHT:
+            horz_pos = screen_rect.width - image_rect.width
+        elif horz_alignment == internal_strings.Alignment.CENTER:
+            horz_pos = (screen_rect.width - image_rect.width) // 2
+        else:
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_ALIGNMENT.format(alignment=horz_alignment))
+
+        if vert_alignment == internal_strings.Alignment.TOP:
+            vert_pos = 0
+        elif vert_alignment == internal_strings.Alignment.BOTTOM:
+            vert_pos = screen_rect.height - image_rect.height
+        elif vert_alignment == internal_strings.Alignment.CENTER:
+            vert_pos = (screen_rect.height - image_rect.height) // 2
+        else:
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_ALIGNMENT.format(alignment=vert_alignment))
+
+        return horz_pos, vert_pos
+
+    def _view(self, image_rect, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
+        horz_pos, vert_pos = self._align(image_rect, horz_alignment, vert_alignment)
+        image_rect = sdl.Rect(horz_pos, vert_pos, image_rect.width, image_rect.height)
+        return self.screen.subsurface(image_rect)
+
+
 class HasPositionMixin(object):
     """Gives the class a notion of x, y, z position."""
 
@@ -126,9 +158,9 @@ class EnablerMixin(object):
         self.enabled = False
 
     def use(self):
-        """Sets the enabled attribute temporarily. Used with a with statement."""
+        """Temporarily sets the enabled attribute to True. Used with a with statement."""
 
-        class EnablerClass(tools.WithAnder):
+        class EnablerClass(tools.WithAdder):
             def __enter__(self_enabler):
                 self_enabler.enabled = self.enabled
                 self.enabled = True

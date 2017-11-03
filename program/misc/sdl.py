@@ -10,15 +10,26 @@ import program.misc.exceptions as exceptions
 # Initialise the pygame modules
 pygame.ftfont.init()
 pygame.display.init()
+pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN])
 
 
 # Top-level pygame imports
-Surface = pygame.Surface
+class Surface(pygame.Surface):
+    def blit(self, source, dest=(0, 0), *args, **kwargs):  # Added default argument to dest
+        return super(Surface, self).blit(source, dest, *args, **kwargs)
+
+    def point_within(self, pos):
+        offset = self.get_offset()
+        rect = self.get_rect(left=offset[0], top=offset[1])
+        return rect.collidepoint(pos)
+
+
 Rect = pygame.Rect
 
 # Event types
 QUIT = pygame.QUIT
 KEYDOWN = pygame.KEYDOWN
+MOUSEBUTTONDOWN = pygame.MOUSEBUTTONDOWN
 # And top-level keycodes
 K_LSHIFT = pygame.K_LSHIFT
 K_RSHIFT = pygame.K_RSHIFT

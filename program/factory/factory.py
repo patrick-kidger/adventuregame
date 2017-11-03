@@ -18,10 +18,8 @@ def maze_game_factory(start_game=True):
     interface = interface_factory()
     maps_access = maps_.MapsAccess()
     maze_game = game.MazeGame(maps_access, interface)
-    again = maze_game.start() if start_game else False
-    while again:
-        maze_game = game.MazeGame(maps_access, interface)
-        again = maze_game.start()
+    if start_game:
+        maze_game.start()
     return maze_game
 
 
@@ -47,7 +45,9 @@ def interface_factory():
                                        size=config.DEBUG_SCREEN_SIZE,
                                        background_color=config.DEBUG_BACKGROUND_COLOR,
                                        font=debug_font)
-    overlays = tools.Object(menu=menu_overlay, game=game_overlay, debug=debug_overlay)
+    overlays = tools.OrderedObject(game=game_overlay)
+    overlays.menu = menu_overlay    # Done after object creation to ensure they are in the correct order.
+    overlays.debug = debug_overlay  # Top overlay last
     output_ = output.Output(overlays)
 
     # Input

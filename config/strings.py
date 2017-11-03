@@ -30,13 +30,11 @@ class Play(tools.Container):
     VARIABLE_SET = '{variable} is now {value}'
     VARIABLE_GET = '{variable} has value {value}'
     VARIABLE_GET_FAILED = 'variable {variable} could not be found'
-    DEBUG_NOT_ENABLED = 'Debug mode must be enabled to use this command: \debug True'
+    DEBUG_NOT_ENABLED = 'Debug mode must be enabled to use this command: debug True'
     # The message for input that could not be made sense of.
     INVALID_INPUT = 'Invalid input, please try again. Type \'help\' for help.'
 
 class Help(tools.Container):
     """Strings relating to using the help command."""
-    HEADER = "Commands: (prefix non-movment commands with '\\')"
+    HEADER = "Commands:"
     DEBUG_HEADER = "Debug commands:"
-    MOVEMENT = 'Movement'
-    MOVEMENT_TEXT = 'Use WASDRF to move.'

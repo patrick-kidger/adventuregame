@@ -53,7 +53,7 @@ MENU_FONT_NAME = "Monospace"
 MENU_FONT_SIZE = 20
 MENU_FONT_COLOR = (0, 0, 0)  # Black
 
-MENU_BACKGROUND_COLOR = (239, 228, 176)  # Light yellow
+MENU_BACKGROUND_COLOR = (255, 255, 255)  # White
 
 ### Input ###
 # These define the input that the game is expecting, and should line up with e.g.
@@ -84,7 +84,6 @@ class DebugCommands(tools.Container):
     QUIT = 'quit'
     EXIT = 'exit'   # Does the same thing as quit
     CLOSE = 'close'  # Does not do the same thing as quit
-    RENDER = 'render'
     RESET = 'reset'
     CHANGEMAP = 'changemap'
 

@@ -127,65 +127,54 @@ class MazeGame(object):
         self.maps_access = maps_access
         self.out = interface.out
         self.inp = interface.inp
+        interface.register_game(self)
 
         self.map = None     # Immediately redefined in reset()
         self.player = None  # Just defined here for clarity about what instance properties we have
+        self.state = None   #
         self.debug = None   #
-        self.reset()
         
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
+        self.inp.clear()
+        self.out.clear()
+
         self.map = Map(self.out.overlays.game.background_color)
         self.player = entities.Player()
 
+        self.state = None
         self.debug = False
         
     def start(self):
         """Starts the game."""
         try:
-            self.map_select()
-            play_again = self._run()
+            play_again = True
+            while play_again:
+                self.reset()
+                self.map_select()
+                play_again = self._run()
         except exceptions.CloseException:
-            return False
-        else:
-            return play_again
+            pass
         
     def map_select(self):
         """Gives the menu to select a map."""
-        map_names = self.maps_access.setup_and_find_map_names()
+        self.state = internal_strings.State.MAP_SELECT
 
+        map_names = self.maps_access.setup_and_find_map_names()
         with self.out.overlays.menu.use() + self.inp.enable_listener('menu'):
             self.out.overlays.menu.clear()
-            menu_list = self.out.overlays.menu.list(title=strings.MapSelect.TITLE, entries=map_names)
+            menu_list = self.out.overlays.menu.list(title=strings.MapSelect.TITLE, entries=map_names, necessary=True)
             self.out.overlays.menu.submit(strings.MapSelect.SELECT_MAP)
-            menu_results, input_type = self.inp()
-            selected_index = menu_results[menu_list]
+            self.out.flush()
+            while True:
+                time.sleep(config.TICK_PAUSE)
+                menu_results, input_type = self.inp()
+                if input_type == internal_strings.InputTypes.MENU:
+                    break
 
+            selected_index = menu_results[menu_list]
             map_name = map_names[selected_index]
             map_ = self.maps_access.get_map(map_name)
-
-
-        # Print the map options
-        # numbers = [strings.MapSelect.OPTION_NUMBER.format(number=i) for i in range(len(map_names))]
-        #
-        # with self.out.overlays.debug.use():
-        #     self.out.overlays.debug.clear()
-        #     self.out.overlays.debug.table(title=strings.MapSelect.TITLE, columns=[numbers, map_names],
-        #                                   headers=strings.MapSelect.HEADERS)
-        #     # Get the selected map option
-        #     while True:
-        #         self.out.overlays.debug(strings.MapSelect.PROMPT)
-        #         self.out.flush()
-        #         inp, input_type = self.inp('debug', num_chars=2, command=False, wait=True)
-        #         try:
-        #             map_name = map_names[int(inp)]
-        #         except (ValueError, IndexError):  # Cannot cast to int or number does not correspond to a map
-        #             self.inp.listeners.debug.invalid_input()
-        #         else:
-        #             map_ = self.maps_access.get_map(map_name)
-        #             break
-        #     self.out.overlays.debug.clear()
-
 
         # Load map
         self.map.load(map_)
@@ -195,6 +184,8 @@ class MazeGame(object):
 
     def _run(self):
         """The main game loop."""
+        self.state = internal_strings.State.PLAY
+
         with self.out.overlays.game.use() + self.inp.enable_listener('game'):
             completed = False  # Game has not yet finished
             # Information to be carried over to the next tick, if we don't allow input in this one.
@@ -204,8 +195,7 @@ class MazeGame(object):
                 tick_result = self._tick(skip)
                 completed = tick_result.completed
                 skip = tick_result.skip
-                if tick_result.render:
-                    self.render()
+                self.render()
         return tick_result.again
     
     def _tick(self, skip):
@@ -217,8 +207,7 @@ class MazeGame(object):
             time.sleep(config.TICK_PAUSE)
             play_inp, input_type = self.inp()
 
-        input_result = tools.Object(completed=False, render=True, progress=True, again=False,
-                                    skip=tools.Object(skip=False))
+        input_result = tools.Object(completed=False, progress=True, again=False, skip=tools.Object(skip=False))
 
         if input_type == internal_strings.InputTypes.MOVEMENT:
             did_move = self.move_entity(play_inp, self.player)
@@ -228,8 +217,6 @@ class MazeGame(object):
                 input_result.skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN,
                                                  input_type=internal_strings.InputTypes.MOVEMENT)
 
-        elif input_type == internal_strings.InputTypes.DEBUG:
-            input_result = play_inp(self)
         elif input_type == internal_strings.InputTypes.NO_INPUT:
             pass
         else:
@@ -240,7 +227,7 @@ class MazeGame(object):
     def render(self):
         """Outputs the current game state."""
         self.out.overlays.game.clear()
-        self.out.overlays.game.screen.blit(self.map.screens[self.player.z], (0, 0))
+        self.out.overlays.game.screen.blit(self.map.screens[self.player.z])
         self.out.overlays.game.screen.blit(self.player.appearance,
                                            (self.player.x * config.TILE_X, self.player.y * config.TILE_Y))
         self.out.flush()

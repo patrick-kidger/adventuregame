@@ -8,7 +8,6 @@ import config.strings as strings
 import program.interface.base as base
 import program.interface.menu_elements as menu_elements
 
-import program.misc.exceptions as exceptions
 import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 
@@ -22,7 +21,7 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
         self.screen = sdl.Surface(size)
         self.background_color = background_color
 
-        self.reset()
+        self.clear()
 
         super(BaseOverlay, self).__init__(name=name, enabled=False, *args, **kwargs)
 
@@ -30,7 +29,7 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
         # Just a convenience, to allow for just calling with flush=True as an argument, rather than putting an
         # output.flush() on the next line.
         if flush:
-            self.flush()
+            self.out.flush()
 
     def clear(self, flush=False):
         """Clears the overlay of everything that has been printed to it."""
@@ -41,61 +40,53 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
         """Fills the overlay with its background color."""
         self.screen.fill(self.background_color)
         if flush:
-            self.flush()
+            self.out.flush()
 
     def reset(self):
         """Resets all extra data associated with this overlay."""
-
-    def flush(self):
-        self.out.flush(self.name)
 
 
 class GraphicsOverlay(BaseOverlay):
     """Handles outputting graphics to the screen."""
 
 
-class MenuOverlay(GraphicsOverlay, base.FontMixin):
+class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
     """A graphics overlay for menus."""
     def reset(self):
-        self.menu_elements = {}
+        self.menu_elements = set()
+        self.necessary_elements = set()
+        self.submit_elements = set()
 
-    def list(self, title, entries, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
-        list_screen = self._align(menu_elements.List.size, horz_alignment, vert_alignment)
+    def list(self, title, entries, **kwargs):
+        necessary, horz_alignment, vert_alignment = self._standard_args(kwargs)
+        list_screen = self._view(menu_elements.List.size, horz_alignment, vert_alignment)
         created_list = menu_elements.List(list_screen, title, entries, self.font)
+        self.menu_elements.add(created_list)
+        if necessary:
+            self.necessary_elements.add(created_list)
         return created_list
 
-    def submit(self, text, horz_alignment=internal_strings.Alignment.RIGHT, vert_alignment=internal_strings.Alignment.BOTTOM):
-        submit_button = self.button(text, horz_alignment, vert_alignment)
-        # TODO
-        return submit_button
-
-    def button(self, text, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
-        button_screen = self._align(menu_elements.Button.size, horz_alignment, vert_alignment)
+    def button(self, text, **kwargs):
+        necessary, horz_alignment, vert_alignment = self._standard_args(kwargs)
+        button_screen = self._view(menu_elements.Button.size, horz_alignment, vert_alignment)
         created_button = menu_elements.Button(button_screen, text, self.font)
+        self.menu_elements.add(created_button)
+        if necessary:
+            self.necessary_elements.add(created_button)
         return created_button
 
-    def _align(self, image_rect, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
-        screen_rect = self.screen.get_rect()
-        if horz_alignment == internal_strings.Alignment.LEFT:
-            horz_pos = 0
-        elif horz_alignment == internal_strings.Alignment.RIGHT:
-            horz_pos = screen_rect.width - image_rect.width
-        elif horz_alignment == internal_strings.Alignment.CENTER:
-            horz_pos = (screen_rect.width - image_rect.width) // 2
-        else:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_ALIGNMENT.format(alignment=horz_alignment))
+    def submit(self, text, **kwargs):
+        horz_alignment = kwargs.get('horz_alignment', internal_strings.Alignment.RIGHT)
+        vert_alignment = kwargs.get('vert_alignment', internal_strings.Alignment.BOTTOM)
+        submit_button = self.button(text, horz_alignment=horz_alignment, vert_alignment=vert_alignment)
+        self.submit_elements.add(submit_button)
+        return submit_button
 
-        if vert_alignment == internal_strings.Alignment.TOP:
-            vert_pos = 0
-        elif vert_alignment == internal_strings.Alignment.LEFT:
-            vert_pos = screen_rect.height - image_rect.height
-        elif vert_alignment == internal_strings.Alignment.CENTER:
-            vert_pos = (screen_rect.height - image_rect.height) // 2
-        else:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_ALIGNMENT.format(alignment=vert_alignment))
-
-        image_rect = sdl.Rect(horz_pos, vert_pos, image_rect.width, image_rect.height)
-        return self.screen.subsurface(image_rect)
+    def _standard_args(self, dict_):
+        necessary = dict_.get('necessary', False)
+        horz_alignment = dict_.get('horz_alignment', internal_strings.Alignment.CENTER)
+        vert_alignment = dict_.get('vert_alignment', internal_strings.Alignment.CENTER)
+        return necessary, horz_alignment, vert_alignment
 
 
 class TextOverlay(BaseOverlay, base.FontMixin):
@@ -217,21 +208,17 @@ class Output(base.BaseIO):
             overlay.register_interface(interface)
         super(Output, self).register_interface(interface)
 
-    def flush(self, overlay_names=None):
+    def clear(self):
+        for overlay in self.overlays.values():
+            overlay.clear()
+        self.flush()
+
+    def flush(self):
         """Pushes the changes from the overlays to the main screen.
 
         :str or tuple[str] overlay_names: The names of the overlays to update."""
-        updated_areas = []
-        if overlay_names is None:
-            overlays = self.overlays.values()
-        else:
-            if isinstance(overlay_names, str):
-                overlay_names = (overlay_names,)
-            overlays = tuple(self.overlays[overlay_name] for overlay_name in overlay_names)
-
-        for overlay in overlays:
+        for overlay in self.overlays.values():
             if overlay.enabled:
-                updated_area = self.screen.blit(overlay.screen, overlay.location)
-                updated_areas.append(updated_area)
+                self.screen.blit(overlay.screen, overlay.location)
 
-        sdl.display.update(updated_areas)
+        sdl.display.update()

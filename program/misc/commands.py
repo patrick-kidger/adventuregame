@@ -1,7 +1,7 @@
-import collections
 import Tools as tools
 
 import config.config as config
+import config.internal_strings as internal_strings
 import config.strings as strings
 
 import program.misc.exceptions as exceptions
@@ -19,9 +19,7 @@ class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
     def __getattribute__(cls, item):
         # If this command needs debug mode enabled...
         if item == 'do' and cls.needs_debug:
-            
             do = super(SpecialInputMetaclass, cls).__getattribute__(item)
-
             # ... then wrap the command in a function to check if debug is enabled
             def do_debug_wrapper(maze_game, inp_args):
                 if maze_game.debug:
@@ -46,8 +44,6 @@ class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
 class SpecialInput(SpecialInputSubclassTracker, metaclass=SpecialInputMetaclass):
     """Base class for special inputs."""
     completed = False    # Whether the game ends after this input is received
-    render = False       # Whether the game should have its output updated after this input is received
-    skip = tools.Object(skip=False)  # Whether the next tick should be executed without asking for user input.
     again = False        # Whether the game should be played again after this input is received. Must be paired with
                          # completed=True.
     inp = ''             # What string should inputed to get this input
@@ -95,7 +91,7 @@ class Variable(SpecialInput):
 class Help(SpecialInput):
     """Displays the available commands."""
     inp = config.DebugCommands.HELP
-    commands = collections.OrderedDict({strings.Help.MOVEMENT: strings.Help.MOVEMENT_TEXT})
+    commands = tools.SortedDict()
     description = "Displays this help menu."
     
     @classmethod
@@ -106,14 +102,13 @@ class Help(SpecialInput):
             commands_matched = [x for x in command_dict.keys() if command_searched_for in x]
             if commands_matched:
                 commands_matched_values = (command_dict[x] for x in commands_matched)
-                command_help_strings = [x.description if hasattr(x, 'description') else x
-                                        for x in commands_matched_values]
+                command_help_strings = [x.description for x in commands_matched_values]
                 maze_game.out.overlays.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
                 
         output_matched_commands(Help.commands, strings.Help.HEADER)
         if maze_game.debug:
             output_matched_commands(Debug.commands, strings.Help.DEBUG_HEADER)
-        maze_game.out.flush('debug')
+        maze_game.out.flush()
         return super(Help, cls).do(maze_game, inp_args)
 
 
@@ -137,7 +132,7 @@ class Debug(Variable):
     """Sets the debug state."""
     inp = config.DebugCommands.DEBUG
     variables = ('debug',)
-    commands = collections.OrderedDict()
+    commands = tools.SortedDict()
 
 
 @tools.register(config.DebugCommands.NOCLIP, Debug.commands)
@@ -168,26 +163,13 @@ class Ghost(Variable):
 class ChangeMap(SpecialInput):
     """Changes the map."""
     inp = config.DebugCommands.CHANGEMAP
-    render = True
     needs_debug = True
     
     @classmethod
     def do(cls, maze_game, inp_args):
         maze_game.map_select()
+        maze_game.state = internal_strings.State.PLAY
         return super(ChangeMap, cls).do(maze_game, inp_args)
-
-
-@tools.register(config.DebugCommands.QUIT, Help.commands)
-class Quit(SpecialInput):
-    """Quits the game back to the main screen."""
-    inp = config.DebugCommands.QUIT
-    completed = True
-
-
-@tools.register(config.DebugCommands.EXIT, Help.commands)
-class Exit(Quit):
-    """Quits the game back to the main screen."""
-    inp = config.DebugCommands.EXIT
 
 
 @tools.register(config.DebugCommands.CLOSE, Help.commands)
@@ -198,20 +180,31 @@ class Close(SpecialInput):
     @classmethod
     def do(cls, maze_game, inp_args):
         raise exceptions.CloseException()
-    
 
-@tools.register(config.DebugCommands.RENDER, Help.commands)
-class Render(SpecialInput):
-    """Displays the current game state."""
-    inp = config.DebugCommands.RENDER
-    render = True
-    
+
+@tools.register(config.DebugCommands.QUIT, Help.commands)
+class Quit(SpecialInput):
+    """Quits the game back to the main screen."""
+    inp = config.DebugCommands.QUIT
+    completed = True
+
+    @classmethod
+    def do(cls, maze_game, inp_args):
+        maze_game.inp.remove_listener('debug')
+        maze_game.out.overlays.debug.disable()
+        return super(Quit, cls).do(maze_game, inp_args)
+
+
+@tools.register(config.DebugCommands.EXIT, Help.commands)
+class Exit(Quit):
+    """Quits the game back to the main screen."""
+    inp = config.DebugCommands.EXIT
+
 
 @tools.register(config.DebugCommands.RESET, Help.commands)
-class Reset(SpecialInput):
+class Reset(Quit):
     """Resets the game."""
     inp = config.DebugCommands.RESET
-    completed = True
     again = True
 
     
