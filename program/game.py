@@ -131,38 +131,46 @@ class MazeGame(object):
 
         self.map = None     # Immediately redefined in reset()
         self.player = None  # Just defined here for clarity about what instance properties we have
-        self.state = None   #
         self.debug = None   #
         
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
-        self.inp.clear()
-        self.out.clear()
-
         self.map = Map(self.out.overlays.game.background_color)
         self.player = entities.Player()
 
-        self.state = None
+        self.inp.reset()
+        self.out.reset()
+
         self.debug = False
         
     def start(self):
         """Starts the game."""
-        try:
-            play_again = True
-            while play_again:
-                self.reset()
-                self.map_select()
-                play_again = self._run()
-        except exceptions.CloseException:
-            pass
-        
-    def map_select(self):
-        """Gives the menu to select a map."""
-        self.state = internal_strings.State.MAP_SELECT
+        reset = True
+        map_select = True
+        while True:
+            try:
+                if reset:
+                    self.reset()
+                    reset = False
+                if map_select:
+                    self._map_select()
+                    map_select = False
+                self._run()
+                break
+            except exceptions.QuitException as e:
+                if isinstance(e, exceptions.ResetException):
+                    reset = True
+                    map_select = True
+                if isinstance(e, exceptions.MapSelectException):
+                    map_select = True
+                if isinstance(e, exceptions.CloseException):
+                    break
 
+    def _map_select(self):
+        """Gives the menu to select a map."""
         map_names = self.maps_access.setup_and_find_map_names()
-        with self.out.overlays.menu.use() + self.inp.enable_listener('menu'):
-            self.out.overlays.menu.clear()
+        with self._use_interface('menu'):
+            self.out.overlays.menu.reset()
             menu_list = self.out.overlays.menu.list(title=strings.MapSelect.TITLE, entries=map_names, necessary=True)
             self.out.overlays.menu.submit(strings.MapSelect.SELECT_MAP)
             self.out.flush()
@@ -178,15 +186,13 @@ class MazeGame(object):
 
         # Load map
         self.map.load(map_)
-        
+
         # Load player
         self.player.set_pos(map_.start_pos)
 
     def _run(self):
         """The main game loop."""
-        self.state = internal_strings.State.PLAY
-
-        with self.out.overlays.game.use() + self.inp.enable_listener('game'):
+        with self._use_interface('game'):
             completed = False  # Game has not yet finished
             # Information to be carried over to the next tick, if we don't allow input in this one.
             skip = tools.Object(skip=False)
@@ -196,7 +202,9 @@ class MazeGame(object):
                 completed = tick_result.completed
                 skip = tick_result.skip
                 self.render()
-        return tick_result.again
+
+    def _use_interface(self, interface_name):
+        return self.out.use(interface_name) + self.inp.use(interface_name)
     
     def _tick(self, skip):
         """A single tick of the game."""
@@ -207,7 +215,7 @@ class MazeGame(object):
             time.sleep(config.TICK_PAUSE)
             play_inp, input_type = self.inp()
 
-        input_result = tools.Object(completed=False, progress=True, again=False, skip=tools.Object(skip=False))
+        input_result = tools.Object(completed=False, skip=tools.Object(skip=False))
 
         if input_type == internal_strings.InputTypes.MOVEMENT:
             did_move = self.move_entity(play_inp, self.player)
@@ -226,7 +234,7 @@ class MazeGame(object):
 
     def render(self):
         """Outputs the current game state."""
-        self.out.overlays.game.clear()
+        self.out.overlays.game.reset()
         self.out.overlays.game.screen.blit(self.map.screens[self.player.z])
         self.out.overlays.game.screen.blit(self.player.appearance,
                                            (self.player.x * config.TILE_X, self.player.y * config.TILE_Y))

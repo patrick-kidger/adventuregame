@@ -1,7 +1,6 @@
 import Tools as tools
 
 import config.config as config
-import config.internal_strings as internal_strings
 import config.strings as strings
 
 import program.misc.exceptions as exceptions
@@ -43,18 +42,12 @@ class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
 
 class SpecialInput(SpecialInputSubclassTracker, metaclass=SpecialInputMetaclass):
     """Base class for special inputs."""
-    completed = False    # Whether the game ends after this input is received
-    again = False        # Whether the game should be played again after this input is received. Must be paired with
-                         # completed=True.
-    inp = ''             # What string should inputed to get this input
+    inp = ''             # What string should inputted to get this input
     needs_debug = False  # Whether this input needs debug mode enabled to work
     
     @classmethod
     def do(cls, maze_game, inp_args):
         """This is the function that should be called to invoke a special action."""
-        if cls is SpecialInput:
-            maze_game.inp.invalid_input()
-        return cls
     
         
 class Variable(SpecialInput):
@@ -74,7 +67,6 @@ class Variable(SpecialInput):
             tools.deepsetattr(maze_game, variable_name, variable_value)
             maze_game.out.overlays.debug(strings.Play.VARIABLE_SET.format(variable=variable_name, value=variable_value),
                                          end='\n', flush=True)
-        return super(Variable, cls).do(maze_game, inp_args)
         
     @staticmethod
     def bool_(inp):
@@ -109,7 +101,6 @@ class Help(SpecialInput):
         if maze_game.debug:
             output_matched_commands(Debug.commands, strings.Help.DEBUG_HEADER)
         maze_game.out.flush()
-        return super(Help, cls).do(maze_game, inp_args)
 
 
 # Register help with itself. Can't do this via decorator as Help hasn't yet been defined at decoration time.
@@ -123,8 +114,7 @@ class Clear(SpecialInput):
 
     @classmethod
     def do(cls, maze_game, inp_args):
-        maze_game.out.overlays.debug.clear(flush=True)
-        return super(Clear, cls).do(maze_game, inp_args)
+        maze_game.out.overlays.debug.reset(flush=True)
 
 
 @tools.register(config.DebugCommands.DEBUG, Help.commands)
@@ -167,9 +157,7 @@ class ChangeMap(SpecialInput):
     
     @classmethod
     def do(cls, maze_game, inp_args):
-        maze_game.map_select()
-        maze_game.state = internal_strings.State.PLAY
-        return super(ChangeMap, cls).do(maze_game, inp_args)
+        raise exceptions.MapSelectException()
 
 
 @tools.register(config.DebugCommands.CLOSE, Help.commands)
@@ -186,13 +174,10 @@ class Close(SpecialInput):
 class Quit(SpecialInput):
     """Quits the game back to the main screen."""
     inp = config.DebugCommands.QUIT
-    completed = True
 
     @classmethod
     def do(cls, maze_game, inp_args):
-        maze_game.inp.remove_listener('debug')
-        maze_game.out.overlays.debug.disable()
-        return super(Quit, cls).do(maze_game, inp_args)
+        raise exceptions.QuitException()
 
 
 @tools.register(config.DebugCommands.EXIT, Help.commands)
@@ -201,13 +186,17 @@ class Exit(Quit):
     inp = config.DebugCommands.EXIT
 
 
-@tools.register(config.DebugCommands.RESET, Help.commands)
-class Reset(Quit):
+@tools.register(config.DebugCommands.RESET, Debug.commands)
+class Reset(SpecialInput):
     """Resets the game."""
     inp = config.DebugCommands.RESET
-    again = True
+    needs_debug = True
 
-    
+    @classmethod
+    def do(cls, maze_game, inp_args):
+        raise exceptions.ResetException()
+
+
 @tools.register(config.DebugCommands.GET, Debug.commands)
 class Get(SpecialInput):
     """Gets the value of a variable."""
@@ -225,4 +214,3 @@ class Get(SpecialInput):
         else:
             maze_game.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name, value=variable_value),
                                          end='\n', flush=True)
-        return super(Get, cls).do(maze_game, inp_args)

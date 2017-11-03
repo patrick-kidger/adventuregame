@@ -43,7 +43,6 @@ class InputTypes(tools.Container):
     MENU = 'menu'
     MOVEMENT = 'move'
     NO_INPUT = 'no_input'
-    DEBUG = 'debug'
 
 # Defines alignments when placing interface elements
 class Alignment(tools.Container):
@@ -52,7 +51,3 @@ class Alignment(tools.Container):
     TOP = 'top'
     BOTTOM = 'bottom'
     CENTER = 'center'
-
-class State(tools.Container):
-    MAP_SELECT = 'map select'
-    PLAY = 'play'

@@ -18,6 +18,7 @@ class BaseListener(base.BaseIO, helpers.NameMixin):
     """An abstract base class for listeners."""
     def __init__(self, *args, **kwargs):
         super(BaseListener, self).__init__(*args, **kwargs)
+        self.reset()
 
     def __call__(self):
         inp_result = None, internal_strings.InputTypes.NO_INPUT
@@ -41,6 +42,9 @@ class BaseListener(base.BaseIO, helpers.NameMixin):
                 inp_result = _inp_result
         return inp_result
 
+    def reset(self):
+        pass
+
 
 class OverlayListener(BaseListener):
     """Allows associating an overlay with a listener."""
@@ -52,12 +56,12 @@ class OverlayListener(BaseListener):
 class MenuListener(OverlayListener):
     def __init__(self, *args, **kwargs):
         self.clicked_element = None
-        self.reset()
         super(MenuListener, self).__init__(*args, **kwargs)
 
     def reset(self):
         self._inp_result = {}, internal_strings.InputTypes.MENU
         self.inp_result_ready = False
+        super(MenuListener, self).reset()
 
     def _handle(self, event):
         if self.inp_result_ready:
@@ -102,9 +106,9 @@ class PlayListener(BaseListener):
 
 
 class TextListener(OverlayListener):
-    def __init__(self, overlay, name, *args, **kwargs):
+    def reset(self):
         self.text = ''
-        super(TextListener, self).__init__(overlay, name, *args, **kwargs)
+        super(TextListener, self).reset()
 
     def _modify_text(self, char, key_code):
         if char is not None:
@@ -129,31 +133,28 @@ class DebugListener(TextListener):
         if key_code in sdl.K_ENTER:
             self.overlay('\n')
             self.out.flush()
-            command = self._debug_command(self.text)
-            self.text = ''
-            if command is not None:
-                return command, internal_strings.InputTypes.DEBUG
+            self._debug_command()
         elif key_code == sdl.K_ESCAPE:
             self.overlay.enabled = False
             self.inp.remove_listener('debug')
         else:
             self._modify_text(char, key_code)
-        return None, internal_strings.InputTypes.NO_INPUT
 
-    def _debug_command(self, command):
-        """Finds the debug command corresponding to the string inputted. Returns either the command (as a function,
-        needing a maze game instance to be passed to it), or None, if it could not find a corresponding command."""
-        command_split = command.split(' ')
+    def _debug_command(self):
+        """Finds and executes the debug command corresponding to currently stored text."""
+        command_split = self.text.split(' ')
         command_name = command_split[0]
-        if command_name in config.DebugCommands:
-            command_args = tools.qlist(command_split[1:], except_val='')
-            special_input = commands.get_command(command_name)
-            return lambda maze_game: special_input.do(maze_game, command_args)
+        command_args = tools.qlist(command_split[1:], except_val='')
+        try:
+            command = commands.get_command(command_name)
+        except KeyError:
+            self.invalid_input()
         else:
-            self._invalid_input()
-            return None
+            command.do(self.inp.maze_game, command_args)
+        finally:
+            self.reset()
 
-    def _invalid_input(self):
+    def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
         self.overlay(strings.Play.INVALID_INPUT, end='\n')
         self.out.flush()
@@ -165,21 +166,17 @@ class Input(base.BaseIO):
     def __init__(self, listeners, *args, **kwargs):
         self._listeners = listeners
         self.maze_game = None
-        self.clear()
+        self.reset()
         super(Input, self).__init__(*args, **kwargs)
 
-    def __call__(self, listener_name=None, *args, **kwargs):
-        with self.enable_listener(listener_name) if listener_name is not None else tools.WithNothing():
-            input_result, input_type = self.enabled_listener(*args, **kwargs)
-        if input_type == internal_strings.InputTypes.DEBUG:
-            input_result(self.maze_game)
-            return None, internal_strings.InputTypes.NO_INPUT
-        else:
-            return input_result, input_type
+    def __call__(self, *args, **kwargs):
+        return self.enabled_listener(*args, **kwargs)
 
-    def clear(self):
+    def reset(self):
         self.debug_listener_enabled = False  # Debug listener is handled specially so that it's always at the top
         self._enabled_listeners = []
+        for listener in self._listeners.values():
+            listener.reset()
 
     def register_interface(self, interface):
         for listener in self._listeners.values():
@@ -205,23 +202,6 @@ class Input(base.BaseIO):
             else:
                 raise exceptions.ListenerRemovalException(internal_strings.Exceptions.INVALID_LISTENER_REMOVAL.format(listener=listener_name))
 
-    def _is_top_listener(self, listener_name):
-         return len(self._enabled_listeners) != 0 and self._top_listener.name == listener_name
-
-    def enable_listener(self, listener_name):
-        """Enables the listener with the specified name, and disable the currently enabled listener. The currently
-        enabled listener will be restored afterwards. Used with a with statement."""
-
-        class EnableOnlyListener(tools.WithAdder):
-            def __enter__(self_enable):
-                self.add_listener(listener_name)
-
-            def __exit__(self_enable, exc_type, exc_val, exc_tb):
-                if exc_type is None or not issubclass(exc_type, exceptions.LeaveGameException):
-                    self.remove_listener(listener_name)
-
-        return EnableOnlyListener()
-
     def toggle_listener(self, listener_name):
         if listener_name == 'debug':
             self.debug_listener_enabled = not self.debug_listener_enabled
@@ -230,6 +210,22 @@ class Input(base.BaseIO):
                 self.remove_listener(listener_name)
             else:
                 self.add_listener(listener_name)
+
+    def use(self, listener_name):
+        """Enables the listener with the specified name, and disable the currently enabled listener. The currently
+        enabled listener will be restored afterwards. Used with a with statement."""
+
+        class EnableOnlyListener(tools.WithAdder):
+            def __enter__(self_enable):
+                self.add_listener(listener_name)
+
+            def __exit__(self_enable, exc_type, exc_val, exc_tb):
+                self.remove_listener(listener_name)
+
+        return EnableOnlyListener()
+
+    def _is_top_listener(self, listener_name):
+         return len(self._enabled_listeners) != 0 and self._top_listener.name == listener_name
 
     @property
     def enabled_listener(self):

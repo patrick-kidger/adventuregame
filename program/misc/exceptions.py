@@ -2,17 +2,25 @@ class BaseGameException(Exception):
     """Base exception for all exceptions raised during the game's runtime."""
 
 
-class LeaveGameException(BaseGameException):
+# Okay exceptions; may be raised during expected usage of the game.
+
+class QuitException(BaseGameException):
     """Base exception for all exceptions involving leaving the current game."""
 
 
-class CloseException(LeaveGameException):
+class CloseException(QuitException):
     """Indicates that the whole application should be closed."""
 
 
-class QuitException(LeaveGameException):
-    """Indicates that the current game should be exited from."""
+class ResetException(QuitException):
+    """Indicates that the whole instance should start over from scratch."""
 
+
+class MapSelectException(QuitException):
+    """Indicates that the map select screen should be returned to."""
+
+
+# Bad exceptions; probably raised because of code errors
 
 class ProgrammingException(BaseGameException):
     """Raised due to an internal problems, likely because of incorrect code."""

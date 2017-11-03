@@ -159,16 +159,7 @@ class EnablerMixin(object):
 
     def use(self):
         """Temporarily sets the enabled attribute to True. Used with a with statement."""
-
-        class EnablerClass(tools.WithAdder):
-            def __enter__(self_enabler):
-                self_enabler.enabled = self.enabled
-                self.enabled = True
-
-            def __exit__(self_enabler, exc_type, exc_val, exc_tb):
-                self.enabled = self_enabler.enabled
-
-        return EnablerClass()
+        return tools.set_context_variable(self, 'enabled')
 
 
 def re_sub_recursive(pattern, sub, inputstr):

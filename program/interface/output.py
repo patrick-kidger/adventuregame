@@ -17,13 +17,16 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
     default_output_kwargs = {}
 
     def __init__(self, name, location, size, background_color, *args, **kwargs):
+        super(BaseOverlay, self).__init__(name=name, enabled=False, *args, **kwargs)
         self.location = location
         self.screen = sdl.Surface(size)
         self.background_color = background_color
 
-        self.clear()
+        self.reset()
 
-        super(BaseOverlay, self).__init__(name=name, enabled=False, *args, **kwargs)
+    def reset(self, flush=False):
+        """Resets all extra data associated with this overlay."""
+        self.wipe(flush)
 
     def __call__(self, output_val, flush=False):
         # Just a convenience, to allow for just calling with flush=True as an argument, rather than putting an
@@ -31,19 +34,11 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
         if flush:
             self.out.flush()
 
-    def clear(self, flush=False):
-        """Clears the overlay of everything that has been printed to it."""
-        self.wipe(flush)
-        self.reset()
-
     def wipe(self, flush=False):
         """Fills the overlay with its background color."""
         self.screen.fill(self.background_color)
         if flush:
             self.out.flush()
-
-    def reset(self):
-        """Resets all extra data associated with this overlay."""
 
 
 class GraphicsOverlay(BaseOverlay):
@@ -52,10 +47,12 @@ class GraphicsOverlay(BaseOverlay):
 
 class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
     """A graphics overlay for menus."""
+
     def reset(self):
         self.menu_elements = set()
         self.necessary_elements = set()
         self.submit_elements = set()
+        super(MenuOverlay, self).reset()
 
     def list(self, title, entries, **kwargs):
         necessary, horz_alignment, vert_alignment = self._standard_args(kwargs)
@@ -92,6 +89,10 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
 class TextOverlay(BaseOverlay, base.FontMixin):
     """Handles outputting text to the screen."""
 
+    def reset(self):
+        self.text = ''
+        super(TextOverlay, self).reset()
+
     def __call__(self, output_val, width=None, end='', **kwargs):
         """Outputs text.
 
@@ -115,9 +116,6 @@ class TextOverlay(BaseOverlay, base.FontMixin):
             text_area = self.screen.blit(text, text_cursor)
             text_cursor = (0, text_area.bottom)
         super(TextOverlay, self).__call__(output_val, **kwargs)
-
-    def reset(self):
-        self.text = ''
 
     def sep(self, length, **kwargs):
         """Prints a separator of the given length."""
@@ -203,22 +201,24 @@ class Output(base.BaseIO):
         sdl.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__(*args, **kwargs)
 
+    def reset(self):
+        for overlay in self.overlays.values():
+            overlay.reset()
+            overlay.disable()
+        self.flush()
+
     def register_interface(self, interface):
         for overlay in self.overlays.values():
             overlay.register_interface(interface)
         super(Output, self).register_interface(interface)
 
-    def clear(self):
-        for overlay in self.overlays.values():
-            overlay.clear()
-        self.flush()
-
     def flush(self):
-        """Pushes the changes from the overlays to the main screen.
-
-        :str or tuple[str] overlay_names: The names of the overlays to update."""
+        """Pushes the changes from the overlays to the main screen."""
         for overlay in self.overlays.values():
             if overlay.enabled:
                 self.screen.blit(overlay.screen, overlay.location)
 
         sdl.display.update()
+
+    def use(self, overlay_name):
+        return self.overlays[overlay_name].use()
