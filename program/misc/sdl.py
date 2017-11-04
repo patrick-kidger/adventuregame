@@ -5,6 +5,7 @@ import pygame.ftfont
 import pygame.display
 import pygame.event
 
+
 import program.misc.exceptions as exceptions
 
 # Initialise the pygame modules
@@ -15,8 +16,8 @@ pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN])
 
 # Top-level pygame imports
 class Surface(pygame.Surface):
-    def blit(self, source, dest=(0, 0), *args, **kwargs):  # Added default argument to dest
-        return super(Surface, self).blit(source, dest, *args, **kwargs)
+    def blit(self, source, dest=(0, 0), area=None, special_flags=0):  # Added default argument to dest
+        return super(Surface, self).blit(source, dest, area, special_flags)
 
     def point_within(self, pos):
         offset = self.get_offset()
@@ -94,6 +95,8 @@ def event_stream(single_event=False, discard_old=True):
 
 
 def text_event(event_):
+    """Takes an event and parses it so that if it is of type KEYDOWN, then it returns its character and keycode. If it
+    is not of type KEYDOWN, then it returns None, None."""
     if event_ is None:
         return None, None
     elif event_.type == KEYDOWN:

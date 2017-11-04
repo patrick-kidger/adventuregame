@@ -2,6 +2,7 @@ import re
 import os
 import Tools as tools
 
+
 import config.internal_strings as internal_strings
 
 import program.misc.exceptions as exceptions
@@ -78,7 +79,16 @@ def image_from_filename(files_location):
 
 
 class AlignmentMixin(object):
+    """Provides methods for placing objects on the instances's screen."""
+
     def _align(self, image_rect, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
+        """Takes a rectangle and some alignment options and returns the coordinates that the top left of the rectangle
+        should be at on the instance's screen.
+
+        :Rect image_rect: pygame.Rect instance of the object to tbe placed.
+        :str horz_alignment: Optional string describing where the object should be placed.
+        :str vert_alignment: Optional string describing where the object should be placed.
+        """
         screen_rect = self.screen.get_rect()
         if horz_alignment == internal_strings.Alignment.LEFT:
             horz_pos = 0
@@ -101,6 +111,8 @@ class AlignmentMixin(object):
         return horz_pos, vert_pos
 
     def _view(self, image_rect, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
+        """As _align, but returns a subsurface of the instance's screen corresponding to where :image_rect: should be
+        placed."""
         horz_pos, vert_pos = self._align(image_rect, horz_alignment, vert_alignment)
         image_rect = sdl.Rect(horz_pos, vert_pos, image_rect.width, image_rect.height)
         return self.screen.subsurface(image_rect)
@@ -138,24 +150,29 @@ class HasPositionMixin(object):
 
 
 class NameMixin(object):
+    """Used to give instances a 'name' attribute."""
     def __init__(self, name, *args, **kwargs):
         self.name = name
         super(NameMixin, self).__init__(*args, **kwargs)
 
 
 class EnablerMixin(object):
+    """Gives instances an 'enabled' attribute, along with some methods to set its value."""
     def __init__(self, enabled, *args, **kwargs):
         self.enabled = enabled
         super(EnablerMixin, self).__init__(*args, **kwargs)
 
     def toggle(self):
+        """Toggles the 'enabled' attribute."""
         self.enabled = not self.enabled
 
     def enable(self, state=True):
+        """Sets the 'enabled' attribute to :state:, or True if no :state: argument is passed."""
         self.enabled = state
 
     def disable(self):
-        self.enabled = False
+        """Sets the 'enabled' attribute to False."""
+        self.enable(False)
 
     def use(self):
         """Temporarily sets the enabled attribute to True. Used with a with statement."""
@@ -163,6 +180,11 @@ class EnablerMixin(object):
 
 
 def re_sub_recursive(pattern, sub, inputstr):
+    """Recursive regex.
+
+    :str pattern: The regex pattern
+    :str sub: What to substitute the regex pattern for.
+    :str inputstr: The string to perform the substitutions on."""
     patt = re.compile(pattern)
 
     old_inputstr = inputstr

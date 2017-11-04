@@ -1,4 +1,3 @@
-import math
 import Tools as tools
 
 
@@ -7,7 +6,6 @@ import config.internal_strings as internal_strings
 import config.strings as strings
 
 import program.interface.base as base
-
 import program.misc.commands as commands
 import program.misc.exceptions as exceptions
 import program.misc.helpers as helpers
@@ -15,7 +13,22 @@ import program.misc.sdl as sdl
 
 
 class BaseListener(base.BaseIO, helpers.NameMixin):
-    """An abstract base class for listeners."""
+    """An abstract base class for listeners.
+
+    Listeners are how the user passes input to the game. They are polled via the class Input, which keeps track of them
+    all.
+
+    Subclasses of this should define a method '_handle(self, event)', accepting a pygame event, that determines what
+    should happen as a result of the event. The method _handle should not request further user input or wait in loops;
+    instead it should store its current state in instance attributes which can then be used the next time _handle is
+    called. If _handle returns something other than None, then this return value will be passed to the program.
+    Typically this should be a 2-tuple; the first element passing the data that the program needs, and the second
+    element an internal_strings.InputTypes attribute defining what kind of input type it is.
+
+    Subclasses may also define a method 'reset', which should be used to reset the values of instance attributes to what
+    they are initialised to. (It is obviously not necessarily appropriate for all instance attributes to go here; it's
+    really only those attributes which are modified during _handle which need to be reset.)
+    """
     def __init__(self, *args, **kwargs):
         super(BaseListener, self).__init__(*args, **kwargs)
         self.reset()
@@ -30,9 +43,14 @@ class BaseListener(base.BaseIO, helpers.NameMixin):
 
         if char == config.OPEN_CONSOLE:
             self.out.overlays.debug.toggle()
+            if self.out.overlays.debug.enabled:
+                self.inp.add_listener('debug')
+            else:
+                self.inp.remove_listener('debug')
             self.out.flush()
+            handled = True
 
-        if char == config.OPEN_CONSOLE or (char == config.SELECT_CONSOLE and self.out.overlays.debug.enabled):
+        if char == config.SELECT_CONSOLE and self.out.overlays.debug.enabled:
             self.inp.toggle_listener('debug')
             handled = True
 
@@ -43,23 +61,25 @@ class BaseListener(base.BaseIO, helpers.NameMixin):
         return inp_result
 
     def reset(self):
-        pass
+        """Resets the listener back to its initialised state."""
+        # Endpoint for super calls.
 
 
 class OverlayListener(BaseListener):
-    """Allows associating an overlay with a listener."""
+    """Base class for listeners that associates an overlay with a listener."""
     def __init__(self, overlay, *args, **kwargs):
         self.overlay = overlay
         super(OverlayListener, self).__init__(*args, **kwargs)
 
 
 class MenuListener(OverlayListener):
+    """A listener for interacting with interface elements - buttons and things."""
     def __init__(self, *args, **kwargs):
         self.clicked_element = None
         super(MenuListener, self).__init__(*args, **kwargs)
 
     def reset(self):
-        self._inp_result = {}, internal_strings.InputTypes.MENU
+        self.inp_result = {}, internal_strings.InputTypes.MENU
         self.inp_result_ready = False
         super(MenuListener, self).reset()
 
@@ -78,27 +98,25 @@ class MenuListener(OverlayListener):
                     self.clicked_element = menu_element
                     click_result = menu_element.click(event.pos)
                     # Stores its result
-                    self._inp_result[0][menu_element] = click_result
+                    self.inp_result[0][menu_element] = click_result
 
                     # If we clicked a submit element
                     if menu_element in self.overlay.submit_elements:
                         # Make sure all necessary elements have data
                         for necessary_element in self.overlay.necessary_elements:
-                            if self._inp_result[0].get(necessary_element, None) is None:
+                            if self.inp_result[0].get(necessary_element, None) is None:
                                 break  # Necessary element doesn't have data
                         else:
                             # All necessary elements have data; we're done here.
                             self.inp_result_ready = True
                     break
             self.out.flush()
-        return self.inp_result
-
-    @property
-    def inp_result(self):
-        return self._inp_result if self.inp_result_ready else None
+        if self.inp_result_ready:
+            return self.inp_result
 
 
 class PlayListener(BaseListener):
+    """The listener for the main playing of the game - moving the player character and so forth."""
     def _handle(self, event):
         char, key_code = sdl.text_event(event)
         if char in config.Move:
@@ -106,11 +124,15 @@ class PlayListener(BaseListener):
 
 
 class TextListener(OverlayListener):
+    """A listener for inputting text."""
     def reset(self):
         self.text = ''
         super(TextListener, self).reset()
 
-    def _modify_text(self, char, key_code):
+    def _modify_text(self, event):
+        """Modifies the instance's 'text' attribute based on pygame text event input."""
+        char, key_code = sdl.text_event(event)
+
         if char is not None:
             should_output = True
             if key_code == sdl.K_BACKSPACE:
@@ -122,23 +144,22 @@ class TextListener(OverlayListener):
                 self.text += char
 
             if should_output:
-                self.overlay(char)
-                self.out.flush()
+                self.overlay(char, flush=True)
 
 
 class DebugListener(TextListener):
+    """The listener specifically for the debug console."""
     def _handle(self, event):
         char, key_code = sdl.text_event(event)
 
         if key_code in sdl.K_ENTER:
-            self.overlay('\n')
-            self.out.flush()
+            self.overlay('\n', flush=True)
             self._debug_command()
         elif key_code == sdl.K_ESCAPE:
             self.overlay.enabled = False
             self.inp.remove_listener('debug')
         else:
-            self._modify_text(char, key_code)
+            self._modify_text(event)
 
     def _debug_command(self):
         """Finds and executes the debug command corresponding to currently stored text."""
@@ -156,12 +177,23 @@ class DebugListener(TextListener):
 
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
-        self.overlay(strings.Play.INVALID_INPUT, end='\n')
-        self.out.flush()
+        self.overlay(strings.Play.INVALID_INPUT, end='\n', flush=True)
 
 
 class Input(base.BaseIO):
-    """Handles receiving user input."""
+    """Handles receiving user input. Input should be requested by calling an instance of this class. What listener is
+    enabled can be changed through this class's methods. Internally, instances of this class keep a list of listeners,
+    with the topmost listener being the one that input is requested from. Subsequently enabling other listeners will
+    then be added to the end of the list.
+
+    Trying to disable a listener that is not the currently enabled listener - i.e. is not the topmost listener - will
+    result in an exception.
+
+    Note that the debug listener is handled specially, so that if it is enabled, it is always at the top of the list, so
+    any other listeners that are subsequently enabled will be added to the list directly before the debug listener.
+    This is useful because debug commands may wish to change the state of the game in quite complicated ways, and in
+    particular change the listeners - and the debug console should remain usable whilst doing so, rather than become
+    inoperative because of adding these extra listeners on top."""
 
     def __init__(self, listeners, *args, **kwargs):
         self._listeners = listeners
@@ -170,10 +202,12 @@ class Input(base.BaseIO):
         super(Input, self).__init__(*args, **kwargs)
 
     def __call__(self, *args, **kwargs):
+        """Call to request input from the currently enabled listener."""
         return self.enabled_listener(*args, **kwargs)
 
     def reset(self):
-        self.debug_listener_enabled = False  # Debug listener is handled specially so that it's always at the top
+        """Resets this class back to its initialised state."""
+        self._debug_listener_enabled = False  # Debug listener is handled specially so that it's always at the top
         self._enabled_listeners = []
         for listener in self._listeners.values():
             listener.reset()
@@ -184,18 +218,22 @@ class Input(base.BaseIO):
         super(Input, self).register_interface(interface)
 
     def register_game(self, maze_game):
+        """Lets the instance know what game instance it is being used with. This is needed for executing debug
+        commands."""
         self.maze_game = maze_game
 
     def add_listener(self, listener_name):
+        """Enables the specified listener."""
         if listener_name == 'debug':
-            self.debug_listener_enabled = True
+            self._debug_listener_enabled = True
         else:
             listener = self._listeners[listener_name]
             self._enabled_listeners.append(listener)
 
     def remove_listener(self, listener_name):
+        """Disables the specified listener."""
         if listener_name == 'debug':
-            self.debug_listener_enabled = False
+            self._debug_listener_enabled = False
         else:
             if self._is_top_listener(listener_name):
                 self._enabled_listeners.pop()
@@ -203,8 +241,9 @@ class Input(base.BaseIO):
                 raise exceptions.ListenerRemovalException(internal_strings.Exceptions.INVALID_LISTENER_REMOVAL.format(listener=listener_name))
 
     def toggle_listener(self, listener_name):
+        """Toggles the specified listener, i.e. enables it if is disabled, and vice versa."""
         if listener_name == 'debug':
-            self.debug_listener_enabled = not self.debug_listener_enabled
+            self._debug_listener_enabled = not self._debug_listener_enabled
         else:
             if self._is_top_listener(listener_name):
                 self.remove_listener(listener_name)
@@ -212,8 +251,8 @@ class Input(base.BaseIO):
                 self.add_listener(listener_name)
 
     def use(self, listener_name):
-        """Enables the listener with the specified name, and disable the currently enabled listener. The currently
-        enabled listener will be restored afterwards. Used with a with statement."""
+        """Enables the specified listener within a particular context, and disables it afterwards. Used in a with
+        statement."""
 
         class EnableOnlyListener(tools.WithAdder):
             def __enter__(self_enable):
@@ -225,17 +264,22 @@ class Input(base.BaseIO):
         return EnableOnlyListener()
 
     def _is_top_listener(self, listener_name):
-         return len(self._enabled_listeners) != 0 and self._top_listener.name == listener_name
+        """Returns True if the specified listener is at the top of list of enabled listeners (ignoring the special case
+        of the debug listener). Else returns False."""
+        return len(self._enabled_listeners) != 0 and self._top_listener.name == listener_name
 
     @property
     def enabled_listener(self):
-        if self.debug_listener_enabled:
+        """The currently enabled listener that is at the top of the list of listeners."""
+        if self._debug_listener_enabled:
             return self._listeners.debug
         else:
             return self._top_listener
 
     @property
     def _top_listener(self):
+        """The currently enabled listener that is at the top of the list of listeners, ignoring the special case of the
+        debug listener."""
         if len(self._enabled_listeners) == 0:
             raise exceptions.ProgrammingException(internal_strings.Exceptions.NO_LISTENER)
         return self._enabled_listeners[-1]

@@ -9,18 +9,47 @@ import program.misc.sdl as sdl
 
 
 class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
+    """Base class for all menu elements.
+
+    Subclasses should define click(self, pos) and unclick(self) methods which determine what happens when a click is
+    made at the given position, and when the element is deselected by the user clicking elsewhere.
+
+    When initialising menu elements, they should be passed a pygame.Surface object to use to store what the element
+    currently looks like, graphically. It is expected that this will in fact be a subsurface of an overlay's screen, so
+    that changes to the menu element's screen automatically get forwarded to the overlay's screen. (And is why the
+    screen is passed as an initialisation argument rather than being created within __init__.)
+
+    Menu elements may also define a class attribute 'ImageFilenames', which will be iterated over to find the locations
+    of the image files determining what the menu element looks like. The loaded images will then be stored in an
+    attribute called 'Images', with the same names as they were defined with in ImageFilenames.
+
+    Menu elements may define a class attribute 'size_image', which is the name of one of the loaded images, that will
+    be used to determine how large the menu element is, for example when determining its alignment on the screen. Note
+    that the value 'size_image' should be a string referring to the name of the python variable usedin 'ImageFilenames',
+    not the name of the file that it refers to.
+
+    Note that the position in the 'click' method is expected to be given in terms of the position of the click on the
+    overall display, so self._screen_pos should be called on the position to determine the position relative to the
+    screen that this element uses."""
     def __init__(self, screen, *args, **kwargs):
         self.screen = screen
         super(MenuElement, self).__init__(*args, **kwargs)
 
-
+    def _screen_pos(self, pos):
+        """Converts a position on the main display screen into a position relative to the screen used for this menu
+        element."""
+        offset = self.screen.get_abs_offset()
+        return self.pos_diff(pos, offset)
 
     @staticmethod
     def pos_diff(pos_a, pos_b):
+        """The difference of two positions."""
         return pos_a[0] - pos_b[0], pos_a[1] - pos_b[1]
 
 
 class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
+    """A button with text on it."""
+
     size_image = 'button_base'
 
     class ImageFilenames(tools.Container):
@@ -44,6 +73,8 @@ class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
 
 
 class _Entry(MenuElement, base.FontMixin):
+    """An entry in a List. Each entr has text on it."""
+
     size_image = 'list_entry_base'
 
     text_offset = (18, 18)
@@ -69,6 +100,7 @@ class _Entry(MenuElement, base.FontMixin):
 
 
 class List(MenuElement, base.FontMixin):
+    """A scrollable list of _Entrys."""
     size_image = 'list_background'
 
     class ImageFilenames(tools.Container):
@@ -76,7 +108,7 @@ class List(MenuElement, base.FontMixin):
         list_base = 'general/list/list_base.png'
         list_scroll_handle = 'general/list/list_scroll_handle.png'
 
-    class Alignment(object):
+    class Alignment(object):  # Tidied up into a class here rather than keeping them all as individual variables.
         scroll_screen_dim = (747, 735)
         scroll_screen_offset = (5, 60)
         title_offset = (8, 8)
@@ -105,14 +137,14 @@ class List(MenuElement, base.FontMixin):
         self.screen.blit(self.Images.list_background)
         title_text = self.render_text(title)
         self.screen.blit(title_text, self.Alignment.title_offset)
-        self.update_scroll_view()
+        self._update_scroll_view()
 
-    def update_scroll_view(self):
+    def _update_scroll_view(self):
+        """Updates how the entries are scrolled, e.g. in response to using the scroll bar."""
         self.scroll_screen_view.blit(self.scroll_screen, (0, self.scrolled_amount))
 
     def click(self, pos):
-        offset = self.screen.get_offset()
-        screen_pos = self.pos_diff(pos, offset)
+        screen_pos = self._screen_pos(pos)
         scroll_view_pos = self.pos_diff(screen_pos, self.Alignment.scroll_screen_offset)
         scroll_screen_pos = scroll_view_pos[0], scroll_view_pos[1] + self.scrolled_amount
         if self.clicked_entry is not None:
@@ -126,7 +158,7 @@ class List(MenuElement, base.FontMixin):
         else:
             clicked_index = None
             self.clicked_entry = None
-        self.update_scroll_view()
+        self._update_scroll_view()
 
         return clicked_index
 

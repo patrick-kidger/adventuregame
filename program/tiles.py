@@ -1,8 +1,8 @@
 import Tools as tools
 
+
 import config.config as config
 import config.internal_strings as internal_strings
-import config.strings as strings
 
 import program.misc.exceptions as exceptions
 import program.misc.helpers as helpers
@@ -19,7 +19,7 @@ class Tile(helpers.HasPositionMixin,
            DefinitionSubclassing,
            AppearanceFromFilename,
            metaclass=TileMetaclass):
-    """Represents a single tile of the map."""
+    """Represents a single empty tile of the map."""
     definition = ' '  # The character used when defining a map to use this tile
     appearance_filename = 'empty.png'  # The name of the image file for this type of tile. The metaclass will
                                        # automagically add an 'appearance' attribute that is a Surface that actually

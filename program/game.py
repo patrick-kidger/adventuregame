@@ -1,27 +1,33 @@
 import copy
 import time
-
 import Tools as tools
+
 
 import config.config as config
 import config.internal_strings as internal_strings
 import config.strings as strings
+
 import program.misc.exceptions as exceptions
+import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 import program.entities as entities
 import program.tiles as tiles
 
 
 class TileData(object):
-    """Holds all the Tiles."""
+    """Holds all the Tiles used in a map."""
     def __init__(self):
-        self._tile_data = None
+        self._tile_data = None  # The actual
         self.areas = None
         
     def __getitem__(self, item):
+        """Get a single tile.
+
+        :tools.Object item: Should have x, y, z attributes."""
         return self._tile_data[item.z, item.y, item.x]
 
     def __iter__(self):
+        """Iterates over all tiles. Yields a tools.Object with x, y, z, tile, y_row, z_level attributes."""
         for z, z_level in enumerate(self._tile_data):
             for y, y_row in enumerate(z_level):
                 for x, tile in enumerate(y_row):
@@ -65,14 +71,15 @@ class TileData(object):
         return self._tile_data[z_level]
         
     
-class Map(object):
-    """Holds all map data."""
+class Map(helpers.NameMixin):
+    """Holds all map data - the tiles that make up the map, plus associated information such as the map's name, its
+    visual depiction on the screen, etc."""
     
     def __init__(self, background_color):
-        self.name = None
-        self.tile_data = TileData()
-        self.screens = None
-        self.background_color = background_color
+        self.tile_data = TileData()  # The tiles that make up the map
+        self.screens = None  # The visual depiction of the map
+        self.background_color = background_color  # The background color to use where no tile is defined.
+        super(Map, self).__init__(name=None)
 
     def load(self, map_data):
         """Loads the specified map."""
@@ -124,14 +131,16 @@ class Map(object):
 class MazeGame(object):
     """Main game."""
     def __init__(self, maps_access, interface):
-        self.maps_access = maps_access
-        self.out = interface.out
-        self.inp = interface.inp
+        self._maps_access = maps_access  # Access to all the saved maps
+        self.out = interface.out  # Output to screen
+        self.inp = interface.inp  # Receive input from user
         interface.register_game(self)
 
-        self.map = None     # Immediately redefined in reset()
-        self.player = None  # Just defined here for clarity about what instance properties we have
-        self.debug = None   #
+        # Immediately redefined in reset()
+        # Just defined here for clarity about what instance properties we have
+        self.map = None     # The map that the player is on
+        self.player = None  # The player. Unsurprisingly.
+        self.debug = None   # Whether or not cheaty debug commands can be executed
         
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
@@ -146,29 +155,34 @@ class MazeGame(object):
     def start(self):
         """Starts the game."""
         reset = True
+        main_menu = True
         map_select = True
         while True:
             try:
                 if reset:
                     self.reset()
                     reset = False
+                if main_menu:
+                    # TODO: Add a main menu!
+                    main_menu = False
                 if map_select:
                     self._map_select()
                     map_select = False
                 self._run()
                 break
-            except exceptions.QuitException as e:
-                if isinstance(e, exceptions.ResetException):
-                    reset = True
-                    map_select = True
+            except exceptions.CloseException:
+                break
+            except exceptions.BaseQuitException as e:
                 if isinstance(e, exceptions.MapSelectException):
                     map_select = True
-                if isinstance(e, exceptions.CloseException):
-                    break
+                if isinstance(e, exceptions.QuitException):
+                    main_menu = True
+                if isinstance(e, exceptions.ResetException):
+                    reset = True
 
     def _map_select(self):
         """Gives the menu to select a map."""
-        map_names = self.maps_access.setup_and_find_map_names()
+        map_names = self._maps_access.setup_and_find_map_names()
         with self._use_interface('menu'):
             self.out.overlays.menu.reset()
             menu_list = self.out.overlays.menu.list(title=strings.MapSelect.TITLE, entries=map_names, necessary=True)
@@ -182,7 +196,7 @@ class MazeGame(object):
 
             selected_index = menu_results[menu_list]
             map_name = map_names[selected_index]
-            map_ = self.maps_access.get_map(map_name)
+            map_ = self._maps_access.get_map(map_name)
 
         # Load map
         self.map.load(map_)
@@ -193,21 +207,20 @@ class MazeGame(object):
     def _run(self):
         """The main game loop."""
         with self._use_interface('game'):
-            completed = False  # Game has not yet finished
             # Information to be carried over to the next tick, if we don't allow input in this one.
             skip = tools.Object(skip=False)
             self.render()
-            while not completed:
-                tick_result = self._tick(skip)
-                completed = tick_result.completed
-                skip = tick_result.skip
+            while True:
+                skip = self._tick(skip)
                 self.render()
 
     def _use_interface(self, interface_name):
+        """For use in 'with' statements. Enables both the listener and the overlay with the name :interface_name:"""
         return self.out.use(interface_name) + self.inp.use(interface_name)
     
     def _tick(self, skip):
         """A single tick of the game."""
+        # First get input from the user / from a skip condition.
         if skip.skip:
             time.sleep(config.SKIP_PAUSE)
             play_inp, input_type = skip.play_inp, skip.input_type
@@ -215,29 +228,28 @@ class MazeGame(object):
             time.sleep(config.TICK_PAUSE)
             play_inp, input_type = self.inp()
 
-        input_result = tools.Object(completed=False, skip=tools.Object(skip=False))
-
+        skip = tools.Object(skip=False)
+        # Then handle the input.
         if input_type == internal_strings.InputTypes.MOVEMENT:
             did_move = self.move_entity(play_inp, self.player)
             if skip.skip and not did_move:
                 raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_FORCE_MOVE)
             if not self.player.flight and self.map.fall(self.player.pos):
-                input_result.skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN,
-                                                 input_type=internal_strings.InputTypes.MOVEMENT)
+                skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN,
+                                    input_type=internal_strings.InputTypes.MOVEMENT)
 
         elif input_type == internal_strings.InputTypes.NO_INPUT:
             pass
         else:
             raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
 
-        return input_result
+        return skip
 
     def render(self):
         """Outputs the current game state."""
         self.out.overlays.game.reset()
-        self.out.overlays.game.screen.blit(self.map.screens[self.player.z])
-        self.out.overlays.game.screen.blit(self.player.appearance,
-                                           (self.player.x * config.TILE_X, self.player.y * config.TILE_Y))
+        self.out.overlays.game(self.map.screens[self.player.z])
+        self.out.overlays.game(self.player.appearance, (self.player.x * config.TILE_X, self.player.y * config.TILE_Y))
         self.out.flush()
             
     def move_entity(self, direction, entity):

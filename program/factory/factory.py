@@ -1,12 +1,11 @@
 import Tools as tools
 
+
 import config.config as config
-import config.internal_strings as internal_strings
 
 import data.maps as maps_
 
 import program.game as game
-
 import program.interface.base as base
 import program.interface.interface as interface_
 import program.interface.input as input_

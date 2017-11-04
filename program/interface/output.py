@@ -1,20 +1,25 @@
-import Tools as tools
-
-
 import config.config as config
 import config.internal_strings as internal_strings
 import config.strings as strings
 
 import program.interface.base as base
 import program.interface.menu_elements as menu_elements
-
+import program.misc.exceptions as exceptions
 import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 
 
 class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
-    """Abstract base class for all overlays. An 'overlay' is a layer on the screen that may be outputted to."""
-    default_output_kwargs = {}
+    """Abstract base class for all overlays. An 'overlay' is a layer on the screen that may be outputted to. An instance
+    of the 'Output' class keeps track of the different overlays.
+
+    Each overlay has a location on the main display screen that is sends graphical information to, and a screen that it
+    copies the graphical information from. Overlays are by default disabled, meaning that they will not send graphical
+    information to the main display screen. They must be enabled before they will do so.
+
+    Overlays should define a __call__(...) method through which they are called to output graphical information to their
+    screen. They may also define a reset(self, flush) method which will be called to return the instance to the state it
+    was initialised in. Overlays should put those attributes they need resetting here."""
 
     def __init__(self, name, location, size, background_color, *args, **kwargs):
         super(BaseOverlay, self).__init__(name=name, enabled=False, *args, **kwargs)
@@ -27,10 +32,16 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
     def reset(self, flush=False):
         """Resets all extra data associated with this overlay."""
         self.wipe(flush)
+        # Endpoint for super calls.
 
-    def __call__(self, output_val, flush=False):
-        # Just a convenience, to allow for just calling with flush=True as an argument, rather than putting an
-        # output.flush() on the next line.
+    # Subclasses definitions of __call__ will likely involve setting required arguments, which obviously violates LSP.
+    # Still this seems like the best solution. The alternative would be to demand that all __call__ definitions finish
+    # with a super call to some _call function on this base class implementing the below function, which just seems even
+    # worse.
+    def __call__(self, flush=False):
+        # Endpoint for super calls.
+
+        # A convenience that allows for setting flush=True when making a call to an overlay.
         if flush:
             self.out.flush()
 
@@ -44,17 +55,32 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
 class GraphicsOverlay(BaseOverlay):
     """Handles outputting graphics to the screen."""
 
+    def __call__(self, source, dest=(0, 0), area=None, special_flags=0, *args, **kwargs):
+        self.screen.blit(source, dest, area, special_flags)
+        super(GraphicsOverlay, self).__call__(*args, **kwargs)
+
 
 class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
-    """A graphics overlay for menus."""
+    """A graphics overlay for menus. This overlay is rather special, in that it does not define a __call__ method.
+    Instead it provides methods for placing menu elements on the screen. Subsequently making a call to an associated
+    menu listener will then determine which of these menu elements are interacted with."""
 
-    def reset(self):
-        self.menu_elements = set()
-        self.necessary_elements = set()
-        self.submit_elements = set()
-        super(MenuOverlay, self).reset()
+    def reset(self, flush=False):
+        self.menu_elements = set()       # All menu elements
+        self.necessary_elements = set()  # Those elements which must have non-None data set before the menu can be
+                                         # 'submitted', i.e. pass data back to the game.
+        self.submit_elements = set()     # Those elements which, when interacted with, will attempt to 'submit' the
+                                         # current menu.
+        super(MenuOverlay, self).reset(flush)
 
     def list(self, title, entries, **kwargs):
+        """Creates a list with the given title, entries, and alignment.
+
+        :str title: The title to put at the top of the list.
+        :iter[str] entries: The entries to put in the list.
+        :str horz_alignment: As in _standard_args.
+        :str vert_alignment: As in _standard_args.
+        :bool necessary: As in _standard_args."""
         necessary, horz_alignment, vert_alignment = self._standard_args(kwargs)
         list_screen = self._view(menu_elements.List.size, horz_alignment, vert_alignment)
         created_list = menu_elements.List(list_screen, title, entries, self.font)
@@ -64,6 +90,12 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         return created_list
 
     def button(self, text, **kwargs):
+        """Creates a button with the given text.
+
+        :str text: The text to put on the button.
+        :str horz_alignment: As in _standard_args.
+        :str vert_alignment: As in _standard_args.
+        :bool necessary: As in _standard_args."""
         necessary, horz_alignment, vert_alignment = self._standard_args(kwargs)
         button_screen = self._view(menu_elements.Button.size, horz_alignment, vert_alignment)
         created_button = menu_elements.Button(button_screen, text, self.font)
@@ -73,6 +105,11 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         return created_button
 
     def submit(self, text, **kwargs):
+        """Creates a submit button with the given text - pressing this button will attempt to submit the menu.
+
+        :str text: The text to put on the submit button.
+        :str horz_alignment: As in _standard_args, but defaults to the right.
+        :str vert_alignment: As in _standard_args, but defaults to the bottom."""
         horz_alignment = kwargs.get('horz_alignment', internal_strings.Alignment.RIGHT)
         vert_alignment = kwargs.get('vert_alignment', internal_strings.Alignment.BOTTOM)
         submit_button = self.button(text, horz_alignment=horz_alignment, vert_alignment=vert_alignment)
@@ -80,31 +117,46 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         return submit_button
 
     def _standard_args(self, dict_):
-        necessary = dict_.get('necessary', False)
-        horz_alignment = dict_.get('horz_alignment', internal_strings.Alignment.CENTER)
-        vert_alignment = dict_.get('vert_alignment', internal_strings.Alignment.CENTER)
+        """
+        Standard arguments passed to many of the different menu elements that can be placed with the methods on this
+        class.
+
+        :str horz_alignment: Optional argument. An internal_strings.Alignment attribute defining the horizontal
+            placement of the list on the overlay's screen. If not passed, defaults to the center of the screen.
+        :str vert_alignment: Optional argument. As horz_alignment, for vertical placement. If not passed, defaults to
+            the center of the screen.
+        :bool necessary: Optional argument determining whether or not this element must have non-None data set before
+            the menu can be submitted. If not passed, defaults to False."""
+        necessary = dict_.pop('necessary', False)
+        horz_alignment = dict_.pop('horz_alignment', internal_strings.Alignment.CENTER)
+        vert_alignment = dict_.pop('vert_alignment', internal_strings.Alignment.CENTER)
+        if dict_:
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_MENU_ARGS.format(kwargs=dict_.keys()))
         return necessary, horz_alignment, vert_alignment
 
 
 class TextOverlay(BaseOverlay, base.FontMixin):
     """Handles outputting text to the screen."""
 
-    def reset(self):
+    def reset(self, flush=False):
         self.text = ''
-        super(TextOverlay, self).reset()
+        super(TextOverlay, self).reset(flush)
 
     def __call__(self, output_val, width=None, end='', **kwargs):
         """Outputs text.
 
-        :str outputstr: The string to output.
-        :int width: Optional. The text with be padded to this width."""
+        :str output_val: The string to output.
+        :int width: Optional. The text with be padded to this width.
+        :str end: Added to output_val (after setting its width) to produce the overall string that is being added. It's
+            mostly here to mimic the 'end' argument that the built-in print function allows."""
 
         if width is not None:
             output_val = '{{:{}}}'.format(width).format(output_val)
         output_val += end
         self.text += output_val
-        # \x08 = backspace. \b doesn't work for some reason.
-        self.text = helpers.re_sub_recursive(r'[^\x08]\x08', '', self.text)
+
+        # Handle backspaces
+        self.text = helpers.re_sub_recursive(r'[^\x08]\x08', '', self.text)  # \x08 = backspace. \b doesn't work for some reason.
         self.text.lstrip('\b')
 
         self.wipe()
@@ -115,14 +167,14 @@ class TextOverlay(BaseOverlay, base.FontMixin):
             text = self.render_text(output_text)
             text_area = self.screen.blit(text, text_cursor)
             text_cursor = (0, text_area.bottom)
-        super(TextOverlay, self).__call__(output_val, **kwargs)
+        super(TextOverlay, self).__call__(**kwargs)
 
     def sep(self, length, **kwargs):
-        """Prints a separator of the given length."""
+        """Outputs a separator of the given length."""
         self(strings.Sep.SEP * length, **kwargs)
 
     def table(self, title, columns, headers=None, edge_space=''):
-        """Prints a table in text.
+        """Outputs a table in text.
 
         :str title: A title to put at the top of the table
         :iter[iter] columns: The component iterables should be the data to put in the columns. Each component iterable
@@ -130,6 +182,7 @@ class TextOverlay(BaseOverlay, base.FontMixin):
         :iter[str] headers: Optional. The name of each column. This iter should have the same length as :columns:.
         :str edge_space: Optional. Any horizontal spacing to put around each element of the table.
         """
+
         if headers is None:
             header_names = ['' for _ in range(len(columns))]
         else:
@@ -196,12 +249,12 @@ class Output(base.BaseIO):
 
     def __init__(self, overlays, *args, **kwargs):
         self.overlays = overlays
-
         self.screen = sdl.display.set_mode(config.SCREEN_SIZE)
         sdl.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__(*args, **kwargs)
 
     def reset(self):
+        """Resets the output back to its initial state."""
         for overlay in self.overlays.values():
             overlay.reset()
             overlay.disable()
@@ -221,4 +274,5 @@ class Output(base.BaseIO):
         sdl.display.update()
 
     def use(self, overlay_name):
+        """Temporarily enable the specified overlay. For use in 'with' statements."""
         return self.overlays[overlay_name].use()

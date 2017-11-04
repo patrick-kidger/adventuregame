@@ -8,9 +8,6 @@ class Entity(helpers.HasPositionMixin, helpers.appearance_from_filename(config.E
     incorporeal = False  # Whether this entity can pass through walls
     flight = False  # Whether this entity can fly. Duh.
     appearance_filename = 'entity.png'
-    
-    def __init__(self):
-        super(Entity, self).__init__()
         
         
 class Player(Entity):
