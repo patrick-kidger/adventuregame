@@ -91,3 +91,7 @@ class DebugCommands(tools.Container):
 OPEN_CONSOLE = '\\'
 # Button to select the console
 SELECT_CONSOLE = '/'
+# How many of its past commands the console should remember
+CONSOLE_MEMORY_SIZE = 10
+# What the prompt should be in the console
+CONSOLE_PROMPT = '> '

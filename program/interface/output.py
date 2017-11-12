@@ -1,10 +1,12 @@
+import Tools as tools
+
+
 import config.config as config
 import config.internal_strings as internal_strings
 import config.strings as strings
 
 import program.interface.base as base
 import program.interface.menu_elements as menu_elements
-import program.misc.exceptions as exceptions
 import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 
@@ -73,32 +75,38 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
                                          # current menu.
         super(MenuOverlay, self).reset(flush)
 
-    def list(self, title, entries, **kwargs):
+    def list(self, title, entry_text, necessary=False, **kwargs):
         """Creates a list with the given title, entries, and alignment.
 
         :str title: The title to put at the top of the list.
         :iter[str] entries: The entries to put in the list.
-        :str horz_alignment: As in _standard_args.
-        :str vert_alignment: As in _standard_args.
-        :bool necessary: As in _standard_args."""
-        necessary, horz_alignment, vert_alignment = self._standard_args(kwargs)
-        list_screen = self._view(menu_elements.List.size, horz_alignment, vert_alignment)
-        created_list = menu_elements.List(list_screen, title, entries, self.font)
+        :bool necessary: Optional argument determining whether or not this element must have non-None data set before
+            the menu can be submitted. If not passed, defaults to False..
+        :str horz_alignment: Optional argument. An internal_strings.Alignment attribute defining the horizontal
+            placement of the list on the overlay's screen. If not passed, defaults to the center of the screen.
+        :str vert_alignment: Optional argument. As horz_alignment, for vertical placement. If not passed, defaults to
+            the center of the screen.
+        """
+
+        align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
+        list_screen = self._view(menu_elements.List.size, **align_kwargs)
+        created_list = menu_elements.List(screen=list_screen, title=title, entry_text=entry_text, font=self.font)
         self.menu_elements.add(created_list)
         if necessary:
             self.necessary_elements.add(created_list)
         return created_list
 
-    def button(self, text, **kwargs):
+    def button(self, text, necessary=False, **kwargs):
         """Creates a button with the given text.
 
         :str text: The text to put on the button.
-        :str horz_alignment: As in _standard_args.
-        :str vert_alignment: As in _standard_args.
-        :bool necessary: As in _standard_args."""
-        necessary, horz_alignment, vert_alignment = self._standard_args(kwargs)
-        button_screen = self._view(menu_elements.Button.size, horz_alignment, vert_alignment)
-        created_button = menu_elements.Button(button_screen, text, self.font)
+        :bool necessary: As in the method 'list'.
+        :str horz_alignment: As in the method 'list'.
+        :str vert_alignment: As in the method 'list'.
+        """
+        align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
+        button_screen = self._view(menu_elements.Button.size, **align_kwargs)
+        created_button = menu_elements.Button(screen=button_screen, text=text, font=self.font)
         self.menu_elements.add(created_button)
         if necessary:
             self.necessary_elements.add(created_button)
@@ -108,31 +116,13 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         """Creates a submit button with the given text - pressing this button will attempt to submit the menu.
 
         :str text: The text to put on the submit button.
-        :str horz_alignment: As in _standard_args, but defaults to the right.
-        :str vert_alignment: As in _standard_args, but defaults to the bottom."""
+        :str horz_alignment: As in the method 'list', but defaults to the right.
+        :str vert_alignment: As in the method 'list', but defaults to the bottom."""
         horz_alignment = kwargs.get('horz_alignment', internal_strings.Alignment.RIGHT)
         vert_alignment = kwargs.get('vert_alignment', internal_strings.Alignment.BOTTOM)
         submit_button = self.button(text, horz_alignment=horz_alignment, vert_alignment=vert_alignment)
         self.submit_elements.add(submit_button)
         return submit_button
-
-    def _standard_args(self, dict_):
-        """
-        Standard arguments passed to many of the different menu elements that can be placed with the methods on this
-        class.
-
-        :str horz_alignment: Optional argument. An internal_strings.Alignment attribute defining the horizontal
-            placement of the list on the overlay's screen. If not passed, defaults to the center of the screen.
-        :str vert_alignment: Optional argument. As horz_alignment, for vertical placement. If not passed, defaults to
-            the center of the screen.
-        :bool necessary: Optional argument determining whether or not this element must have non-None data set before
-            the menu can be submitted. If not passed, defaults to False."""
-        necessary = dict_.pop('necessary', False)
-        horz_alignment = dict_.pop('horz_alignment', internal_strings.Alignment.CENTER)
-        vert_alignment = dict_.pop('vert_alignment', internal_strings.Alignment.CENTER)
-        if dict_:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_MENU_ARGS.format(kwargs=dict_.keys()))
-        return necessary, horz_alignment, vert_alignment
 
 
 class TextOverlay(BaseOverlay, base.FontMixin):

@@ -97,7 +97,7 @@ class AlignmentMixin(object):
         elif horz_alignment == internal_strings.Alignment.CENTER:
             horz_pos = (screen_rect.width - image_rect.width) // 2
         else:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_ALIGNMENT.format(alignment=horz_alignment))
+            horz_pos = horz_alignment
 
         if vert_alignment == internal_strings.Alignment.TOP:
             vert_pos = 0
@@ -106,7 +106,7 @@ class AlignmentMixin(object):
         elif vert_alignment == internal_strings.Alignment.CENTER:
             vert_pos = (screen_rect.height - image_rect.height) // 2
         else:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.BAD_ALIGNMENT.format(alignment=vert_alignment))
+            vert_pos = vert_alignment
 
         return horz_pos, vert_pos
 

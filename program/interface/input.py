@@ -149,17 +149,46 @@ class TextListener(OverlayListener):
 
 class DebugListener(TextListener):
     """The listener specifically for the debug console."""
+    def __init__(self, *args, **kwargs):
+        super(DebugListener, self).__init__(*args, **kwargs)
+        self.text_memory = tools.nonneg_deque([], config.CONSOLE_MEMORY_SIZE)
+        self.text_memory_cursor = -1
+
+    def reset(self):
+        if self.out is not None:  # When reset is called initially then the output hasn't been setup yet.
+            self.overlay(config.CONSOLE_PROMPT, flush=True)
+        super(DebugListener, self).reset()
+
     def _handle(self, event):
         char, key_code = sdl.text_event(event)
 
-        if key_code in sdl.K_ENTER:
-            self.overlay('\n', flush=True)
-            self._debug_command()
-        elif key_code == sdl.K_ESCAPE:
-            self.overlay.enabled = False
-            self.inp.remove_listener('debug')
+        if key_code in (sdl.K_UP, sdl.K_DOWN):
+            k_i = {sdl.K_UP: 1, sdl.K_DOWN: -1}
+            moved_text_memory_cursor = tools.clamp(self.text_memory_cursor + k_i[key_code],
+                                                   -1, config.CONSOLE_MEMORY_SIZE)
+            try:
+                text_from_memory = self.text_memory[moved_text_memory_cursor]
+            except IndexError:
+                pass
+            else:
+                self.overlay('\b' * len(self.text))
+                self.text = text_from_memory
+                self.text_memory_cursor = moved_text_memory_cursor
+                self.overlay(self.text, flush=True)
         else:
-            self._modify_text(event)
+            if char is not None:  # Don't want the usual stream of no-events to reset things
+                self.text_memory_cursor = -1
+
+            if key_code in sdl.K_ENTER:
+                if self.text != '':
+                    self.text_memory.appendleft(self.text)
+                self.overlay('\n', flush=True)
+                self._debug_command()
+            elif key_code == sdl.K_ESCAPE:
+                self.overlay.enabled = False
+                self.inp.remove_listener('debug')
+            else:
+                self._modify_text(event)
 
     def _debug_command(self):
         """Finds and executes the debug command corresponding to currently stored text."""

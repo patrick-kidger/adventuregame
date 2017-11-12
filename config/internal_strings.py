@@ -2,9 +2,6 @@ import Tools as tools
 
 
 class Exceptions(tools.Container):
-    # Alignment of menu elements
-    BAD_ALIGNMENT = 'No such alignment "{alignment}".'
-    BAD_MENU_ARGS = 'Got unexpected keyword arguments "{kwargs}".'
     # Loading map data
     NO_MAP_NAME = "Map with name {map_name} does not exist."
     NO_ENTRY = "Required field {entry} cannot be found on map {map_name}."

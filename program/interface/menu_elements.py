@@ -1,3 +1,4 @@
+import collections
 import Tools as tools
 
 
@@ -6,6 +7,16 @@ import config.config as config
 import program.interface.base as base
 import program.misc.helpers as helpers
 import program.misc.sdl as sdl
+
+
+def _pos_diff(pos_a, pos_b):
+    """The difference of two positions."""
+    return pos_a[0] - pos_b[0], pos_a[1] - pos_b[1]
+
+
+def _pos_add(pos_a, pos_b):
+    """The sum of two positions."""
+    return pos_a[0] + pos_b[0], pos_a[1] + pos_b[1]
 
 
 class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
@@ -31,20 +42,38 @@ class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
     Note that the position in the 'click' method is expected to be given in terms of the position of the click on the
     overall display, so self._screen_pos should be called on the position to determine the position relative to the
     screen that this element uses."""
-    def __init__(self, screen, *args, **kwargs):
+
+    def __init__(self, screen, offset=(0 ,0), *args, **kwargs):
         self.screen = screen
+        self.offset = offset  # How far its screen should be considered to be offset from its parent screen
         super(MenuElement, self).__init__(*args, **kwargs)
 
     def _screen_pos(self, pos):
-        """Converts a position on the main display screen into a position relative to the screen used for this menu
-        element."""
-        offset = self.screen.get_abs_offset()
-        return self.pos_diff(pos, offset)
+        """Converts a position on the parent screen into a position relative to the screen used for this menu element.
+        """
+        screen_offset = self.screen.get_offset()
+        total_offset = _pos_add(screen_offset, self.offset)
+        return _pos_diff(pos, total_offset)
 
-    @staticmethod
-    def pos_diff(pos_a, pos_b):
-        """The difference of two positions."""
-        return pos_a[0] - pos_b[0], pos_a[1] - pos_b[1]
+    def point_within(self, pos):
+        """Whether or not the given point should be treated as being within this menu component. (Usually that the pos
+        is within the boundaries of the menu component's screen.)"""
+        offset_pos = _pos_diff(pos, self.offset)
+        return self.screen.point_within(offset_pos)
+
+
+class MultipleComponentMixin(object):
+    def click(self, pos):
+        screen_pos = self._screen_pos(pos)
+        for count, component in enumerate(self.components.values()):
+            if component.point_within(screen_pos):
+                click_result = component.click(screen_pos)
+                return tools.Object(count=count, component=component, click_result=click_result)
+        else:
+            return tools.Object(count=None, component=None, click_result=None)
+
+    def unclick(self):
+        pass
 
 
 class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
@@ -57,12 +86,13 @@ class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
         button_deselect = 'general/button/button_deselect.png'
         button_select = 'general/button/button_select.png'
 
-    def __init__(self, screen, text, font, *args, **kwargs):
-        super(Button, self).__init__(screen=screen, font=font, *args, **kwargs)
+    def __init__(self, text, *args, **kwargs):
+        align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
+        super(Button, self).__init__(*args, **kwargs)
         self.screen.blit(self.Images.button_base)
         self.screen.blit(self.Images.button_deselect)
         button_text = self.render_text(text)
-        text_centered = self._align(button_text.get_rect())
+        text_centered = self._align(button_text.get_rect(), **align_kwargs)
         self.screen.blit(button_text, text_centered)
 
     def click(self, pos):
@@ -72,35 +102,39 @@ class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
         self.screen.blit(self.Images.button_deselect)
 
 
-class _Entry(MenuElement, base.FontMixin):
-    """An entry in a List. Each entr has text on it."""
-
-    size_image = 'list_entry_base'
-
-    text_offset = (18, 18)
+class Entry(Button):
+    """An entry in a List. Each entry has text on it."""
 
     class ImageFilenames(tools.Container):
-        list_entry_base = 'general/list/list_entry_base.png'
-        list_entry_deselected = 'general/list/list_entry_deselected.png'
-        list_entry_selected = 'general/list/list_entry_selected.png'
-
-    def __init__(self, screen, text, font, *args, **kwargs):
-        super(_Entry, self).__init__(screen=screen, font=font, *args, **kwargs)
-        self.screen.blit(self.Images.list_entry_base)
-        self.screen.blit(self.Images.list_entry_deselected)
-        entry_text = self.render_text(text)
-        text_offset = self.text_offset
-        self.screen.blit(entry_text, (text_offset[0], text_offset[1]))
-
-    def click(self):
-        self.screen.blit(self.Images.list_entry_selected)
-
-    def unclick(self):
-        self.screen.blit(self.Images.list_entry_deselected)
+        button_base = 'general/list/list_entry_base.png'
+        button_deselect = 'general/list/list_entry_deselected.png'
+        button_select = 'general/list/list_entry_selected.png'
 
 
-class List(MenuElement, base.FontMixin):
-    """A scrollable list of _Entrys."""
+class Entries(MenuElement, MultipleComponentMixin, base.FontMixin):
+
+    horz_text_offset = 18
+
+    def __init__(self, entry_text, entry_size, *args, **kwargs):
+        super(Entries, self).__init__(*args, **kwargs)
+        self.components = collections.OrderedDict()
+        self.scrolled_amount = 0
+        self.clicked_entry = None
+
+        for count, text in enumerate(entry_text):
+            entry_rect = sdl.Rect(0, entry_size.height * count, entry_size.width, entry_size.height)
+            entry_screen = self.screen.subsurface(entry_rect)
+            entry = Entry(screen=entry_screen, text=text, font=self.font, horz_alignment=self.horz_text_offset)
+            self.components[count] = entry
+
+    def click(self, pos):
+        scrolled_pos = pos[0], pos[1] + self.scrolled_amount
+        return super(Entries, self).click(scrolled_pos)
+
+
+class List(MenuElement, MultipleComponentMixin, base.FontMixin):
+    """A scrollable list of entries."""
+
     size_image = 'list_background'
 
     class ImageFilenames(tools.Container):
@@ -109,29 +143,24 @@ class List(MenuElement, base.FontMixin):
         list_scroll_handle = 'general/list/list_scroll_handle.png'
 
     class Alignment(object):  # Tidied up into a class here rather than keeping them all as individual variables.
-        scroll_screen_dim = (747, 735)
-        scroll_screen_offset = (5, 60)
+        scroll_screen_rect = sdl.Rect((5, 60), (747, 735))
+        #scrollbar_rect = sdl.Rect((757, 60), (38, 735))
         title_offset = (8, 8)
 
-    def __init__(self, screen, title, entries, font, *args, **kwargs):
-        super(List, self).__init__(screen=screen, font=font, *args, **kwargs)
-        self.scrolled_amount = 0
-        self.entries = []
-        self.clicked_entry = None
+    def __init__(self, title, entry_text, font, *args, **kwargs):
+        super(List, self).__init__(font=font, *args, **kwargs)
         self.scroll_screen = None
         self.scroll_screen_view = None
+        self.clicked_entry = None
+        self.components = tools.Object()
 
-        entry_size = _Entry.Images.list_entry_base.get_rect()
-        self.scroll_screen = sdl.Surface((entry_size.width, entry_size.height * len(entries)))
-        scroll_screen_rect = sdl.Rect(self.Alignment.scroll_screen_offset, self.Alignment.scroll_screen_dim)
-        self.scroll_screen_view = self.screen.subsurface(scroll_screen_rect)
-
+        entry_size = Entry.Images.button_base.get_rect()
+        self.scroll_screen = sdl.Surface((entry_size.width, entry_size.height * len(entry_text)))
+        self.scroll_screen_view = self.screen.subsurface(self.Alignment.scroll_screen_rect)
         self.scroll_screen.fill(config.MENU_BACKGROUND_COLOR)
-        for i, text in enumerate(entries):
-            entry_rect = sdl.Rect(0, entry_size.height * i, entry_size.width, entry_size.height)
-            entry_screen = self.scroll_screen.subsurface(entry_rect)
-            entry = _Entry(entry_screen, text, self.font)
-            self.entries.append(entry)
+
+        self.components.entries = Entries(screen=self.scroll_screen, font=font, entry_text=entry_text,
+                                          entry_size=entry_size, offset=self.Alignment.scroll_screen_rect.topleft)
 
         self.screen.blit(self.Images.list_base)
         self.screen.blit(self.Images.list_background)
@@ -144,23 +173,20 @@ class List(MenuElement, base.FontMixin):
         self.scroll_screen_view.blit(self.scroll_screen, (0, self.scrolled_amount))
 
     def click(self, pos):
-        screen_pos = self._screen_pos(pos)
-        scroll_view_pos = self.pos_diff(screen_pos, self.Alignment.scroll_screen_offset)
-        scroll_screen_pos = scroll_view_pos[0], scroll_view_pos[1] + self.scrolled_amount
-        if self.clicked_entry is not None:
-            self.clicked_entry.unclick()
-        for i, entry in enumerate(self.entries):
-            if entry.screen.point_within(scroll_screen_pos):
-                clicked_index = i
-                self.clicked_entry = entry
-                entry.click()
-                break
+        click_result = super(List, self).click(pos)
+        if click_result.component is self.components.entries:
+            self._update_scroll_view()
+            self.clicked_entry = click_result.click_result.component
+            return click_result.click_result.count
         else:
-            clicked_index = None
             self.clicked_entry = None
-        self._update_scroll_view()
-
-        return clicked_index
+            return None
 
     def unclick(self):
-        pass
+        if self.clicked_entry is not None:
+            self.clicked_entry.unclick()
+            self._update_scroll_view()
+
+    @property
+    def scrolled_amount(self):
+        return self.components.entries.scrolled_amount

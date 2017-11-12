@@ -147,8 +147,10 @@ class MazeGame(object):
         self.map = Map(self.out.overlays.game.background_color)
         self.player = entities.Player()
 
-        self.inp.reset()
+        # Must reset output before input, as input might wish to feed something to the output as part of its reset.
+        # (e.g. the prompt in the debug console)
         self.out.reset()
+        self.inp.reset()
 
         self.debug = False
         
@@ -185,7 +187,7 @@ class MazeGame(object):
         map_names = self._maps_access.setup_and_find_map_names()
         with self._use_interface('menu'):
             self.out.overlays.menu.reset()
-            menu_list = self.out.overlays.menu.list(title=strings.MapSelect.TITLE, entries=map_names, necessary=True)
+            menu_list = self.out.overlays.menu.list(title=strings.MapSelect.TITLE, entry_text=map_names, necessary=True)
             self.out.overlays.menu.submit(strings.MapSelect.SELECT_MAP)
             self.out.flush()
             while True:

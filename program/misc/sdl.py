@@ -40,6 +40,8 @@ K_KP_ENTER = pygame.K_KP_ENTER
 K_ESCAPE = pygame.K_ESCAPE
 K_BACKSLASH = pygame.K_BACKSLASH
 K_SLASH = pygame.K_SLASH
+K_UP = pygame.K_UP
+K_DOWN = pygame.K_DOWN
 
 
 # Emulate its modules

@@ -44,18 +44,19 @@ def interface_factory():
                                        size=config.DEBUG_SCREEN_SIZE,
                                        background_color=config.DEBUG_BACKGROUND_COLOR,
                                        font=debug_font)
-    overlays = tools.OrderedObject(game=game_overlay)
-    overlays.menu = menu_overlay    # Done after object creation to ensure they are in the correct order.
+    overlays = tools.OrderedObject()
+    overlays.game = game_overlay    # Done after object creation to ensure they are in the correct order.
+    overlays.menu = menu_overlay    #
     overlays.debug = debug_overlay  # Top overlay last
-    output_ = output.Output(overlays)
+    output_instance = output.Output(overlays)
 
     # Input
     menu_listener = input_.MenuListener(name='menu', overlay=menu_overlay)
     game_listener = input_.PlayListener(name='game')
     debug_listener = input_.DebugListener(name='debug', overlay=debug_overlay)
     listeners = tools.Object(menu=menu_listener, game=game_listener, debug=debug_listener)
-    input__ = input_.Input(listeners)
+    input_instance = input_.Input(listeners)
 
     # Interface
-    interface = interface_.Interface(input__, output_)
+    interface = interface_.Interface(input_instance, output_instance)
     return interface

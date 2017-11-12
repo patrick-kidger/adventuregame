@@ -10,7 +10,8 @@ class BaseIO(object):
         super(BaseIO, self).__init__(*args, **kwargs)
 
     def register_interface(self, interface):
-        """Lets the BaseIO instance know what interface it is used with."""
+        """Lets the BaseIO instance know what interface it is used with. Also calls self.reset(). (We call self.reset
+        here rather than in __init__ in case the reset relies on the interface having been set up already."""
         self.inp = interface.inp
         self.out = interface.out
         # Endpoint for super calls.
