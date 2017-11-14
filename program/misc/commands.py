@@ -11,40 +11,35 @@ def get_command(command_name):
     return SpecialInput.find_subclass(command_name)
 
 
-SpecialInputSubclassTracker = tools.subclass_tracker('inp')
-
-# Evil metaclass hackery, primarily to make debug commands only work when in debug mode.
-# tools.subclass_tracker works via metaclass, so we have to inherit it here.
-class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
-    def __getattribute__(cls, item):
-        # If this command needs debug mode enabled...
-        if item == 'do' and cls.needs_debug:
-            do = super(SpecialInputMetaclass, cls).__getattribute__(item)
-            # ... then wrap the command in a function to check if debug is enabled
-            def do_debug_wrapper(game_instance, inp_args):
-                if game_instance.debug_mode:
-                    # Does not need 'cls' passed as an argument as it is already a bound method.
-                    returnval = do(game_instance, inp_args)
-                else:
-                    game_instance.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n')
-                    returnval = SpecialInput  # No special return value, as the input wasn't executed.
-                return returnval
-            return do_debug_wrapper
-            
-        else:
-            return super(SpecialInputMetaclass, cls).__getattribute__(item)
-    
-    # There is no classmethod-property decorator, so we just put this on the metaclass.
+class SpecialInputMetaclass(type):
+    # There is no classmethod-property decorator, so we have to put this on the metaclass.
     @property
     def description(cls):
         """Default description for a special input is its docstring."""
         return cls.__doc__
 
-
-class SpecialInput(SpecialInputSubclassTracker, metaclass=SpecialInputMetaclass):
+class SpecialInput(tools.subclass_tracker('inp'), metaclass=SpecialInputMetaclass):
     """Base class for special inputs."""
     inp = ''             # What string should inputted to get this input
     needs_debug = False  # Whether this input needs debug mode enabled to work
+
+    # Evil hackery to make debug commands only work when in debug mode.
+    def __init_subclass__(cls, **kwargs):
+        super(SpecialInput, cls).__init_subclass__(**kwargs)
+
+        # If this command needs debug mode enabled...
+        if cls.needs_debug:
+            old_do = cls.do
+
+            # ... then wrap the command in a function to check if debug is enabled
+            def do(cls, game_instance, inp_args):
+                if game_instance.debug_mode:
+                    # __func__ to get the original (not bound) method
+                    old_do.__func__(cls, game_instance, inp_args)
+                else:
+                    game_instance.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n')
+
+            cls.do = classmethod(do)
     
     @classmethod
     def do(cls, game_instance, inp_args):

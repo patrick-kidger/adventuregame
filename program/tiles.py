@@ -8,22 +8,15 @@ import program.misc.exceptions as exceptions
 import program.misc.helpers as helpers
 
 
-DefinitionSubclassing = tools.dynamic_subclassing_by_attr('definition')
-AppearanceFromFilename = helpers.appearance_from_filename(config.TILE_FOLDER)
-
-class TileMetaclass(DefinitionSubclassing.__class__, AppearanceFromFilename.__class__):
-    pass
-
-class Tile(helpers.HasPositionMixin,
-           tools.NoneAttributesMixin,
-           DefinitionSubclassing,
-           AppearanceFromFilename,
-           metaclass=TileMetaclass):
+class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
+           helpers.HasPositionMixin,
+           tools.dynamic_subclassing_by_attr('definition'),
+           tools.NoneAttributesMixin):
     """Represents a single empty tile of the map."""
     definition = ' '  # The character used when defining a map to use this tile
-    appearance_filename = 'empty.png'  # The name of the image file for this type of tile. The metaclass will
-                                       # automagically add an 'appearance' attribute that is a Surface that actually
-                                       # contains the image.
+    appearance_filename = 'empty.png'  # The name of the image file for this type of tile. An 'appearance' attribute is
+                                       # then automagically added. It will be a Surface that actually contains the
+                                       # image.
     solid = False     # Whether corporeal entities cannot pass through it
     floor = False     # Whether entities can move downwards through it vertically
     ceiling = False   # Whether entities can move upwards through it vertically

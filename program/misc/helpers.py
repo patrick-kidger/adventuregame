@@ -13,20 +13,20 @@ def appearance_from_filename(files_location):
     """Allows for setting an 'appearance_filename' attribute on the class, which will then have an 'appearance'
     attribute automagically added, which will be a Surface containing the image specified."""
 
-    class AppearanceMetaclass(type):
-        def __init__(cls, name, bases, dct):
-            cls.update_appearance()
-            super(AppearanceMetaclass, cls).__init__(name, bases, dct)
-
-    class Appearance(object, metaclass=AppearanceMetaclass):
+    class Appearance(object):
         _appearance_filename = None
         appearance_filename = None
+
+        def __init_subclass__(cls, **kwargs):
+            super(Appearance, cls).__init_subclass__(**kwargs)
+            cls.update_appearance()
 
         @tools.combomethod
         def update_appearance(self_or_cls):
             """Should be called after setting appearance_filename, to update the appearance. It may be called as either
             a class or an instance method, which will set the appearance attribute on the class or instance
             respectively."""
+
             if self_or_cls.appearance_filename != self_or_cls._appearance_filename:
                 appearance_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'images',
                                                     *files_location.split('/'),
@@ -42,16 +42,13 @@ def appearance_from_filename(files_location):
 
 def image_from_filename(files_location):
     """Allows for setting a class 'ImageFilenames' as an attribute, listing all of the images that should be loaded.
-    A class called 'Images' will be then be added, providing references to Surfaces containing the specified images."""
+    A class called 'Images' will be then be added, providing references to Surfaces containing the specified images.
+
+    The class 'ImageFilenames' should inherit from Container, which is given in mixins.py. (Probably referenced as
+    Tools.Container)."""
 
     class ImageGetterMetaclass(type):
-        def __init__(cls, name, bases, dct):
-            class Images(object):
-                pass
-            cls.Images = Images
-            cls.update_images()
-            super(ImageGetterMetaclass, cls).__init__(name, bases, dct)
-
+        # No class-property should we define this here.
         @property
         def size(cls):
             return getattr(cls.Images, cls.size_image).get_rect()
@@ -59,6 +56,13 @@ def image_from_filename(files_location):
     class ImageGetter(object, metaclass=ImageGetterMetaclass):
         class ImageFilenames(tools.Container):
             pass
+
+        def __init_subclass__(cls, **kwargs):
+            super(ImageGetter, cls).__init_subclass__(**kwargs)
+            class Images(object):
+                pass
+            cls.Images = Images
+            cls.update_images()
 
         @tools.combomethod
         def update_images(self_or_cls, image_identifier=None):
