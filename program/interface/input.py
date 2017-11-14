@@ -199,7 +199,7 @@ class DebugListener(TextListener):
         except KeyError:
             self.invalid_input()
         else:
-            command.do(self.inp.maze_game, command_args)
+            command.do(self.inp.game_instance, command_args)
         finally:
             self.reset()
 
@@ -225,7 +225,7 @@ class Input(base.BaseIO):
 
     def __init__(self, listeners, *args, **kwargs):
         self._listeners = listeners
-        self.maze_game = None
+        self.game_instance = None
         self.reset()
         super(Input, self).__init__(*args, **kwargs)
 
@@ -245,10 +245,10 @@ class Input(base.BaseIO):
             listener.register_interface(interface)
         super(Input, self).register_interface(interface)
 
-    def register_game(self, maze_game):
+    def register_game(self, game_instance):
         """Lets the instance know what game instance it is being used with. This is needed for executing debug
         commands."""
-        self.maze_game = maze_game
+        self.game_instance = game_instance
 
     def add_listener(self, listener_name):
         """Enables the specified listener."""

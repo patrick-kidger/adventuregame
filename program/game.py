@@ -128,8 +128,9 @@ class Map(helpers.NameMixin):
         return not(self.tile_data[pos_beneath].ceiling or this_tile.floor)
 
     
-class MazeGame(object):
-    """Main game."""
+class MainGame(object):
+    """Main game instance."""
+
     def __init__(self, maps_access, interface):
         self._maps_access = maps_access  # Access to all the saved maps
         self.out = interface.out  # Output to screen
@@ -140,7 +141,7 @@ class MazeGame(object):
         # Just defined here for clarity about what instance properties we have
         self.map = None     # The map that the player is on
         self.player = None  # The player. Unsurprisingly.
-        self.debug = None   # Whether or not cheaty debug commands can be executed
+        self.debug_mode = None   # Whether or not cheaty debug commands can be executed
         
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
@@ -152,7 +153,7 @@ class MazeGame(object):
         self.out.reset()
         self.inp.reset()
 
-        self.debug = False
+        self.debug_mode = False
         
     def start(self):
         """Starts the game."""

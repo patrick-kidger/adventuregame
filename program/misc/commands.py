@@ -21,12 +21,12 @@ class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
         if item == 'do' and cls.needs_debug:
             do = super(SpecialInputMetaclass, cls).__getattribute__(item)
             # ... then wrap the command in a function to check if debug is enabled
-            def do_debug_wrapper(maze_game, inp_args):
-                if maze_game.debug:
+            def do_debug_wrapper(game_instance, inp_args):
+                if game_instance.debug_mode:
                     # Does not need 'cls' passed as an argument as it is already a bound method.
-                    returnval = do(maze_game, inp_args)
+                    returnval = do(game_instance, inp_args)
                 else:
-                    maze_game.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n')
+                    game_instance.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n')
                     returnval = SpecialInput  # No special return value, as the input wasn't executed.
                 return returnval
             return do_debug_wrapper
@@ -47,7 +47,7 @@ class SpecialInput(SpecialInputSubclassTracker, metaclass=SpecialInputMetaclass)
     needs_debug = False  # Whether this input needs debug mode enabled to work
     
     @classmethod
-    def do(cls, maze_game, inp_args):
+    def do(cls, game_instance, inp_args):
         """This is the function that should be called to invoke a special action."""
     
         
@@ -57,16 +57,16 @@ class Variable(SpecialInput):
     variable_bool = True  # If the variables are boolean
     
     @classmethod
-    def do(cls, maze_game, inp_args):
+    def do(cls, game_instance, inp_args):
         variable_value_to_set = inp_args[0]
         for variable_name in cls.variables:
-            current_variable_value = tools.deepgetattr(maze_game, variable_name)
+            current_variable_value = tools.deepgetattr(game_instance, variable_name)
             if cls.variable_bool:
                 variable_value = cls.toggle(variable_value_to_set, current_variable_value)
             else:
                 variable_value = variable_value_to_set
-            tools.deepsetattr(maze_game, variable_name, variable_value)
-            maze_game.out.overlays.debug(strings.Play.VARIABLE_SET.format(variable=variable_name, value=variable_value),
+            tools.deepsetattr(game_instance, variable_name, variable_value)
+            game_instance.out.overlays.debug(strings.Play.VARIABLE_SET.format(variable=variable_name, value=variable_value),
                                          end='\n')
         
     @staticmethod
@@ -88,7 +88,7 @@ class Help(SpecialInput):
     description = "Displays this help menu."
     
     @classmethod
-    def do(cls, maze_game, inp_args):
+    def do(cls, game_instance, inp_args):
         command_searched_for = inp_args[0]
         
         def output_matched_commands(command_dict, table_header):
@@ -96,10 +96,10 @@ class Help(SpecialInput):
             if commands_matched:
                 commands_matched_values = (command_dict[x] for x in commands_matched)
                 command_help_strings = [x.description for x in commands_matched_values]
-                maze_game.out.overlays.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
+                game_instance.out.overlays.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
                 
         output_matched_commands(Help.commands, strings.Help.HEADER)
-        if maze_game.debug:
+        if game_instance.debug_mode:
             output_matched_commands(Debug.commands, strings.Help.DEBUG_HEADER)
 
 
@@ -113,15 +113,15 @@ class Clear(SpecialInput):
     inp = config.DebugCommands.CLEAR
 
     @classmethod
-    def do(cls, maze_game, inp_args):
-        maze_game.out.overlays.debug.reset()
+    def do(cls, game_instance, inp_args):
+        game_instance.out.overlays.debug.reset()
 
 
 @tools.register(config.DebugCommands.DEBUG, Help.commands)
 class Debug(Variable):
     """Sets the debug state."""
     inp = config.DebugCommands.DEBUG
-    variables = ('debug',)
+    variables = ('debug_mode',)
     commands = tools.SortedDict()
 
 
@@ -156,7 +156,7 @@ class ChangeMap(SpecialInput):
     needs_debug = True
     
     @classmethod
-    def do(cls, maze_game, inp_args):
+    def do(cls, game_instance, inp_args):
         raise exceptions.MapSelectException()
 
 
@@ -166,7 +166,7 @@ class Close(SpecialInput):
     inp = config.DebugCommands.CLOSE
 
     @classmethod
-    def do(cls, maze_game, inp_args):
+    def do(cls, game_instance, inp_args):
         raise exceptions.CloseException()
 
 
@@ -176,7 +176,7 @@ class Quit(SpecialInput):
     inp = config.DebugCommands.QUIT
 
     @classmethod
-    def do(cls, maze_game, inp_args):
+    def do(cls, game_instance, inp_args):
         raise exceptions.QuitException()
 
 
@@ -193,7 +193,7 @@ class Reset(SpecialInput):
     needs_debug = True
 
     @classmethod
-    def do(cls, maze_game, inp_args):
+    def do(cls, game_instance, inp_args):
         raise exceptions.ResetException()
 
 
@@ -204,12 +204,12 @@ class Get(SpecialInput):
     needs_debug = True
     
     @classmethod
-    def do(cls, maze_game, inp_args):
+    def do(cls, game_instance, inp_args):
         variable_name = inp_args[0]
         try:
-            variable_value = tools.deepgetattr(maze_game, variable_name)
+            variable_value = tools.deepgetattr(game_instance, variable_name)
         except AttributeError:
-            maze_game.out.overlays.debug(strings.Play.VARIABLE_GET_FAILED.format(variable=variable_name), end='\n')
+            game_instance.out.overlays.debug(strings.Play.VARIABLE_GET_FAILED.format(variable=variable_name), end='\n')
         else:
-            maze_game.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name, value=variable_value),
+            game_instance.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name, value=variable_value),
                                          end='\n')

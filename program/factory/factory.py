@@ -12,14 +12,14 @@ import program.interface.input as input_
 import program.interface.output as output
 
 
-def maze_game_factory(start_game=True):
-    """Creates a maze game."""
+def game_factory(start_game=True):
+    """Creates a game instance."""
     interface = interface_factory()
     maps_access = maps_.MapsAccess()
-    maze_game = game.MazeGame(maps_access, interface)
+    game_instance = game.MainGame(maps_access, interface)
     if start_game:
-        maze_game.start()
-    return maze_game
+        game_instance.start()
+    return game_instance
 
 
 def interface_factory():

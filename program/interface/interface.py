@@ -7,5 +7,5 @@ class Interface(object):
         self.out.register_interface(self)
         self.inp.register_interface(self)
 
-    def register_game(self, maze_game):
-        self.inp.register_game(maze_game)
+    def register_game(self, game_instance):
+        self.inp.register_game(game_instance)
