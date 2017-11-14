@@ -4,6 +4,7 @@ import pygame
 import pygame.ftfont
 import pygame.display
 import pygame.event
+import Tools as tools
 
 
 import program.misc.exceptions as exceptions
@@ -16,8 +17,63 @@ pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN])
 
 # Top-level pygame imports
 class Surface(pygame.Surface):
-    def blit(self, source, dest=(0, 0), area=None, special_flags=0):  # Added default argument to dest
-        return super(Surface, self).blit(source, dest, area, special_flags)
+    def __init__(self, *args, viewport=None, **kwargs):
+        super(Surface, self).__init__(*args, **kwargs)
+        # Allows for setting the offset for non-subsurfaces.
+        self._init(viewport=viewport)
+
+    def _init(self, viewport):
+        if viewport is None:
+            viewport = self.get_rect()
+        self.set_viewport(viewport=viewport)
+        self._cutouts = []
+        self._offset = None
+
+    def cutout(self, location, target):
+        target._set_offset(location.topleft)
+        self._cutouts.append(target)
+
+    def update(self):
+        for cutout in self._cutouts:
+            cutout.update()
+            view = cutout.get_view_from_viewport()
+            location = cutout.get_offset()
+            self.blit(view, location)
+
+    def _set_offset(self, offset):
+        self._offset = offset
+
+    def set_viewport(self, viewport):
+        clipped_viewport = self.get_rect().clip(viewport)
+        self._viewport = clipped_viewport
+
+    # Can't just call it 'get_view' as that is something else entirely, built-in to pygame.Surface already.
+    def get_view_from_viewport(self):
+        return self.subsurface(self._viewport)
+
+    def subsurface(self, *args, viewport=None, **kwargs):
+        return_surface = super(Surface, self).subsurface(*args, **kwargs)
+        return_surface._init(viewport=viewport)
+        return return_surface
+
+    def get_offset(self):
+        if self._offset is not None:
+            return self._offset
+        else:
+            return super(Surface, self).get_offset()
+
+    def get_abs_offset(self):
+        if self._offset is not None:
+            # Should only occur for non-subsurfaces, as __init__ is only called when creating a new Surface.
+            return self._offset
+        else:
+            return super(Surface, self).get_abs_offset()
+
+    def get_viewport_offset(self):
+        return self._viewport.topleft
+
+    def blit(self, source, dest=(0, 0), *args, **kwargs):  # Added default argument to dest
+        return super(Surface, self).blit(source, dest, *args, **kwargs)
 
     def point_within(self, pos):
         offset = self.get_offset()
@@ -50,6 +106,8 @@ class ftfont(object):
 
 
 class display(object):
+    # Note that set_mode will return a pygame.Surface, not the enhanced Surface defined above. It's not possible to
+    # reassign its __class__ as Surface functions as a builtin type.
     set_mode = pygame.display.set_mode
     set_caption = pygame.display.set_caption
     update = pygame.display.update

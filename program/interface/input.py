@@ -96,7 +96,8 @@ class MenuListener(OverlayListener):
                 if menu_element.screen.point_within(event.pos):  # We interact with this menu element
                     # Click this menu element
                     self.clicked_element = menu_element
-                    click_result = menu_element.click(event.pos)
+                    element_pos = menu_element.screen_pos(event.pos)
+                    click_result = menu_element.click(element_pos)
                     # Stores its result
                     self.inp_result[0][menu_element] = click_result
 

@@ -9,7 +9,7 @@ WINDOW_NAME = 'Maze Game'
 # How long to wait at each state when skipping user input.
 SKIP_PAUSE = 0.1  # In seconds
 # How long to pause between ticks of the game
-TICK_PAUSE = 0.01  # In seconds
+TICK_PAUSE = 0.005  # In seconds
 
 # The file extension for map files
 MAP_FILE_EXTENSION = 'map'
