@@ -26,7 +26,7 @@ class SpecialInputMetaclass(SpecialInputSubclassTracker.__class__):
                     # Does not need 'cls' passed as an argument as it is already a bound method.
                     returnval = do(maze_game, inp_args)
                 else:
-                    maze_game.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n', flush=True)
+                    maze_game.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n')
                     returnval = SpecialInput  # No special return value, as the input wasn't executed.
                 return returnval
             return do_debug_wrapper
@@ -67,7 +67,7 @@ class Variable(SpecialInput):
                 variable_value = variable_value_to_set
             tools.deepsetattr(maze_game, variable_name, variable_value)
             maze_game.out.overlays.debug(strings.Play.VARIABLE_SET.format(variable=variable_name, value=variable_value),
-                                         end='\n', flush=True)
+                                         end='\n')
         
     @staticmethod
     def bool_(inp):
@@ -101,7 +101,6 @@ class Help(SpecialInput):
         output_matched_commands(Help.commands, strings.Help.HEADER)
         if maze_game.debug:
             output_matched_commands(Debug.commands, strings.Help.DEBUG_HEADER)
-        maze_game.out.flush()
 
 
 # Register help with itself. Can't do this via decorator as Help hasn't yet been defined at decoration time.
@@ -115,7 +114,7 @@ class Clear(SpecialInput):
 
     @classmethod
     def do(cls, maze_game, inp_args):
-        maze_game.out.overlays.debug.reset(flush=True)
+        maze_game.out.overlays.debug.reset()
 
 
 @tools.register(config.DebugCommands.DEBUG, Help.commands)
@@ -210,8 +209,7 @@ class Get(SpecialInput):
         try:
             variable_value = tools.deepgetattr(maze_game, variable_name)
         except AttributeError:
-            maze_game.out.overlays.debug(strings.Play.VARIABLE_GET_FAILED.format(variable=variable_name), end='\n',
-                                         flush=True)
+            maze_game.out.overlays.debug(strings.Play.VARIABLE_GET_FAILED.format(variable=variable_name), end='\n')
         else:
             maze_game.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name, value=variable_value),
-                                         end='\n', flush=True)
+                                         end='\n')

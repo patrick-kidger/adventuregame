@@ -20,7 +20,7 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
     information to the main display screen. They must be enabled before they will do so.
 
     Overlays should define a __call__(...) method through which they are called to output graphical information to their
-    screen. They may also define a reset(self, flush) method which will be called to return the instance to the state it
+    screen. They may also define a reset(self) method which will be called to return the instance to the state it
     was initialised in. Overlays should put those attributes they need resetting here."""
 
     def __init__(self, name, location, size, background_color, *args, **kwargs):
@@ -31,27 +31,22 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
 
         self.reset()
 
-    def reset(self, flush=False):
+    def reset(self):
         """Resets all extra data associated with this overlay."""
-        self.wipe(flush)
+        self.wipe()
         # Endpoint for super calls.
 
     # Subclasses definitions of __call__ will likely involve setting required arguments, which obviously violates LSP.
     # Still this seems like the best solution. The alternative would be to demand that all __call__ definitions finish
     # with a super call to some _call function on this base class implementing the below function, which just seems even
     # worse.
-    def __call__(self, flush=False):
+    def __call__(self):
+        pass
         # Endpoint for super calls.
 
-        # A convenience that allows for setting flush=True when making a call to an overlay.
-        if flush:
-            self.out.flush()
-
-    def wipe(self, flush=False):
+    def wipe(self):
         """Fills the overlay with its background color."""
         self.screen.fill(self.background_color)
-        if flush:
-            self.out.flush()
 
 
 class GraphicsOverlay(BaseOverlay):
@@ -67,13 +62,13 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
     Instead it provides methods for placing menu elements on the screen. Subsequently making a call to an associated
     menu listener will then determine which of these menu elements are interacted with."""
 
-    def reset(self, flush=False):
+    def reset(self):
         self.menu_elements = set()       # All menu elements
         self.necessary_elements = set()  # Those elements which must have non-None data set before the menu can be
                                          # 'submitted', i.e. pass data back to the game.
         self.submit_elements = set()     # Those elements which, when interacted with, will attempt to 'submit' the
                                          # current menu.
-        super(MenuOverlay, self).reset(flush)
+        super(MenuOverlay, self).reset()
 
     def list(self, title, entry_text, necessary=False, **kwargs):
         """Creates a list with the given title, entries, and alignment.
@@ -128,9 +123,9 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
 class TextOverlay(BaseOverlay, base.FontMixin):
     """Handles outputting text to the screen."""
 
-    def reset(self, flush=False):
+    def reset(self):
         self.text = ''
-        super(TextOverlay, self).reset(flush)
+        super(TextOverlay, self).reset()
 
     def __call__(self, output_val, width=None, end='', **kwargs):
         """Outputs text.
@@ -248,7 +243,6 @@ class Output(base.BaseIO):
         for overlay in self.overlays.values():
             overlay.reset()
             overlay.disable()
-        self.flush()
 
     def register_interface(self, interface):
         for overlay in self.overlays.values():

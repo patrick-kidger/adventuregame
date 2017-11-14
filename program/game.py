@@ -193,6 +193,7 @@ class MazeGame(object):
             while True:
                 time.sleep(config.TICK_PAUSE)
                 menu_results, input_type = self.inp()
+                self.out.flush()
                 if input_type == internal_strings.InputTypes.MENU:
                     break
 

@@ -47,7 +47,6 @@ class BaseListener(base.BaseIO, helpers.NameMixin):
                 self.inp.add_listener('debug')
             else:
                 self.inp.remove_listener('debug')
-            self.out.flush()
             handled = True
 
         if char == config.SELECT_CONSOLE and self.out.overlays.debug.enabled:
@@ -111,7 +110,6 @@ class MenuListener(OverlayListener):
                             # All necessary elements have data; we're done here.
                             self.inp_result_ready = True
                     break
-            self.out.flush()
         if self.inp_result_ready:
             return self.inp_result
 
@@ -145,7 +143,7 @@ class TextListener(OverlayListener):
                 self.text += char
 
             if should_output:
-                self.overlay(char, flush=True)
+                self.overlay(char)
 
 
 class DebugListener(TextListener):
@@ -157,7 +155,7 @@ class DebugListener(TextListener):
 
     def reset(self):
         if self.out is not None:  # When reset is called initially then the output hasn't been setup yet.
-            self.overlay(config.CONSOLE_PROMPT, flush=True)
+            self.overlay(config.CONSOLE_PROMPT)
         super(DebugListener, self).reset()
 
     def _handle(self, event):
@@ -175,7 +173,7 @@ class DebugListener(TextListener):
                 self.overlay('\b' * len(self.text))
                 self.text = text_from_memory
                 self.text_memory_cursor = moved_text_memory_cursor
-                self.overlay(self.text, flush=True)
+                self.overlay(self.text)
         else:
             if char is not None:  # Don't want the usual stream of no-events to reset things
                 self.text_memory_cursor = -1
@@ -183,7 +181,7 @@ class DebugListener(TextListener):
             if key_code in sdl.K_ENTER:
                 if self.text != '':
                     self.text_memory.appendleft(self.text)
-                self.overlay('\n', flush=True)
+                self.overlay('\n')
                 self._debug_command()
             elif key_code == sdl.K_ESCAPE:
                 self.overlay.enabled = False
@@ -207,7 +205,7 @@ class DebugListener(TextListener):
 
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
-        self.overlay(strings.Play.INVALID_INPUT, end='\n', flush=True)
+        self.overlay(strings.Play.INVALID_INPUT, end='\n')
 
 
 class Input(base.BaseIO):

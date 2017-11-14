@@ -114,7 +114,7 @@ class Entry(Button):
         button_select = 'general/list/list_entry_selected.png'
 
 
-class Entries(MenuElement, MultipleComponentMixin, base.FontMixin):
+class Entries(MultipleComponentMixin, MenuElement, base.FontMixin):
 
     horz_text_offset = 18
 
@@ -147,7 +147,7 @@ class Scrollbar(MenuElement):
         self.screen.blit(self.Images.scroll_handle)
 
 
-class List(MenuElement, MultipleComponentMixin, base.FontMixin):
+class List(MultipleComponentMixin, MenuElement, base.FontMixin):
     """A scrollable list of entries."""
 
     size_image = 'list_background'
