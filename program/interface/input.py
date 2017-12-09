@@ -35,23 +35,21 @@ class BaseListener(base.BaseIO, helpers.NameMixin):
 
     def __call__(self):
         inp_result = None, internal_strings.InputTypes.NO_INPUT
-
         handled = False
 
         event = sdl.event_stream(single_event=True)
-        char, key_code = sdl.text_event(event)
 
-        if char == config.OPEN_CONSOLE:
-            self.out.overlays.debug.toggle()
-            if self.out.overlays.debug.enabled:
-                self.inp.add_listener('debug')
-            else:
-                self.inp.remove_listener('debug')
-            handled = True
-
-        if char == config.SELECT_CONSOLE and self.out.overlays.debug.enabled:
-            self.inp.toggle_listener('debug')
-            handled = True
+        if sdl.key_event(event):
+            if event.unicode == config.OPEN_CONSOLE:
+                self.out.overlays.debug.toggle()
+                if self.out.overlays.debug.enabled:
+                    self.inp.add_listener('debug')
+                else:
+                    self.inp.remove_listener('debug')
+                handled = True
+            if event.unicode == config.SELECT_CONSOLE and self.out.overlays.debug.enabled:
+                self.inp.toggle_listener('debug')
+                handled = True
 
         if not handled:
             _inp_result = self._handle(event)
@@ -73,73 +71,66 @@ class OverlayListener(BaseListener):
 
 class MenuListener(OverlayListener):
     """A listener for interacting with interface elements - buttons and things."""
-    def __init__(self, *args, **kwargs):
+
+    def reset(self):
         # The last element that we clicked
         self._clicked_element = None
         # Whether we are currently still clicking the element. (i.e. we are in between mousedown and mouseup)
         self._mouse_is_down = False
-        super(MenuListener, self).__init__(*args, **kwargs)
-
-    def reset(self):
+        # The current state of all the menu elements
         self._inp_result = {}, internal_strings.InputTypes.MENU
-        self._inp_result_ready = False
         super(MenuListener, self).reset()
 
     def _handle(self, event):
-        mouse_event = sdl.mouse_event(event)
+        if sdl.mouse_event(event, valid_buttons=(1,)):
+            if event.type == sdl.MOUSEBUTTONDOWN:
+                self._mouse_is_down = True
 
-        if self._inp_result_ready:
-            self.reset()
+                # Unclick the previous menu element
+                if self._clicked_element is not None:
+                    self._clicked_element.un_mousedown()
 
-        if mouse_event.type == sdl.MOUSEBUTTONDOWN:
-            self._mouse_is_down = True
+                for menu_element in self.overlay.menu_elements:
+                    if menu_element.screen.point_within(event.pos):  # We interact with this menu element
+                        # Click this menu element
+                        self._clicked_element = menu_element
+                        element_pos = menu_element.screen_pos(event.pos)
+                        click_result = menu_element.mousedown(element_pos)
+                        # Stores its result
+                        self._inp_result[0][menu_element] = click_result
 
-            # Unclick the previous menu element
-            if self._clicked_element is not None:
-                self._clicked_element.un_mousedown()
+                        # If we clicked a submit element
+                        if menu_element in self.overlay.submit_elements:
+                            # Make sure all necessary elements have data
+                            for necessary_element in self.overlay.necessary_elements:
+                                if self._inp_result[0].get(necessary_element, None) is None:
+                                    break  # Necessary element doesn't have data
+                            else:
+                                # All necessary elements have data; we're done here.
+                                result = self._inp_result
+                                self.reset()
+                                return result
+                        break
 
-            for menu_element in self.overlay.menu_elements:
-                if menu_element.screen.point_within(mouse_event.pos):  # We interact with this menu element
-                    # Click this menu element
-                    self._clicked_element = menu_element
-                    element_pos = menu_element.screen_pos(mouse_event.pos)
-                    click_result = menu_element.mousedown(element_pos)
-                    # Stores its result
-                    self._inp_result[0][menu_element] = click_result
+            elif event.type == sdl.MOUSEBUTTONUP:
+                self._mouse_is_down = False
 
-                    # If we clicked a submit element
-                    if menu_element in self.overlay.submit_elements:
-                        # Make sure all necessary elements have data
-                        for necessary_element in self.overlay.necessary_elements:
-                            if self._inp_result[0].get(necessary_element, None) is None:
-                                break  # Necessary element doesn't have data
-                        else:
-                            # All necessary elements have data; we're done here.
-                            self._inp_result_ready = True
-                    break
+                if self._clicked_element is not None:
+                    element_pos = self._clicked_element.screen_pos(event.pos)
+                    self._clicked_element.mouseup(element_pos)
 
-        elif mouse_event.type == sdl.MOUSEBUTTONUP:
-            self._mouse_is_down = False
-
-            if self._clicked_element is not None:
-                element_pos = self._clicked_element.screen_pos(mouse_event.pos)
-                self._clicked_element.mouseup(element_pos)
-
-        elif mouse_event.type == sdl.MOUSEMOTION:
-            if self._mouse_is_down and self._clicked_element is not None:
-                element_pos = self._clicked_element.screen_pos(mouse_event.pos)
-                self._clicked_element.mousemotion(element_pos)
-
-        if self._inp_result_ready:
-            return self._inp_result
+            elif event.type == sdl.MOUSEMOTION:
+                if self._mouse_is_down and self._clicked_element is not None:
+                    element_pos = self._clicked_element.screen_pos(event.pos)
+                    self._clicked_element.mousemotion(element_pos)
 
 
 class PlayListener(BaseListener):
     """The listener for the main playing of the game - moving the player character and so forth."""
     def _handle(self, event):
-        char, key_code = sdl.text_event(event)
-        if char in config.Move:
-            return config.Move.Direction[char], internal_strings.InputTypes.MOVEMENT
+        if sdl.key_event(event):
+            if event.unicode in config.Move:
+                return config.Move.Direction[event.unicode], internal_strings.InputTypes.MOVEMENT
 
 
 class TextListener(OverlayListener):
@@ -149,21 +140,19 @@ class TextListener(OverlayListener):
         super(TextListener, self).reset()
 
     def _modify_text(self, event):
-        """Modifies the instance's 'text' attribute based on pygame text event input."""
-        char, key_code = sdl.text_event(event)
-
-        if char is not None:
+        """Modifies the overlays's 'text' attribute based on pygame text event input."""
+        if sdl.key_event(event):
             should_output = True
-            if key_code == sdl.K_BACKSPACE:
+            if event.key == sdl.K_BACKSPACE:
                 # Disable outputting backspaces if we're not actually modifying the text with them.
                 if len(self.text) == 0:
                     should_output = False
                 self.text = self.text[:-1]
             else:
-                self.text += char
+                self.text += event.unicode
 
             if should_output:
-                self.overlay(char)
+                self.overlay(event.unicode)
 
 
 class DebugListener(TextListener):
@@ -179,35 +168,33 @@ class DebugListener(TextListener):
         super(DebugListener, self).reset()
 
     def _handle(self, event):
-        char, key_code = sdl.text_event(event)
-
-        if key_code in (sdl.K_UP, sdl.K_DOWN):
-            k_i = {sdl.K_UP: 1, sdl.K_DOWN: -1}
-            moved_text_memory_cursor = tools.clamp(self.text_memory_cursor + k_i[key_code],
-                                                   -1, config.CONSOLE_MEMORY_SIZE)
-            try:
-                text_from_memory = self.text_memory[moved_text_memory_cursor]
-            except IndexError:
-                pass
+        if sdl.key_event(event):
+            if event.key in (sdl.K_UP, sdl.K_DOWN):
+                k_i = {sdl.K_UP: 1, sdl.K_DOWN: -1}
+                moved_text_memory_cursor = tools.clamp(self.text_memory_cursor + k_i[event.key],
+                                                       -1, config.CONSOLE_MEMORY_SIZE)
+                try:
+                    text_from_memory = self.text_memory[moved_text_memory_cursor]
+                except IndexError:
+                    pass
+                else:
+                    self.overlay('\b' * len(self.text))
+                    self.text = text_from_memory
+                    self.text_memory_cursor = moved_text_memory_cursor
+                    self.overlay(self.text)
             else:
-                self.overlay('\b' * len(self.text))
-                self.text = text_from_memory
-                self.text_memory_cursor = moved_text_memory_cursor
-                self.overlay(self.text)
-        else:
-            if char is not None:  # Don't want the usual stream of no-events to reset things
                 self.text_memory_cursor = -1
 
-            if key_code in sdl.K_ENTER:
-                if self.text != '':
-                    self.text_memory.appendleft(self.text)
-                self.overlay('\n')
-                self._debug_command()
-            elif key_code == sdl.K_ESCAPE:
-                self.overlay.enabled = False
-                self.inp.remove_listener('debug')
-            else:
-                self._modify_text(event)
+                if event.key in sdl.K_ENTER:
+                    if self.text != '':
+                        self.text_memory.appendleft(self.text)
+                    self.overlay('\n')
+                    self._debug_command()
+                elif event.key == sdl.K_ESCAPE:
+                    self.overlay.enabled = False
+                    self.inp.remove_listener('debug')
+                else:
+                    self._modify_text(event)
 
     def _debug_command(self):
         """Finds and executes the debug command corresponding to currently stored text."""

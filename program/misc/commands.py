@@ -207,5 +207,6 @@ class Get(SpecialInput):
         except AttributeError:
             game_instance.out.overlays.debug(strings.Play.VARIABLE_GET_FAILED.format(variable=variable_name), end='\n')
         else:
-            game_instance.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name, value=variable_value),
-                                         end='\n')
+            game_instance.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name,
+                                                                              value=variable_value),
+                                             end='\n')

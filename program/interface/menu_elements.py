@@ -50,8 +50,8 @@ class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
         subsurface_offset = self.screen.get_offset()  # If the screen is a subsurface then we need to take into account
                                                       # the offset between it and its parent surface.
         viewport_offset = self.screen.get_viewport_offset()  # If the screen is using a viewport then we also need to
-                                                             #  add on the offset from that.
-        total_offset = _pos_add(subsurface_offset, viewport_offset)
+                                                             # take account of that.
+        total_offset = _pos_diff(subsurface_offset, viewport_offset)
         return _pos_diff(pos, total_offset)
 
     def point_within(self, pos):
@@ -121,12 +121,12 @@ class Entries(MultipleComponentMixin, MenuElement, base.FontMixin):
 
     horz_text_offset = 18
 
-    class ImageFilenames(tools.Container):
-        entries_background = 'general/list/entries_background.png'
-
     def __init__(self, entry_text, entry_size, *args, **kwargs):
         super(Entries, self).__init__(*args, **kwargs)
-        self.screen.blit(self.Images.entries_background)
+        # TODO: Handle cutout backgrounds in a better fashion
+        # (having a background for a cutout, and then blitting a transparent-background surface on top, is too slow.)
+        # Maybe color keys? Should then go through and use that consistently throughout, though.
+        self.screen.fill((239, 228, 176))
 
         self._components = collections.OrderedDict()
         self.clicked_entry = None
@@ -148,20 +148,22 @@ class Scrollbar(MenuElement):
         # To put the middle, not the top, of the handle where the user's cursor is.
         scroll_handle_height = self.Images.scroll_handle.get_rect().height
         self._scroll_handle_offset = scroll_handle_height // 2
-        # To clamp the scroll handle to the scrollable region
-        self._scroll_length = self.Images.scrollbar_background.get_rect().height - scroll_handle_height
+        # The height of the scrollbar
+        self.scroll_length = self.Images.scrollbar_background.get_rect().height
+        # The scrollable amount (slightly smaller than the scroll_length because the scroll handle takes up space)
+        self.clamp_length = self.scroll_length - scroll_handle_height
 
         # The rect for where the scroll handle currently is.
         self.scroll_handle_rect = None
 
         super(Scrollbar, self).__init__(*args, **kwargs)
-        self.mousemotion((0, 0))
+        self.move(0)
 
-    def mousemotion(self, pos):
-        pos_ = tools.clamp(pos[1] - self._scroll_handle_offset, 0, self._scroll_length)
+    def move(self, pos):
+        pos_ = tools.clamp(pos - self._scroll_handle_offset, 0, self.clamp_length)
         self.screen.blit(self.Images.scrollbar_background)
         self.scroll_handle_rect = self.screen.blit(self.Images.scroll_handle, (0, pos_))
-
+        return pos_
 
 
 class List(MultipleComponentMixin, MenuElement, base.FontMixin):
@@ -184,6 +186,7 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
 
     def __init__(self, title, entry_text, font, *args, **kwargs):
         self._clicked_entry = None  # The currently selected element from the list
+        self._clicked_entry_index = None  # The index of the currently selected element in the list
         self._scrolling = False  # Whether we are currently scrolling the list
         self._components = tools.Object()  # Used with MultipleComponentMixin; the components making up this list
 
@@ -192,17 +195,17 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
         self.screen.blit(self.Images.list_background)
         title_text = self.render_text(title)
         self.screen.blit(title_text, self.Alignment.title_offset)
-        self.screen.blit(Entries.Images.entries_background, self.Alignment.entry_cutout.topleft)
 
         # The surface we'll put the entries on
-        entry_view = sdl.Surface((self.Alignment.entry_size.width, self.Alignment.entry_size.height * len(entry_text)),
-                                 viewport=self.Alignment.entry_view)
-        self.screen.cutout(location=self.Alignment.entry_cutout, target=entry_view)
+        self.entry_view = sdl.Surface((self.Alignment.entry_size.width,
+                                       self.Alignment.entry_size.height * len(entry_text)),
+                                      viewport=self.Alignment.entry_view)
+        self.screen.cutout(location=self.Alignment.entry_cutout, target=self.entry_view)
         # The surface we'll put the scrollbar on
         scrollbar_screen = self.screen.subsurface(self.Alignment.scrollbar_cutout)
 
         # Record the components making up this menu element
-        self._components.entries = Entries(screen=entry_view, font=font, entry_text=entry_text,
+        self._components.entries = Entries(screen=self.entry_view, font=font, entry_text=entry_text,
                                            entry_size=self.Alignment.entry_size)
         self._components.scrollbar = Scrollbar(screen=scrollbar_screen)
 
@@ -213,9 +216,6 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
         self.screen.update_cutouts()
 
     def mousedown(self, pos):
-        if self._clicked_entry is not None:
-            self._clicked_entry.un_mousedown()
-
         click_result = super(List, self).mousedown(pos)
         self._update_scroll_view()
 
@@ -229,16 +229,27 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
             self._scrolling = False
 
         if click_result.component is self._components.entries:
+            if self._clicked_entry is not None:
+                self._clicked_entry.un_mousedown()
             self._clicked_entry = click_result.click_result.component
-            return click_result.click_result.count
-        else:
-            self._clicked_entry = None
-            return None
+            self._clicked_entry_index = click_result.click_result.count
+
+        return self._clicked_entry_index
 
     def mouseup(self, pos):
         self._scrolling = False
 
     def mousemotion(self, pos):
         if self._scrolling:
+            # Move the scroll handle
             pos_rel_to_scrollbar = self._components.scrollbar.screen_pos(pos)
-            self._components.scrollbar.mousemotion(pos_rel_to_scrollbar)
+            scroll_handle_pos = self._components.scrollbar.move(pos_rel_to_scrollbar[1])
+
+            # Move the entries
+            excess_length = max(0, self.entry_view.get_height() - self._components.scrollbar.scroll_length)
+            entries_offset = (excess_length * scroll_handle_pos) / self._components.scrollbar.clamp_length
+
+            viewport = self.entry_view.get_viewport()
+            viewport.top = entries_offset
+            self.entry_view.set_viewport(viewport)
+            self._update_scroll_view()
