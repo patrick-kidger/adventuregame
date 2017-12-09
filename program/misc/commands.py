@@ -61,8 +61,9 @@ class Variable(SpecialInput):
             else:
                 variable_value = variable_value_to_set
             tools.deepsetattr(game_instance, variable_name, variable_value)
-            game_instance.out.overlays.debug(strings.Play.VARIABLE_SET.format(variable=variable_name, value=variable_value),
-                                         end='\n')
+            game_instance.out.overlays.debug(strings.Play.VARIABLE_SET.format(variable=variable_name,
+                                                                              value=variable_value),
+                                             end='\n')
         
     @staticmethod
     def bool_(inp):

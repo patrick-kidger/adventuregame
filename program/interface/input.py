@@ -38,7 +38,7 @@ class BaseListener(base.BaseIO, helpers.NameMixin):
 
         handled = False
 
-        event = sdl.event_stream(single_event=True, discard_old=True)
+        event = sdl.event_stream(single_event=True)
         char, key_code = sdl.text_event(event)
 
         if char == config.OPEN_CONSOLE:
@@ -74,44 +74,64 @@ class OverlayListener(BaseListener):
 class MenuListener(OverlayListener):
     """A listener for interacting with interface elements - buttons and things."""
     def __init__(self, *args, **kwargs):
-        self.clicked_element = None
+        # The last element that we clicked
+        self._clicked_element = None
+        # Whether we are currently still clicking the element. (i.e. we are in between mousedown and mouseup)
+        self._mouse_is_down = False
         super(MenuListener, self).__init__(*args, **kwargs)
 
     def reset(self):
-        self.inp_result = {}, internal_strings.InputTypes.MENU
-        self.inp_result_ready = False
+        self._inp_result = {}, internal_strings.InputTypes.MENU
+        self._inp_result_ready = False
         super(MenuListener, self).reset()
 
     def _handle(self, event):
-        if self.inp_result_ready:
+        mouse_event = sdl.mouse_event(event)
+
+        if self._inp_result_ready:
             self.reset()
 
-        if event.type == sdl.MOUSEBUTTONDOWN:
+        if mouse_event.type == sdl.MOUSEBUTTONDOWN:
+            self._mouse_is_down = True
+
             # Unclick the previous menu element
-            if self.clicked_element is not None:
-                self.clicked_element.unclick()
+            if self._clicked_element is not None:
+                self._clicked_element.un_mousedown()
 
             for menu_element in self.overlay.menu_elements:
-                if menu_element.screen.point_within(event.pos):  # We interact with this menu element
+                if menu_element.screen.point_within(mouse_event.pos):  # We interact with this menu element
                     # Click this menu element
-                    self.clicked_element = menu_element
-                    element_pos = menu_element.screen_pos(event.pos)
-                    click_result = menu_element.click(element_pos)
+                    self._clicked_element = menu_element
+                    element_pos = menu_element.screen_pos(mouse_event.pos)
+                    click_result = menu_element.mousedown(element_pos)
                     # Stores its result
-                    self.inp_result[0][menu_element] = click_result
+                    self._inp_result[0][menu_element] = click_result
 
                     # If we clicked a submit element
                     if menu_element in self.overlay.submit_elements:
                         # Make sure all necessary elements have data
                         for necessary_element in self.overlay.necessary_elements:
-                            if self.inp_result[0].get(necessary_element, None) is None:
+                            if self._inp_result[0].get(necessary_element, None) is None:
                                 break  # Necessary element doesn't have data
                         else:
                             # All necessary elements have data; we're done here.
-                            self.inp_result_ready = True
+                            self._inp_result_ready = True
                     break
-        if self.inp_result_ready:
-            return self.inp_result
+
+        elif mouse_event.type == sdl.MOUSEBUTTONUP:
+            self._mouse_is_down = False
+
+            if self._clicked_element is not None:
+                element_pos = self._clicked_element.screen_pos(mouse_event.pos)
+                self._clicked_element.mouseup(element_pos)
+
+        elif mouse_event.type == sdl.MOUSEMOTION:
+            if self._mouse_is_down and self._clicked_element is not None:
+                element_pos = self._clicked_element.screen_pos(mouse_event.pos)
+                self._clicked_element.mousemotion(element_pos)
+
+        if self._inp_result_ready:
+            return self._inp_result
 
 
 class PlayListener(BaseListener):
@@ -135,7 +155,7 @@ class TextListener(OverlayListener):
         if char is not None:
             should_output = True
             if key_code == sdl.K_BACKSPACE:
-                # Disable outputting backspaces if we're not actually modifying the tet with them.
+                # Disable outputting backspaces if we're not actually modifying the text with them.
                 if len(self.text) == 0:
                     should_output = False
                 self.text = self.text[:-1]

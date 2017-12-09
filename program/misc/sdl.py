@@ -4,7 +4,6 @@ import pygame
 import pygame.ftfont
 import pygame.display
 import pygame.event
-import Tools as tools
 
 
 import program.misc.exceptions as exceptions
@@ -33,9 +32,9 @@ class Surface(pygame.Surface):
         target._set_offset(location.topleft)
         self._cutouts.append(target)
 
-    def update(self):
+    def update_cutouts(self):
         for cutout in self._cutouts:
-            cutout.update()
+            cutout.update_cutouts()
             view = cutout.get_view_from_viewport()
             location = cutout.get_offset()
             self.blit(view, location)
@@ -44,8 +43,7 @@ class Surface(pygame.Surface):
         self._offset = offset
 
     def set_viewport(self, viewport):
-        clipped_viewport = self.get_rect().clip(viewport)
-        self._viewport = clipped_viewport
+        self._viewport = self.get_rect().clip(viewport)
 
     # Can't just call it 'get_view' as that is something else entirely, built-in to pygame.Surface already.
     def get_view_from_viewport(self):
@@ -84,9 +82,12 @@ class Surface(pygame.Surface):
 Rect = pygame.Rect
 
 # Event types
+NOEVENT = pygame.NOEVENT
 QUIT = pygame.QUIT
 KEYDOWN = pygame.KEYDOWN
 MOUSEBUTTONDOWN = pygame.MOUSEBUTTONDOWN
+MOUSEBUTTONUP = pygame.MOUSEBUTTONUP
+MOUSEMOTION = pygame.MOUSEMOTION
 # And top-level keycodes
 K_LSHIFT = pygame.K_LSHIFT
 K_RSHIFT = pygame.K_RSHIFT
@@ -118,6 +119,7 @@ class event(object):
     wait = pygame.event.wait
     get = pygame.event.get
     poll = pygame.event.poll
+    Event = pygame.event.Event
 
 
 class image(object):
@@ -127,6 +129,7 @@ class image(object):
 # Custom stuff
 K_SHIFT = (K_LSHIFT, K_RSHIFT)
 K_ENTER = (K_KP_ENTER, K_RETURN)
+MOUSEEVENTS = (MOUSEBUTTONUP, MOUSEBUTTONDOWN, MOUSEMOTION)
 
 
 def event_stream(single_event=False, discard_old=True):
@@ -156,14 +159,36 @@ def event_stream(single_event=False, discard_old=True):
 
 def text_event(event_):
     """Takes an event and parses it so that if it is of type KEYDOWN, then it returns its character and keycode. If it
-    is not of type KEYDOWN, then it returns None, None."""
+    is not of type KEYDOWN, then it returns (None, None)."""
     if event_ is None:
         return None, None
     elif event_.type == KEYDOWN:
         key_code = event_.key
         char = event_.unicode
         if char == '\r':
+            event.unicode = '\n'
             char = '\n'
         return char, key_code
     else:
         return None, None
+
+
+def mouse_event(event_, valid_buttons=(1, 2, 3)):
+    """Takes an event and parses it so that if it is a mouse-related event relating to the specified mouse button, then
+    it returns it. Else it returns a blank event.
+    Meaning of :valid_buttons: elements:
+    1 - Left click
+    2 - Middle click
+    3 - Right click
+    4 - Scroll wheel up
+    5 - Scroll wheel down
+    6 - Mouse 4
+    7 - Mouse 5"""
+
+    if event_.type not in MOUSEEVENTS:
+        return event.Event(NOEVENT)
+
+    if event_.type != MOUSEMOTION and event_.button not in valid_buttons:
+        return event.Event(NOEVENT)
+
+    return event_
