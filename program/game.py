@@ -192,7 +192,7 @@ class MainGame(object):
             self.out.overlays.menu.submit(strings.MapSelect.SELECT_MAP)
             self.out.flush()
             while True:
-                time.sleep(config.TICK_PAUSE)
+                time.sleep(config.TICK_PAUSE / 1000)
                 menu_results, input_type = self.inp()
                 self.out.flush()
                 if input_type == internal_strings.InputTypes.MENU:
@@ -226,10 +226,10 @@ class MainGame(object):
         """A single tick of the game."""
         # First get input from the user / from a skip condition.
         if skip.skip:
-            time.sleep(config.SKIP_PAUSE)
+            time.sleep(config.SKIP_PAUSE / 1000)
             play_inp, input_type = skip.play_inp, skip.input_type
         else:
-            time.sleep(config.TICK_PAUSE)
+            time.sleep(config.TICK_PAUSE / 1000)
             play_inp, input_type = self.inp()
 
         skip = tools.Object(skip=False)

@@ -7,9 +7,12 @@ import config.internal_strings as internal_strings
 WINDOW_NAME = 'Maze Game'
 
 # How long to wait at each state when skipping user input.
-SKIP_PAUSE = 0.1  # In seconds
+SKIP_PAUSE = 100  # In milliseconds
 # How long to pause between ticks of the game
-TICK_PAUSE = 0.005  # In seconds
+TICK_PAUSE = 5  # In milliseconds
+# How long a key should be held down for to generate repeat keypresses. Must be somewhat larger than TICK_PAUSE, so that
+# events don't build up faster than the game can process them.
+KEY_REPEAT = 50
 
 # The file extension for map files
 MAP_FILE_EXTENSION = 'map'

@@ -6,6 +6,7 @@ import pygame.display
 import pygame.event
 
 
+import config.config as config
 import program.misc.exceptions as exceptions
 
 # Initialise the pygame modules
@@ -13,6 +14,7 @@ pygame.ftfont.init()
 pygame.display.init()
 pygame.event.set_allowed(None)
 pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION])
+pygame.key.set_repeat(config.KEY_REPEAT, config.KEY_REPEAT)
 
 
 # Top-level pygame imports
