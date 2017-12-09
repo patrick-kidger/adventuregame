@@ -1,3 +1,4 @@
+import collections
 import Tools as tools
 
 
@@ -78,7 +79,7 @@ class MenuListener(OverlayListener):
         # Whether we are currently still clicking the element. (i.e. we are in between mousedown and mouseup)
         self._mouse_is_down = False
         # The current state of all the menu elements
-        self._inp_result = {}, internal_strings.InputTypes.MENU
+        self._menu_results = collections.defaultdict(lambda: None)
         super(MenuListener, self).reset()
 
     def _handle(self, event):
@@ -97,19 +98,26 @@ class MenuListener(OverlayListener):
                         element_pos = menu_element.screen_pos(event.pos)
                         click_result = menu_element.mousedown(element_pos)
                         # Stores its result
-                        self._inp_result[0][menu_element] = click_result
+                        self._menu_results[menu_element] = click_result
 
+                        can_submit = False
                         # If we clicked a submit element
                         if menu_element in self.overlay.submit_elements:
                             # Make sure all necessary elements have data
                             for necessary_element in self.overlay.necessary_elements:
-                                if self._inp_result[0].get(necessary_element, None) is None:
+                                if self._menu_results[necessary_element] is None:
                                     break  # Necessary element doesn't have data
                             else:
                                 # All necessary elements have data; we're done here.
-                                result = self._inp_result
-                                self.reset()
-                                return result
+                                can_submit = True
+                        elif menu_element in self.overlay.back_elements:
+                            can_submit = True
+
+                        if can_submit:
+                            menu_results = self._menu_results
+                            self.reset()
+                            return menu_results, internal_strings.InputTypes.MENU
+
                         break
 
             elif event.type == sdl.MOUSEBUTTONUP:

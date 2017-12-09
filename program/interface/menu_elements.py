@@ -103,6 +103,7 @@ class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
 
     def mousedown(self, pos):
         self.screen.blit(self.Images.button_select)
+        return True
 
     def un_mousedown(self):
         self.screen.blit(self.Images.button_deselect)

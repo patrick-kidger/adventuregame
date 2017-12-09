@@ -68,6 +68,8 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
                                          # 'submitted', i.e. pass data back to the game.
         self.submit_elements = set()     # Those elements which, when interacted with, will attempt to 'submit' the
                                          # current menu.
+        self.back_elements = set()       # As submit_elements, but do not require the necessary elements to have
+                                         # non-None data to submit. (i.e. for returning to earlier menus)
         super(MenuOverlay, self).reset()
 
     def list(self, title, entry_text, necessary=False, **kwargs):
@@ -82,8 +84,9 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         :str vert_alignment: Optional argument. As horz_alignment, for vertical placement. If not passed, defaults to
             the center of the screen.
         """
-
+        # Not specified as arguments above so that they automatically use the default argument values in self._view
         align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
+
         list_screen = self._view(menu_elements.List.size, **align_kwargs)
         created_list = menu_elements.List(screen=list_screen, title=title, entry_text=entry_text, font=self.font)
         self.menu_elements.add(created_list)
@@ -95,11 +98,14 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         """Creates a button with the given text.
 
         :str text: The text to put on the button.
+        :press: The value that is returned when this button is pressed
         :bool necessary: As in the method 'list'.
         :str horz_alignment: As in the method 'list'.
         :str vert_alignment: As in the method 'list'.
         """
+        # Not specified as arguments above so that they automatically use the default argument values in self._view
         align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
+
         button_screen = self._view(menu_elements.Button.size, **align_kwargs)
         created_button = menu_elements.Button(screen=button_screen, text=text, font=self.font)
         self.menu_elements.add(created_button)
@@ -107,17 +113,24 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
             self.necessary_elements.add(created_button)
         return created_button
 
-    def submit(self, text, **kwargs):
+    def submit(self, text, horz_alignment=internal_strings.Alignment.RIGHT,
+               vert_alignment=internal_strings.Alignment.BOTTOM):
         """Creates a submit button with the given text - pressing this button will attempt to submit the menu.
 
         :str text: The text to put on the submit button.
         :str horz_alignment: As in the method 'list', but defaults to the right.
         :str vert_alignment: As in the method 'list', but defaults to the bottom."""
-        horz_alignment = kwargs.get('horz_alignment', internal_strings.Alignment.RIGHT)
-        vert_alignment = kwargs.get('vert_alignment', internal_strings.Alignment.BOTTOM)
         submit_button = self.button(text, horz_alignment=horz_alignment, vert_alignment=vert_alignment)
         self.submit_elements.add(submit_button)
         return submit_button
+
+    def back(self, text, horz_alignment=internal_strings.Alignment.LEFT,
+               vert_alignment=internal_strings.Alignment.BOTTOM):
+        """Creates a back button with the given text - pressing this button is a submit button, as above, but that
+        does not require necessary elements to have data."""
+        back_button = self.button(text, horz_alignment=horz_alignment, vert_alignment=vert_alignment)
+        self.back_elements.add(back_button)
+        return back_button
 
 
 class TextOverlay(BaseOverlay, base.FontMixin):

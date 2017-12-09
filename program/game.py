@@ -158,55 +158,98 @@ class MainGame(object):
     def start(self):
         """Starts the game."""
         reset = True
-        main_menu = True
-        map_select = True
+        menu = True
         while True:
             try:
                 if reset:
                     self.reset()
                     reset = False
-                if main_menu:
-                    # TODO: Add a main menu!
-                    main_menu = False
-                if map_select:
-                    self._map_select()
-                    map_select = False
+                if menu:
+                    self._menu()
+                    menu = False
                 self._run()
                 break
             except exceptions.CloseException:
                 break
             except exceptions.BaseQuitException as e:
-                if isinstance(e, exceptions.MapSelectException):
-                    map_select = True
                 if isinstance(e, exceptions.QuitException):
-                    main_menu = True
+                    menu = True
                 if isinstance(e, exceptions.ResetException):
                     reset = True
 
-    def _map_select(self):
-        """Gives the menu to select a map."""
-        map_names = self._maps_access.setup_and_find_map_names()
+    def _menu(self):
+        """Displays the menu system"""
+        current_menu = internal_strings.Menus.MAIN_MENU  # The first menu displayed
+        menus = {internal_strings.Menus.MAIN_MENU: self._main_menu,  # All of the menus
+                 internal_strings.Menus.MAP_SELECT: self._map_select,
+                 internal_strings.Menus.OPTIONS: self._options}
         with self._use_interface('menu'):
-            self.out.overlays.menu.reset()
-            menu_list = self.out.overlays.menu.list(title=strings.MapSelect.TITLE, entry_text=map_names, necessary=True)
-            self.out.overlays.menu.submit(strings.MapSelect.SELECT_MAP)
-            self.out.flush()
-            while True:
-                time.sleep(config.TICK_PAUSE / 1000)
-                menu_results, input_type = self.inp()
+            while True:  # Wait for the user to navigate through the menu system
+                self.out.overlays.menu.reset()
+                callback = menus[current_menu]()  # Set up the current menu
                 self.out.flush()
-                if input_type == internal_strings.InputTypes.MENU:
+                while True:  # Wait for input from this menu
+                    time.sleep(config.TICK_PAUSE / 1000)
+                    menu_results, input_type = self.inp()
+                    self.out.flush()
+                    if input_type == internal_strings.InputTypes.MENU:
+                        # Once a submit element is activated
+                        break
+                current_menu = callback(menu_results) # Do whatever this menu does
+                if current_menu == internal_strings.Menus.GAME_START:
+                    # Start the game
                     break
 
-            selected_index = menu_results[menu_list]
-            map_name = map_names[selected_index]
-            map_ = self._maps_access.get_map(map_name)
+    def _main_menu(self):
+        """Displays the main menu"""
+        map_select_button = self.out.overlays.menu.submit(strings.MainMenu.START,
+                                                          horz_alignment=internal_strings.Alignment.CENTER,
+                                                          vert_alignment=internal_strings.Alignment.CENTER)
 
-        # Load map
-        self.map.load(map_)
+        options_button = self.out.overlays.menu.submit(strings.MainMenu.OPTIONS,
+                                                       horz_alignment=internal_strings.Alignment.CENTER,
+                                                       vert_alignment=internal_strings.Alignment.BOTTOM)
 
-        # Load player
-        self.player.set_pos(map_.start_pos)
+        def callback(menu_results):
+            pressed_button = next(key for key in (map_select_button, options_button) if menu_results[key])
+            if pressed_button is map_select_button:
+                return internal_strings.Menus.MAP_SELECT
+            else:
+                return internal_strings.Menus.OPTIONS
+
+        return callback
+
+    def _map_select(self):
+        """Displays the menu to select a map."""
+        map_names = self._maps_access.setup_and_find_map_names()
+
+        menu_list = self.out.overlays.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
+        select_map_button = self.out.overlays.menu.submit(strings.MapSelectMenu.SELECT_MAP)
+        main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
+
+        def callback(menu_results):
+            pressed_button = next(key for key in (select_map_button, main_menu_button) if menu_results[key])
+            if pressed_button is select_map_button:
+                selected_index = menu_results[menu_list]
+                map_name = map_names[selected_index]
+                map_ = self._maps_access.get_map(map_name)
+
+                self.map.load(map_)
+                self.player.set_pos(map_.start_pos)
+                return internal_strings.Menus.GAME_START
+            else:
+                return internal_strings.Menus.MAIN_MENU
+
+        return callback
+
+    def _options(self):
+        main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
+
+        def callback(menu_results):
+            pressed_button = next(key for key in (main_menu_button, ) if menu_results[key])
+            return internal_strings.Menus.MAIN_MENU
+
+        return callback
 
     def _run(self):
         """The main game loop."""

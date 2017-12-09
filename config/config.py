@@ -88,7 +88,6 @@ class DebugCommands(tools.Container):
     EXIT = 'exit'   # Does the same thing as quit
     CLOSE = 'close'  # Does not do the same thing as quit
     RESET = 'reset'
-    CHANGEMAP = 'changemap'
 
 # Button to toggle the console
 OPEN_CONSOLE = '\\'

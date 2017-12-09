@@ -17,13 +17,29 @@ class Sep(tools.Container):
     DR_SEP   = chr(9484)
     LR_SEP   = SEP
 
-class MapSelect(tools.Container):
+
+class Menus(tools.Container):
+    MAIN_MENU = 'Main menu'
+
+
+class MainMenu(Menus):
+    """Strings relating to the main menu."""
+    START = 'Start'
+    OPTIONS = 'Options'
+
+
+class MapSelectMenu(Menus):
     """Strings relating to the selecting of a map."""
     TITLE = "Choose a map:"
     HEADERS = ['Code', 'Name']
     OPTION_NUMBER = "{number:02}"
     PROMPT = "Select code: "
     SELECT_MAP = 'Select map'
+
+
+class OptionsMenu(Menus):
+    """Strings relating to the options screen."""
+
 
 class Play(tools.Container):
     """Strings relating to the bulk of playing the game."""
@@ -33,6 +49,7 @@ class Play(tools.Container):
     DEBUG_NOT_ENABLED = 'Debug mode must be enabled to use this command: debug True'
     # The message for input that could not be made sense of.
     INVALID_INPUT = 'Invalid input, please try again. Type \'help\' for help.'
+
 
 class Help(tools.Container):
     """Strings relating to using the help command."""

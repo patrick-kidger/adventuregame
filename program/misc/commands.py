@@ -144,17 +144,6 @@ class Ghost(Variable):
     variables = ('player.incorporeal',)
     needs_debug = True
 
-    
-@tools.register(config.DebugCommands.CHANGEMAP, Debug.commands)
-class ChangeMap(SpecialInput):
-    """Changes the map."""
-    inp = config.DebugCommands.CHANGEMAP
-    needs_debug = True
-    
-    @classmethod
-    def do(cls, game_instance, inp_args):
-        raise exceptions.MapSelectException()
-
 
 @tools.register(config.DebugCommands.CLOSE, Help.commands)
 class Close(SpecialInput):

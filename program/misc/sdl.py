@@ -52,7 +52,8 @@ class Surface(pygame.Surface):
     # go through this mechanism.
     # e.g. if Surface had 'viewport' as a @property, then doing:
     #  Surface().viewport.top = 10
-    # won't go through this clipping process below.
+    # won't go through this clipping process below. Making the above respect this kind of clipping process is probably
+    # too much magic.
     def set_viewport(self, viewport):
         self._viewport = self.get_rect().clip(viewport)
 

@@ -9,11 +9,7 @@ class BaseQuitException(Exception):
     """Base exception for all exceptions involving leaving the current game."""
 
 
-class MapSelectException(BaseQuitException):
-    """Indicates that the map select screen should be returned to."""
-
-
-class QuitException(MapSelectException):
+class QuitException(BaseQuitException):
     """Indicates the the main menu screen should be returned to."""
 
 

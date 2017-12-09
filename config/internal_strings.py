@@ -36,6 +36,13 @@ class Play(tools.Container):
     VERTICAL_UP = 'vertical_up'
     VERTICAL_DOWN = 'vertical_down'
 
+# Menus
+class Menus(tools.Container):
+    MAIN_MENU = 'main_menu'
+    MAP_SELECT = 'map_select'
+    OPTIONS = 'options'
+    GAME_START = 'game_start'  # Not a menu; special value to indicate that the main game should be started
+
 # Input types
 class InputTypes(tools.Container):
     MENU = 'menu'
