@@ -11,7 +11,8 @@ import program.misc.exceptions as exceptions
 # Initialise the pygame modules
 pygame.ftfont.init()
 pygame.display.init()
-pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN])
+pygame.event.set_allowed(None)
+pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION])
 
 
 # Top-level pygame imports
@@ -116,7 +117,7 @@ class ftfont(object):
 
 class display(object):
     # Note that set_mode will return a pygame.Surface, not the enhanced Surface defined above. It's not possible to
-    # reassign its __class__ as Surface functions as a builtin type.
+    # reassign its __class__ as Surface is a builtin type.
     set_mode = pygame.display.set_mode
     set_caption = pygame.display.set_caption
     update = pygame.display.update

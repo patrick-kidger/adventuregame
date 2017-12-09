@@ -217,8 +217,6 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
 
     def mousedown(self, pos):
         click_result = super(List, self).mousedown(pos)
-        self._update_scroll_view()
-
         if click_result.component is self._components.scrollbar:
             pos_rel_to_scrollbar = self._components.scrollbar.screen_pos(pos)
             if self._components.scrollbar.scroll_handle_rect.collidepoint(pos_rel_to_scrollbar):
@@ -234,6 +232,7 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
             self._clicked_entry = click_result.click_result.component
             self._clicked_entry_index = click_result.click_result.count
 
+        self._update_scroll_view()
         return self._clicked_entry_index
 
     def mouseup(self, pos):
