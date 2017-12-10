@@ -132,6 +132,7 @@ class MainGame(object):
     """Main game instance."""
 
     def __init__(self, maps_access, interface):
+        self.clock = sdl.time.Clock()
         self._maps_access = maps_access  # Access to all the saved maps
         self.out = interface.out  # Output to screen
         self.inp = interface.inp  # Receive input from user
@@ -211,11 +212,10 @@ class MainGame(object):
                                                        vert_alignment=internal_strings.Alignment.BOTTOM)
 
         def callback(menu_results):
-            pressed_button = next(key for key in (map_select_button, options_button) if menu_results[key])
-            if pressed_button is map_select_button:
-                return internal_strings.Menus.MAP_SELECT
-            else:
-                return internal_strings.Menus.OPTIONS
+            button_menu_map = {map_select_button: internal_strings.Menus.MAP_SELECT,
+                               options_button: internal_strings.Menus.OPTIONS}
+            pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
+            return menu_to_go_to
 
         return callback
 
@@ -224,21 +224,22 @@ class MainGame(object):
         map_names = self._maps_access.setup_and_find_map_names()
 
         menu_list = self.out.overlays.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
-        select_map_button = self.out.overlays.menu.submit(strings.MapSelectMenu.SELECT_MAP)
+        game_start_button = self.out.overlays.menu.submit(strings.MapSelectMenu.SELECT_MAP)
         main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
 
         def callback(menu_results):
-            pressed_button = next(key for key in (select_map_button, main_menu_button) if menu_results[key])
-            if pressed_button is select_map_button:
+            button_menu_map = {game_start_button: internal_strings.Menus.GAME_START,
+                               main_menu_button: internal_strings.Menus.MAIN_MENU}
+            pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
+            if pressed_button is game_start_button:
                 selected_index = menu_results[menu_list]
                 map_name = map_names[selected_index]
                 map_ = self._maps_access.get_map(map_name)
 
                 self.map.load(map_)
                 self.player.set_pos(map_.start_pos)
-                return internal_strings.Menus.GAME_START
-            else:
-                return internal_strings.Menus.MAIN_MENU
+
+            return menu_to_go_to
 
         return callback
 
@@ -246,10 +247,24 @@ class MainGame(object):
         main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
 
         def callback(menu_results):
-            pressed_button = next(key for key in (main_menu_button, ) if menu_results[key])
-            return internal_strings.Menus.MAIN_MENU
+            button_menu_map = {main_menu_button: internal_strings.Menus.MAIN_MENU}
+            pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
+            return menu_to_go_to
 
         return callback
+
+    @staticmethod
+    def _standard_menu_movement(menu_results, button_menu_map):
+        pressed_buttons = [key for key in button_menu_map.keys() if menu_results[key]]
+        if len(pressed_buttons) != 1:
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.MENU_MOVE_WRONG)
+        pressed_button = pressed_buttons[0]
+
+        menu_to_go_to = button_menu_map[pressed_button]
+        if menu_to_go_to is None:
+            raise exceptions.ProgrammingException(internal_strings.Exceptions.MENU_MOVE_WRONG)
+
+        return pressed_button, menu_to_go_to
 
     def _run(self):
         """The main game loop."""

@@ -2,6 +2,10 @@ import Tools as tools
 
 
 class Exceptions(tools.Container):
+    # Menu navigation
+    MENU_MOVE_WRONG = "MENU event given - i.e. a submit or back element was used - without any of those" \
+                                    " elements having registered interactions, or with more than one of those " \
+                                    "elements having registered interactions."
     # Loading map data
     NO_MAP_NAME = "Map with name {map_name} does not exist."
     NO_ENTRY = "Required field {entry} cannot be found on map {map_name}."
