@@ -6,13 +6,14 @@ import config.internal_strings as internal_strings
 
 WINDOW_NAME = 'Maze Game'
 
-# How long to wait at each state when skipping user input.
-SKIP_PAUSE = 100  # In milliseconds
-# How long to pause between ticks of the game
-TICK_PAUSE = 5  # In milliseconds
+# How many ticks of physics should be done each second.
+PHYSICS_FRAMERATE = 120
 # How long a key should be held down for to generate repeat keypresses. Must be somewhat larger than TICK_PAUSE, so that
 # events don't build up faster than the game can process them.
 KEY_REPEAT = 50
+
+# How many physics ticks it should take to fall through one z-level
+FALL_TICKS = 15
 
 # The file extension for map files
 MAP_FILE_EXTENSION = 'map'

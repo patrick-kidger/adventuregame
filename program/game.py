@@ -132,7 +132,8 @@ class MainGame(object):
     """Main game instance."""
 
     def __init__(self, maps_access, interface):
-        self.clock = sdl.time.Clock()
+        self.render_clock = sdl.time.Clock()
+        self.physics_clock = sdl.time.Clock()
         self._maps_access = maps_access  # Access to all the saved maps
         self.out = interface.out  # Output to screen
         self.inp = interface.inp  # Receive input from user
@@ -140,9 +141,9 @@ class MainGame(object):
 
         # Immediately redefined in reset()
         # Just defined here for clarity about what instance properties we have
-        self.map = None     # The map that the player is on
+        self.map = None  # The map that the player is on
         self.player = None  # The player. Unsurprisingly.
-        self.debug_mode = None   # Whether or not cheaty debug commands can be executed
+        self.debug_mode = None  # Whether or not cheaty debug commands can be executed
         
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
@@ -184,13 +185,14 @@ class MainGame(object):
         menus = {internal_strings.Menus.MAIN_MENU: self._main_menu,  # All of the menus
                  internal_strings.Menus.MAP_SELECT: self._map_select,
                  internal_strings.Menus.OPTIONS: self._options}
+        self.physics_clock.tick()
         with self._use_interface('menu'):
             while True:  # Wait for the user to navigate through the menu system
                 self.out.overlays.menu.reset()
                 callback = menus[current_menu]()  # Set up the current menu
                 self.out.flush()
                 while True:  # Wait for input from this menu
-                    time.sleep(config.TICK_PAUSE / 1000)
+                    self.physics_clock.tick(config.PHYSICS_FRAMERATE)
                     menu_results, input_type = self.inp()
                     self.out.flush()
                     if input_type == internal_strings.InputTypes.MENU:
@@ -269,43 +271,39 @@ class MainGame(object):
     def _run(self):
         """The main game loop."""
         with self._use_interface('game'):
-            # Information to be carried over to the next tick, if we don't allow input in this one.
-            skip = tools.Object(skip=False)
+            accumulator = 0
             self.render()
+            self.physics_clock.tick()
+            self.render_clock.tick()
             while True:
-                skip = self._tick(skip)
+                while accumulator >= 0:
+                    play_inp, input_type = self.inp()
+                    self._tick(play_inp, input_type)
+                    accumulator -= self.physics_clock.tick(config.PHYSICS_FRAMERATE)
                 self.render()
+                accumulator += self.render_clock.tick()
 
     def _use_interface(self, interface_name):
         """For use in 'with' statements. Enables both the listener and the overlay with the name :interface_name:"""
         return self.out.use(interface_name) + self.inp.use(interface_name)
     
-    def _tick(self, skip):
+    def _tick(self, play_inp, input_type):
         """A single tick of the game."""
-        # First get input from the user / from a skip condition.
-        if skip.skip:
-            time.sleep(config.SKIP_PAUSE / 1000)
-            play_inp, input_type = skip.play_inp, skip.input_type
-        else:
-            time.sleep(config.TICK_PAUSE / 1000)
-            play_inp, input_type = self.inp()
+        use_player_input = True
+        if not self.player.flight and self.map.fall(self.player.pos):
+            use_player_input = False
+            self.player.fall_counter += 1
+            if self.player.fall_counter == self.player.fall_speed:
+                self.move_entity(internal_strings.Play.VERTICAL_DOWN, self.player)
+                self.player.fall_counter = 0
 
-        skip = tools.Object(skip=False)
-        # Then handle the input.
-        if input_type == internal_strings.InputTypes.MOVEMENT:
-            did_move = self.move_entity(play_inp, self.player)
-            if skip.skip and not did_move:
-                raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_FORCE_MOVE)
-            if not self.player.flight and self.map.fall(self.player.pos):
-                skip = tools.Object(skip=True, play_inp=internal_strings.Play.VERTICAL_DOWN,
-                                    input_type=internal_strings.InputTypes.MOVEMENT)
-
-        elif input_type == internal_strings.InputTypes.NO_INPUT:
-            pass
-        else:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
-
-        return skip
+        if use_player_input:
+            if input_type == internal_strings.InputTypes.MOVEMENT:
+                self.move_entity(play_inp, self.player)
+            elif input_type == internal_strings.InputTypes.NO_INPUT:
+                pass
+            else:
+                raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
 
     def render(self):
         """Outputs the current game state."""
