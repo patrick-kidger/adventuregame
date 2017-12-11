@@ -132,8 +132,7 @@ class MainGame(object):
     """Main game instance."""
 
     def __init__(self, maps_access, interface):
-        self.render_clock = sdl.time.Clock()
-        self.physics_clock = sdl.time.Clock()
+        self.clock = sdl.time.Clock()
         self._maps_access = maps_access  # Access to all the saved maps
         self.out = interface.out  # Output to screen
         self.inp = interface.inp  # Receive input from user
@@ -185,14 +184,14 @@ class MainGame(object):
         menus = {internal_strings.Menus.MAIN_MENU: self._main_menu,  # All of the menus
                  internal_strings.Menus.MAP_SELECT: self._map_select,
                  internal_strings.Menus.OPTIONS: self._options}
-        self.physics_clock.tick()
+        self.clock.tick()
         with self._use_interface('menu'):
             while True:  # Wait for the user to navigate through the menu system
                 self.out.overlays.menu.reset()
                 callback = menus[current_menu]()  # Set up the current menu
                 self.out.flush()
                 while True:  # Wait for input from this menu
-                    self.physics_clock.tick(config.PHYSICS_FRAMERATE)
+                    self.clock.tick(config.RENDER_FRAMERATE)
                     menu_results, input_type = self.inp()
                     self.out.flush()
                     if input_type == internal_strings.InputTypes.MENU:
@@ -272,16 +271,16 @@ class MainGame(object):
         """The main game loop."""
         with self._use_interface('game'):
             accumulator = 0
+            physics_framelength = 1000 / config.PHYSICS_FRAMERATE
+            self.clock.tick(config.RENDER_FRAMERATE)
             self.render()
-            self.physics_clock.tick()
-            self.render_clock.tick()
             while True:
                 while accumulator >= 0:
                     play_inp, input_type = self.inp()
                     self._tick(play_inp, input_type)
-                    accumulator -= self.physics_clock.tick(config.PHYSICS_FRAMERATE)
+                    accumulator -= physics_framelength
+                accumulator += self.clock.tick(config.RENDER_FRAMERATE)
                 self.render()
-                accumulator += self.render_clock.tick()
 
     def _use_interface(self, interface_name):
         """For use in 'with' statements. Enables both the listener and the overlay with the name :interface_name:"""

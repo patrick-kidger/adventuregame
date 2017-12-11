@@ -7,13 +7,16 @@ import config.internal_strings as internal_strings
 WINDOW_NAME = 'Maze Game'
 
 # How many ticks of physics should be done each second.
-PHYSICS_FRAMERATE = 120
-# How long a key should be held down for to generate repeat keypresses. Must be somewhat larger than TICK_PAUSE, so that
-# events don't build up faster than the game can process them.
-KEY_REPEAT = 50
+PHYSICS_FRAMERATE = 200
+# FPS cap
+RENDER_FRAMERATE = 200
 
 # How many physics ticks it should take to fall through one z-level
 FALL_TICKS = 15
+
+# How long a key should be held down for to generate repeat keypresses. Must be somewhat larger than TICK_PAUSE, so that
+# events don't build up faster than the game can process them.
+KEY_REPEAT = 50
 
 # The file extension for map files
 MAP_FILE_EXTENSION = 'map'
