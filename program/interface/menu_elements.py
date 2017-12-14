@@ -71,7 +71,7 @@ class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
         """Runs when this element is moused over."""
 
 
-class MultipleComponentMixin(object):
+class MultipleComponentMixin:
     def mousedown(self, pos):
         for count, component in enumerate(self._components.values()):
             if component.point_within(pos):
@@ -175,7 +175,7 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
     class ImageFilenames(tools.Container):
         list_background = 'general/list/list_background.png'
 
-    class Alignment(object):  # Tidied up into a class here rather than keeping them all as individual variables.
+    class Alignment:  # Tidied up into a class here rather than keeping them all as individual variables.
         entry_size = sdl.Rect((0, 0), (747, 150))  # How big each entry in the list is
 
         entry_cutout = sdl.Rect((5, 60), (747, 735))  # Cutout in the main screen for entries

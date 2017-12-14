@@ -7,7 +7,7 @@ import config.config as config
 import config.internal_strings as internal_strings
 
 
-class MapsAccess(object):
+class MapsAccess:
     def __init__(self):
         self.map_lookup = {}
         self.map_data_path = os.path.join(os.path.dirname(__file__), config.MAP_FOLDER)

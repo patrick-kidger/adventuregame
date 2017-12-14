@@ -11,7 +11,7 @@ import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 
 
-class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
+class BaseOverlay(base.BaseIO, helpers.EnablerMixin):
     """Abstract base class for all overlays. An 'overlay' is a layer on the screen that may be outputted to. An instance
     of the 'Output' class keeps track of the different overlays.
 
@@ -24,7 +24,8 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin, helpers.NameMixin):
     was initialised in. Overlays should put those attributes they need resetting here."""
 
     def __init__(self, name, location, size, background_color, *args, **kwargs):
-        super(BaseOverlay, self).__init__(name=name, enabled=False, *args, **kwargs)
+        super(BaseOverlay, self).__init__(enabled=False, *args, **kwargs)
+        self.name = name
         self.location = location
         self.screen = sdl.Surface(size)
         self.background_color = background_color
@@ -154,7 +155,7 @@ class TextOverlay(BaseOverlay, base.FontMixin):
         self.text += output_val
 
         # Handle backspaces
-        self.text = helpers.re_sub_recursive(r'[^\x08]\x08', '', self.text)  # \x08 = backspace. \b doesn't work for some reason.
+        self.text = tools.re_sub_recursive(r'[^\x08]\x08', '', self.text)  # \x08 = backspace. \b doesn't work.
         self.text.lstrip('\b')
 
         self.wipe()

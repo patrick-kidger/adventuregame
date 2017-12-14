@@ -1,5 +1,4 @@
 import copy
-import time
 import Tools as tools
 
 
@@ -8,13 +7,12 @@ import config.internal_strings as internal_strings
 import config.strings as strings
 
 import program.misc.exceptions as exceptions
-import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 import program.entities as entities
 import program.tiles as tiles
 
 
-class TileData(object):
+class TileData:
     """Holds all the Tiles used in a map."""
     def __init__(self):
         self._tile_data = None  # The actual
@@ -71,15 +69,16 @@ class TileData(object):
         return self._tile_data[z_level]
         
     
-class Map(helpers.NameMixin):
+class Map:
     """Holds all map data - the tiles that make up the map, plus associated information such as the map's name, its
     visual depiction on the screen, etc."""
     
     def __init__(self, background_color):
         self.tile_data = TileData()  # The tiles that make up the map
+        self.name = None
         self.screens = None  # The visual depiction of the map
         self.background_color = background_color  # The background color to use where no tile is defined.
-        super(Map, self).__init__(name=None)
+        super(Map, self).__init__()
 
     def load(self, map_data):
         """Loads the specified map."""
@@ -128,7 +127,7 @@ class Map(helpers.NameMixin):
         return not(self.tile_data[pos_beneath].ceiling or this_tile.floor)
 
     
-class MainGame(object):
+class MainGame:
     """Main game instance."""
 
     def __init__(self, maps_access, interface):
@@ -330,7 +329,7 @@ class MainGame(object):
             if (old_tile.ceiling or new_tile.floor) and not entity.incorporeal:
                 return False  # Corporeal entities cannot pass through solid floors and ceilings.
             if not((old_tile.suspend and new_tile.suspend) or entity.flight):
-                return False  # Flightless entities require a asuspension to move vertically upwards
+                return False  # Flightless entities require a suspension to move vertically upwards
         if direction == internal_strings.Play.VERTICAL_DOWN:
             if (old_tile.floor or new_tile.ceiling) and not entity.incorporeal:
                 return False  # Corporeal entities cannot pass through solid floors and ceilings.

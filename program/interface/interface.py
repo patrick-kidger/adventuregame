@@ -1,4 +1,4 @@
-class Interface(object):
+class Interface:
     """Wrapper around Output and Input, in order to provide the overall interface."""
 
     def __init__(self, inp, out):

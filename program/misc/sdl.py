@@ -114,7 +114,7 @@ K_DOWN = pygame.K_DOWN
 
 
 # Emulate its modules
-class display(object):
+class display:
     # Note that set_mode will return a pygame.Surface, not the enhanced Surface defined above. It's not possible to
     # reassign its __class__ as Surface is a builtin type.
     set_mode = pygame.display.set_mode
@@ -122,7 +122,7 @@ class display(object):
     update = pygame.display.update
 
 
-class event(object):
+class event:
     clear = pygame.event.clear
     wait = pygame.event.wait
     get = pygame.event.get
@@ -130,15 +130,15 @@ class event(object):
     Event = pygame.event.Event
 
 
-class ftfont(object):
+class ftfont:
     SysFont = pygame.ftfont.SysFont
 
 
-class image(object):
+class image:
     load = pygame.image.load
 
 
-class time(object):
+class time:
     Clock = pygame.time.Clock
 
 

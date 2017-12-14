@@ -1,1 +1,1 @@
-from main import play
+from Game.main import play

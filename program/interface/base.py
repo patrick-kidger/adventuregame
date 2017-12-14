@@ -1,7 +1,7 @@
 import program.misc.sdl as sdl
 
 
-class BaseIO(object):
+class BaseIO:
     """Base class for all interface objects. Gives them 'inp' and 'out' attributes allowing the object to access the
     rest of the interface."""
     def __init__(self, *args, **kwargs):
@@ -16,7 +16,7 @@ class BaseIO(object):
         # Endpoint for super calls.
 
 
-class Font(object):
+class Font:
     """Wrapper around pygame's fonts."""
     def __init__(self, font_name, font_size, font_color):
         self.font = sdl.ftfont.SysFont(font_name, font_size)
@@ -27,7 +27,7 @@ class Font(object):
         return self.font.render(text, False, self.color)
 
 
-class FontMixin(object):
+class FontMixin:
     """Allows for using fonts, for text."""
     def __init__(self, font, *args, **kwargs):
         self.font = font

@@ -1,11 +1,9 @@
-import re
 import os
 import Tools as tools
 
 
 import config.internal_strings as internal_strings
 
-import program.misc.exceptions as exceptions
 import program.misc.sdl as sdl
 
 
@@ -13,7 +11,7 @@ def appearance_from_filename(files_location):
     """Allows for setting an 'appearance_filename' attribute on the class, which will then have an 'appearance'
     attribute automagically added, which will be a Surface containing the image specified."""
 
-    class Appearance(object):
+    class Appearance:
         _appearance_filename = None
         appearance_filename = None
 
@@ -53,13 +51,13 @@ def image_from_filename(files_location):
         def size(cls):
             return getattr(cls.Images, cls.size_image).get_rect()
 
-    class ImageGetter(object, metaclass=ImageGetterMetaclass):
+    class ImageGetter(metaclass=ImageGetterMetaclass):
         class ImageFilenames(tools.Container):
             pass
 
         def __init_subclass__(cls, **kwargs):
             super(ImageGetter, cls).__init_subclass__(**kwargs)
-            class Images(object):
+            class Images(tools.Container):
                 pass
             cls.Images = Images
             cls.update_images()
@@ -82,7 +80,7 @@ def image_from_filename(files_location):
     return ImageGetter
 
 
-class AlignmentMixin(object):
+class AlignmentMixin:
     """Provides methods for placing objects on the instances's screen."""
 
     def _align(self, image_rect, horz_alignment=internal_strings.Alignment.CENTER, vert_alignment=internal_strings.Alignment.CENTER):
@@ -122,7 +120,7 @@ class AlignmentMixin(object):
         return self.screen.subsurface(image_rect)
 
 
-class HasPositionMixin(object):
+class HasPositionMixin:
     """Gives the class a notion of x, y, z position."""
 
     def __init__(self, pos=None):
@@ -153,14 +151,7 @@ class HasPositionMixin(object):
         return self.pos.z
 
 
-class NameMixin(object):
-    """Used to give instances a 'name' attribute."""
-    def __init__(self, name, *args, **kwargs):
-        self.name = name
-        super(NameMixin, self).__init__(*args, **kwargs)
-
-
-class EnablerMixin(object):
+class EnablerMixin:
     """Gives instances an 'enabled' attribute, along with some methods to set its value."""
     def __init__(self, enabled, *args, **kwargs):
         self.enabled = enabled
@@ -181,20 +172,3 @@ class EnablerMixin(object):
     def use(self):
         """Temporarily sets the enabled attribute to True. Used with a with statement."""
         return tools.set_context_variable(self, 'enabled')
-
-
-def re_sub_recursive(pattern, sub, inputstr):
-    """Recursive regex.
-
-    :str pattern: The regex pattern
-    :str sub: What to substitute the regex pattern for.
-    :str inputstr: The string to perform the substitutions on."""
-    patt = re.compile(pattern)
-
-    old_inputstr = inputstr
-    inputstr = patt.sub(sub, inputstr)
-    while old_inputstr != inputstr:
-        old_inputstr = inputstr
-        inputstr = patt.sub(sub, inputstr)
-
-    return inputstr

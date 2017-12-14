@@ -2,9 +2,10 @@ import Tools as tools
 
 import config.internal_strings as internal_strings
 
-### Settings ###
+### Gameplay Settings ###
 
-WINDOW_NAME = 'Maze Game'
+# Default speed of all entities
+DEFAULT_ENTITY_SPEED = 10
 
 # How many ticks of physics should be done each second.
 PHYSICS_FRAMERATE = 200
@@ -13,6 +14,10 @@ RENDER_FRAMERATE = 200
 
 # How many physics ticks it should take to fall through one z-level
 FALL_TICKS = 15
+
+### Application Settings ###
+
+WINDOW_NAME = 'Maze Game'
 
 # How long a key should be held down for to generate repeat keypresses. Must be somewhat larger than TICK_PAUSE, so that
 # events don't build up faster than the game can process them.
@@ -29,15 +34,15 @@ INTERFACE_FOLDER = 'interface'
 TILE_FOLDER = 'tiles'
 ENTITY_FOLDER = 'entities'
 
-# The sizes of the tiles, in pixels
-TILE_Y = 32
-TILE_X = 32
-
 
 ### Output ###
 # These determine how the game is rendered onto the screen.
 # Note that this is distinct from the strings module: here we handle the actual game.
 # Strings handles the talking-to-the-user interface.
+
+# The sizes of the tiles, in pixels
+TILE_Y = 32
+TILE_X = 32
 
 SCREEN_SIZE = (1600, 900)  # The overall size of the screen
 
@@ -61,6 +66,7 @@ MENU_FONT_SIZE = 20
 MENU_FONT_COLOR = (0, 0, 0)  # Black
 
 MENU_BACKGROUND_COLOR = (255, 255, 255)  # White
+
 
 ### Input ###
 # These define the input that the game is expecting, and should line up with e.g.

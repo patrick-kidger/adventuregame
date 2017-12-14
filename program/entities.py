@@ -13,6 +13,8 @@ class Entity(helpers.HasPositionMixin, helpers.appearance_from_filename(config.E
         # fall_speed physics ticks have to have gone by, recorded in fall_counter, before falling another z-level
         self.fall_counter = 0
         self.fall_speed = config.FALL_TICKS
+
+        self.speed = config.DEFAULT_ENTITY_SPEED
         super(Entity, self).__init__(*args, **kwargs)
         
         

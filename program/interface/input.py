@@ -9,11 +9,10 @@ import config.strings as strings
 import program.interface.base as base
 import program.misc.commands as commands
 import program.misc.exceptions as exceptions
-import program.misc.helpers as helpers
 import program.misc.sdl as sdl
 
 
-class BaseListener(base.BaseIO, helpers.NameMixin):
+class BaseListener(base.BaseIO):
     """An abstract base class for listeners.
 
     Listeners are how the user passes input to the game. They are polled via the class Input, which keeps track of them
@@ -30,8 +29,9 @@ class BaseListener(base.BaseIO, helpers.NameMixin):
     they are initialised to. (It is obviously not necessarily appropriate for all instance attributes to go here; it's
     really only those attributes which are modified during _handle which need to be reset.)
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name, *args, **kwargs):
         super(BaseListener, self).__init__(*args, **kwargs)
+        self.name = name
         self.reset()
 
     def __call__(self):
