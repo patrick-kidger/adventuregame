@@ -1,6 +1,6 @@
-import config.config as config
+import Game.config.config as config
 
-import program.misc.helpers as helpers
+import Game.program.misc.helpers as helpers
 
 
 class Entity(helpers.HasPositionMixin, helpers.appearance_from_filename(config.ENTITY_FOLDER)):

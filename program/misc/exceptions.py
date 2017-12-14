@@ -1,10 +1,4 @@
-class BaseGameException(Exception):
-    """Base exception for all exceptions raised during the game's runtime."""
-
-
 # Okay exceptions; may be raised during expected usage of the game.
-
-
 class BaseQuitException(Exception):
     """Base exception for all exceptions involving leaving the current game."""
 
@@ -22,6 +16,10 @@ class CloseException(BaseQuitException):
 
 
 # Bad exceptions; probably raised because of code errors
+
+class BaseGameException(Exception):
+    """Base exception for all bad exceptions raised during the game's runtime."""
+
 
 class ProgrammingException(BaseGameException):
     """Raised due to an internal problems, likely because of incorrect code."""

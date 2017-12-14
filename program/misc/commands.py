@@ -1,24 +1,17 @@
 import Tools as tools
 
 
-import config.config as config
-import config.strings as strings
+import Game.config.config as config
+import Game.config.strings as strings
 
-import program.misc.exceptions as exceptions
+import Game.program.misc.exceptions as exceptions
 
 
 def get_command(command_name):
     return SpecialInput.find_subclass(command_name)
 
 
-class SpecialInputMetaclass(type):
-    # There is no classmethod-property decorator, so we have to put this on the metaclass.
-    @property
-    def description(cls):
-        """Default description for a special input is its docstring."""
-        return cls.__doc__
-
-class SpecialInput(tools.subclass_tracker('inp'), metaclass=SpecialInputMetaclass):
+class SpecialInput(tools.subclass_tracker('inp')):
     """Base class for special inputs."""
     inp = ''             # What string should inputted to get this input
     needs_debug = False  # Whether this input needs debug mode enabled to work
@@ -40,6 +33,11 @@ class SpecialInput(tools.subclass_tracker('inp'), metaclass=SpecialInputMetaclas
                     game_instance.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n')
 
             cls.do = classmethod(do)
+
+    @tools.classproperty
+    def description(cls):
+        """Default description for a special input is its docstring."""
+        return cls.__doc__
     
     @classmethod
     def do(cls, game_instance, inp_args):

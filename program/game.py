@@ -1,58 +1,67 @@
-import copy
 import Tools as tools
 
 
-import config.config as config
-import config.internal_strings as internal_strings
-import config.strings as strings
+import Game.config.config as config
+import Game.config.internal_strings as internal_strings
+import Game.config.strings as strings
 
-import program.misc.exceptions as exceptions
-import program.misc.sdl as sdl
-import program.entities as entities
-import program.tiles as tiles
+import Game.program.misc.exceptions as exceptions
+import Game.program.misc.sdl as sdl
+import Game.program.entities as entities
+import Game.program.tiles as tiles
 
+    
+class Map:
+    """Holds all map data - the tiles that make up the map, plus associated information such as the map's name, its
+    visual depiction on the screen, etc."""
+    
+    def __init__(self, background_color):
+        self.name = None  # The name of the map (surprise!)
+        self.tile_data = None  # The tiles making up the map
+        self.screens = None  # The visual depiction of the map
+        self.background_color = background_color  # The background color to use where no tile is defined.
+        super(Map, self).__init__()
 
-class TileData:
-    """Holds all the Tiles used in a map."""
-    def __init__(self):
-        self._tile_data = None  # The actual
-        self.areas = None
-        
     def __getitem__(self, item):
-        """Get a single tile.
-
-        :tools.Object item: Should have x, y, z attributes."""
-        return self._tile_data[item.z, item.y, item.x]
+        return self.tile_data[item.z][item.y][item.x]
 
     def __iter__(self):
-        """Iterates over all tiles. Yields a tools.Object with x, y, z, tile, y_row, z_level attributes."""
-        for z, z_level in enumerate(self._tile_data):
-            for y, y_row in enumerate(z_level):
-                for x, tile in enumerate(y_row):
-                    yield tools.Object(x=x, y=y, z=z, tile=tile, y_row=y_row, z_level=z_level)
-        
-    def load(self, tile_data):
-        """Sets the tile data from the loaded tile data."""
-        self._tile_data = tools.qlist()
-        self.areas = []
-        for z, data_z_level in enumerate(tile_data):
-            self._tile_data.append(tools.qlist())
+        """Iterates over all tiles."""
+        for z_level in self.tile_data:
+            for y_row in z_level:
+                for tile in y_row:
+                    yield tile
+
+    def load(self, map_data):
+        """Loads the specified map."""
+        self.name = map_data.name
+
+        self.tile_data = tools.qlist()
+        areas = []
+        for z, data_z_level in enumerate(map_data.tile_data):
+            self.tile_data.append(tools.qlist())
             max_x = 0
             for y, data_y_row in enumerate(data_z_level):
-                self._tile_data[z].append(tools.qlist())
+                self.tile_data[z].append(tools.qlist())
                 for x, single_tile_data in enumerate(data_y_row):
                     tile = tiles.Tile(pos=tools.Object(z=z, y=y, x=x))
                     tile.set_from_data(single_tile_data)
-                    self._tile_data[z][y].append(tile)
+                    self.tile_data[z][y].append(tile)
                 max_x = max(max_x, x)
-            self.areas.append(tools.Object(x=max_x, y=y))
+            areas.append(tools.Object(x=max_x + 1, y=y + 1))
         self.convert_walls()
-                        
+
+        self.screens = [sdl.Surface((area.x * tiles.width, area.y * tiles.height)) for area in areas]
+        for screen in self.screens:
+            screen.fill(self.background_color)
+        for tile in self:
+            self.screens[tile.z].blit(tile.appearance, (tile.x * tiles.width, tile.y * tiles.height))
+
     def convert_walls(self):
         """Customises the visuals of all the walls based on adjacent walls."""
-        for tile_data in self:
-            if tile_data.tile.wall:
-                adj_tiles = (tile_data.z_level[tile_data.y + i][tile_data.x + j]
+        for tile in self:
+            if tile.wall:
+                adj_tiles = (self.tile_data[tile.z][tile.y + i][tile.x + j]
                              for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1)))
                 adj_directions = (internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.UP,
                                   internal_strings.WallAdjacency.RIGHT, internal_strings.WallAdjacency.LEFT)
@@ -60,46 +69,14 @@ class TileData:
                     if adj_tile.wall:
                         adj_tile.adjacent_walls.add(adj_direction)
 
-        for tile_data in self:
-            if tile_data.tile.wall:
-                tile_data.tile.convert_wall()
-                        
-    def level(self, z_level):
-        """Gets a z level slice of the tile data."""
-        return self._tile_data[z_level]
-        
-    
-class Map:
-    """Holds all map data - the tiles that make up the map, plus associated information such as the map's name, its
-    visual depiction on the screen, etc."""
-    
-    def __init__(self, background_color):
-        self.tile_data = TileData()  # The tiles that make up the map
-        self.name = None
-        self.screens = None  # The visual depiction of the map
-        self.background_color = background_color  # The background color to use where no tile is defined.
-        super(Map, self).__init__()
-
-    def load(self, map_data):
-        """Loads the specified map."""
-        self.name = map_data.name
-        self.tile_data.load(map_data.tile_data)
-        self.screens = [sdl.Surface(((area.x + 1) * config.TILE_X, (area.y + 1) * config.TILE_Y))
-                        for area in self.tile_data.areas]
-        for screen in self.screens:
-            screen.fill(self.background_color)
-        for tile_data in self.tile_data:
-            self.screens[tile_data.z].blit(tile_data.tile.appearance,
-                                           (tile_data.x * config.TILE_X, tile_data.y * config.TILE_Y))
-                    
-    def level(self, z_level):
-        """Gets a specified z-level of the map."""
-        return self.tile_data.level(z_level)
+        for tile in self:
+            if tile.wall:
+                tile.convert_wall()
 
     @staticmethod
     def rel(pos, direction):
         """Gets a position based on an existing position and a direction."""
-        new_pos = copy.deepcopy(pos)
+        new_pos = tools.Object(x=pos.x, y=pos.y, z=pos.z)
         if direction == internal_strings.Play.UP:
             new_pos.y -= 1
         elif direction == internal_strings.Play.DOWN:
@@ -120,11 +97,11 @@ class Map:
         """Whether or not a flightless entity will fall through the specified position.
         
         False means that they will not fall. True means that they will."""
-        this_tile = self.tile_data[pos]
+        this_tile = self[pos]
         if this_tile.suspend:
             return False
         pos_beneath = self.rel(pos, internal_strings.Play.VERTICAL_DOWN)
-        return not(self.tile_data[pos_beneath].ceiling or this_tile.floor)
+        return not(self[pos_beneath].ceiling or this_tile.floor)
 
     
 class MainGame:
@@ -170,6 +147,7 @@ class MainGame:
                 self._run()
                 break
             except exceptions.CloseException:
+                sdl.quit()
                 break
             except exceptions.BaseQuitException as e:
                 if isinstance(e, exceptions.QuitException):
@@ -307,7 +285,7 @@ class MainGame:
         """Outputs the current game state."""
         self.out.overlays.game.reset()
         self.out.overlays.game(self.map.screens[self.player.z])
-        self.out.overlays.game(self.player.appearance, (self.player.x * config.TILE_X, self.player.y * config.TILE_Y))
+        self.out.overlays.game(self.player.appearance, (self.player.x * tiles.width, self.player.y * tiles.height))
         self.out.flush()
             
     def move_entity(self, direction, entity):
@@ -316,8 +294,8 @@ class MainGame:
         Returns True/False based on if it was successfully able to move it or not."""
         current_pos = entity.pos
         new_pos = self.map.rel(current_pos, direction)
-        old_tile = self.map.tile_data[current_pos]
-        new_tile = self.map.tile_data[new_pos]
+        old_tile = self.map[current_pos]
+        new_tile = self.map[new_pos]
         
         if isinstance(new_tile, tools.qlist.Eater):
             return False  # If we're trying to move outside the edge of the map

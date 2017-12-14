@@ -1,15 +1,15 @@
 import Tools as tools
 
 
-import config.config as config
+import Game.config.config as config
 
-import data.maps as maps_
+import Game.data.maps as maps_
 
-import program.game as game
-import program.interface.base as base
-import program.interface.interface as interface_
-import program.interface.input as input_
-import program.interface.output as output
+import Game.program.game as game
+import Game.program.interface.base as base
+import Game.program.interface.interface as interface_
+import Game.program.interface.input as input_
+import Game.program.interface.output as output
 
 
 def game_factory(start_game=True):

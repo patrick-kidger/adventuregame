@@ -1,14 +1,14 @@
 import Tools as tools
 
 
-import config.config as config
-import config.internal_strings as internal_strings
-import config.strings as strings
+import Game.config.config as config
+import Game.config.internal_strings as internal_strings
+import Game.config.strings as strings
 
-import program.interface.base as base
-import program.interface.menu_elements as menu_elements
-import program.misc.helpers as helpers
-import program.misc.sdl as sdl
+import Game.program.interface.base as base
+import Game.program.interface.menu_elements as menu_elements
+import Game.program.misc.helpers as helpers
+import Game.program.misc.sdl as sdl
 
 
 class BaseOverlay(base.BaseIO, helpers.EnablerMixin):
@@ -137,6 +137,10 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
 class TextOverlay(BaseOverlay, base.FontMixin):
     """Handles outputting text to the screen."""
 
+    def __init__(self, *args, **kwargs):
+        super(TextOverlay, self).__init__(*args, **kwargs)
+        self._screen_height = self.screen.get_rect().height
+
     def reset(self):
         self.text = ''
         super(TextOverlay, self).reset()
@@ -160,12 +164,13 @@ class TextOverlay(BaseOverlay, base.FontMixin):
 
         self.wipe()
 
-        split_text = self.text.split('\n')
-        text_cursor = (0, 0)
+        split_text = self.text.split('\n')[::-1]
+        text_cursor = self._screen_height
         for output_text in split_text:
             text = self.render_text(output_text)
-            text_area = self.screen.blit(text, text_cursor)
-            text_cursor = (0, text_area.bottom)
+            text_height = text.get_rect().height
+            text_area = self.screen.blit(text, (0, text_cursor - text_height))
+            text_cursor = text_area.top
         super(TextOverlay, self).__call__(**kwargs)
 
     def sep(self, length, **kwargs):

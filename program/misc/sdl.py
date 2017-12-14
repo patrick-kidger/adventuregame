@@ -6,8 +6,9 @@ import pygame.display
 import pygame.event
 
 
-import config.config as config
-import program.misc.exceptions as exceptions
+import Game.config.config as config
+
+import Game.program.misc.exceptions as exceptions
 
 # Initialise the pygame modules
 pygame.ftfont.init()
@@ -27,7 +28,7 @@ class Surface(pygame.Surface):
     def _init(self, viewport):
         if viewport is None:
             viewport = self.get_rect()
-        self.set_viewport(viewport)
+        self.viewport = viewport
         self._cutouts = []
         self._offset = None
 
@@ -45,21 +46,10 @@ class Surface(pygame.Surface):
     def _set_offset(self, offset):
         self._offset = offset
 
-    def get_viewport(self):
-        return self._viewport
-
-    # Explicitly not using @property here, as it makes sense to set the attributes of viewport, which then wouldn't
-    # go through this mechanism.
-    # e.g. if Surface had 'viewport' as a @property, then doing:
-    #  Surface().viewport.top = 10
-    # won't go through this clipping process below. Making the above respect this kind of clipping process is probably
-    # too much magic.
-    def set_viewport(self, viewport):
-        self._viewport = self.get_rect().clip(viewport)
-
     # Can't just call it 'get_view' as that is something else entirely, built-in to pygame.Surface already.
     def get_view_from_viewport(self):
-        return self.subsurface(self.get_viewport())
+        clipped_viewport = self.get_rect().clip(self.viewport)
+        return self.subsurface(clipped_viewport)
 
     def subsurface(self, *args, viewport=None, **kwargs):
         return_surface = super(Surface, self).subsurface(*args, **kwargs)
@@ -80,7 +70,7 @@ class Surface(pygame.Surface):
             return super(Surface, self).get_abs_offset()
 
     def get_viewport_offset(self):
-        return self.get_viewport().topleft
+        return self.viewport.topleft
 
     def blit(self, source, dest=(0, 0), *args, **kwargs):  # Added default argument to dest
         return super(Surface, self).blit(source, dest, *args, **kwargs)
@@ -92,6 +82,7 @@ class Surface(pygame.Surface):
 
 
 Rect = pygame.Rect
+quit = pygame.quit
 
 # Event types
 NOEVENT = pygame.NOEVENT

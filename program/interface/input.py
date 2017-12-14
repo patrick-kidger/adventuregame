@@ -2,14 +2,14 @@ import collections
 import Tools as tools
 
 
-import config.config as config
-import config.internal_strings as internal_strings
-import config.strings as strings
+import Game.config.config as config
+import Game.config.internal_strings as internal_strings
+import Game.config.strings as strings
 
-import program.interface.base as base
-import program.misc.commands as commands
-import program.misc.exceptions as exceptions
-import program.misc.sdl as sdl
+import Game.program.interface.base as base
+import Game.program.misc.commands as commands
+import Game.program.misc.exceptions as exceptions
+import Game.program.misc.sdl as sdl
 
 
 class BaseListener(base.BaseIO):
@@ -83,42 +83,16 @@ class MenuListener(OverlayListener):
         super(MenuListener, self).reset()
 
     def _handle(self, event):
-        if sdl.mouse_event(event, valid_buttons=(1,)):
+        if sdl.mouse_event(event, valid_buttons=(1, 4, 5)):
             if event.type == sdl.MOUSEBUTTONDOWN:
-                self._mouse_is_down = True
-
-                # Unclick the previous menu element
-                if self._clicked_element is not None:
-                    self._clicked_element.un_mousedown()
-
-                for menu_element in self.overlay.menu_elements:
-                    if menu_element.screen.point_within(event.pos):  # We interact with this menu element
-                        # Click this menu element
-                        self._clicked_element = menu_element
+                if event.button == 1:  # Left click
+                    return self._left_click(event)
+                elif event.button in (4, 5):  # Scroll wheel
+                    menu_element = self._find_element(event.pos)
+                    if menu_element is not None:
                         element_pos = menu_element.screen_pos(event.pos)
-                        click_result = menu_element.mousedown(element_pos)
-                        # Stores its result
-                        self._menu_results[menu_element] = click_result
-
-                        can_submit = False
-                        # If we clicked a submit element
-                        if menu_element in self.overlay.submit_elements:
-                            # Make sure all necessary elements have data
-                            for necessary_element in self.overlay.necessary_elements:
-                                if self._menu_results[necessary_element] is None:
-                                    break  # Necessary element doesn't have data
-                            else:
-                                # All necessary elements have data; we're done here.
-                                can_submit = True
-                        elif menu_element in self.overlay.back_elements:
-                            can_submit = True
-
-                        if can_submit:
-                            menu_results = self._menu_results
-                            self.reset()
-                            return menu_results, internal_strings.InputTypes.MENU
-
-                        break
+                        is_scroll_up = (event.button == 4)
+                        menu_element.scroll(element_pos, is_scroll_up)
 
             elif event.type == sdl.MOUSEBUTTONUP:
                 self._mouse_is_down = False
@@ -131,6 +105,48 @@ class MenuListener(OverlayListener):
                 if self._mouse_is_down and self._clicked_element is not None:
                     element_pos = self._clicked_element.screen_pos(event.pos)
                     self._clicked_element.mousemotion(element_pos)
+
+    def _left_click(self, event):
+        """Handles left clicking on a menu element. Pulled out as a separate function for clarity."""
+
+        self._mouse_is_down = True
+
+        # Unclick the previous menu element
+        if self._clicked_element is not None:
+            self._clicked_element.un_mousedown()
+
+        menu_element = self._find_element(event.pos)
+        if menu_element is not None:
+            # Click this menu element
+            self._clicked_element = menu_element
+            element_pos = menu_element.screen_pos(event.pos)
+            click_result = menu_element.mousedown(element_pos)
+            # Stores its result
+            self._menu_results[menu_element] = click_result
+
+            can_submit = False
+            # If we clicked a submit element
+            if menu_element in self.overlay.submit_elements:
+                # Make sure all necessary elements have data
+                for necessary_element in self.overlay.necessary_elements:
+                    if self._menu_results[necessary_element] is None:
+                        break  # Necessary element doesn't have data
+                else:
+                    # All necessary elements have data; we're done here.
+                    can_submit = True
+            elif menu_element in self.overlay.back_elements:
+                can_submit = True
+
+            if can_submit:
+                menu_results = self._menu_results
+                self.reset()
+                return menu_results, internal_strings.InputTypes.MENU
+
+    def _find_element(self, pos):
+        """Returns the menu element that the given position is over, or None if it is not over any menu element."""
+        for menu_element in self.overlay.menu_elements:
+            if menu_element.screen.point_within(pos):
+                return menu_element
 
 
 class PlayListener(BaseListener):

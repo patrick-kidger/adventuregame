@@ -1,6 +1,7 @@
 import Tools as tools
 
-import config.internal_strings as internal_strings
+import Game.config.internal_strings as internal_strings
+
 
 ### Gameplay Settings ###
 
@@ -15,13 +16,14 @@ RENDER_FRAMERATE = 200
 # How many physics ticks it should take to fall through one z-level
 FALL_TICKS = 15
 
+### Menu Settings ###
+
+# How many pixels to scroll in menus when using the scroll wheel
+SCROLL_SPEED = 40
+
 ### Application Settings ###
 
 WINDOW_NAME = 'Maze Game'
-
-# How long a key should be held down for to generate repeat keypresses. Must be somewhat larger than TICK_PAUSE, so that
-# events don't build up faster than the game can process them.
-KEY_REPEAT = 50
 
 # The file extension for map files
 MAP_FILE_EXTENSION = 'map'
@@ -39,10 +41,6 @@ ENTITY_FOLDER = 'entities'
 # These determine how the game is rendered onto the screen.
 # Note that this is distinct from the strings module: here we handle the actual game.
 # Strings handles the talking-to-the-user interface.
-
-# The sizes of the tiles, in pixels
-TILE_Y = 32
-TILE_X = 32
 
 SCREEN_SIZE = (1600, 900)  # The overall size of the screen
 
@@ -84,7 +82,7 @@ class Move(tools.Container):
     Direction = {DOWN: internal_strings.Play.DOWN, UP: internal_strings.Play.UP, LEFT: internal_strings.Play.LEFT,
                  RIGHT: internal_strings.Play.RIGHT, VERTICAL_UP: internal_strings.Play.VERTICAL_UP,
                  VERTICAL_DOWN: internal_strings.Play.VERTICAL_DOWN}
-    
+
 class DebugCommands(tools.Container):
     """All valid commands in the console"""
     DEBUG = 'debug'
@@ -99,11 +97,15 @@ class DebugCommands(tools.Container):
     CLOSE = 'close'  # Does not do the same thing as quit
     RESET = 'reset'
 
+
+# How long a key should be held down for to generate repeat keypresses.
+KEY_REPEAT = 100
+
 # Button to toggle the console
 OPEN_CONSOLE = '\\'
-# Button to select the console
+# Button to (de)select the console if it's open
 SELECT_CONSOLE = '/'
 # How many of its past commands the console should remember
-CONSOLE_MEMORY_SIZE = 10
+CONSOLE_MEMORY_SIZE = 20
 # What the prompt should be in the console
 CONSOLE_PROMPT = '> '

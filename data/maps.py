@@ -3,8 +3,8 @@ import configparser
 import collections
 import Tools as tools
 
-import config.config as config
-import config.internal_strings as internal_strings
+import Game.config.config as config
+import Game.config.internal_strings as internal_strings
 
 
 class MapsAccess:

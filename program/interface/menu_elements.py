@@ -2,21 +2,11 @@ import collections
 import Tools as tools
 
 
-import config.config as config
+import Game.config.config as config
 
-import program.interface.base as base
-import program.misc.helpers as helpers
-import program.misc.sdl as sdl
-
-
-def _pos_diff(pos_a, pos_b):
-    """The difference of two positions."""
-    return pos_a[0] - pos_b[0], pos_a[1] - pos_b[1]
-
-
-def _pos_add(pos_a, pos_b):
-    """The sum of two positions."""
-    return pos_a[0] + pos_b[0], pos_a[1] + pos_b[1]
+import Game.program.interface.base as base
+import Game.program.misc.helpers as helpers
+import Game.program.misc.sdl as sdl
 
 
 class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
@@ -51,8 +41,13 @@ class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
                                                       # the offset between it and its parent surface.
         viewport_offset = self.screen.get_viewport_offset()  # If the screen is using a viewport then we also need to
                                                              # take account of that.
-        total_offset = _pos_diff(subsurface_offset, viewport_offset)
-        return _pos_diff(pos, total_offset)
+        total_offset = self._pos_diff(subsurface_offset, viewport_offset)
+        return self._pos_diff(pos, total_offset)
+
+    @staticmethod
+    def _pos_diff(pos_a, pos_b):
+        """The difference of two positions."""
+        return pos_a[0] - pos_b[0], pos_a[1] - pos_b[1]
 
     def point_within(self, pos):
         """Whether or not the given point is within the boundaries of this menu component."""
@@ -69,6 +64,10 @@ class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
 
     def mousemotion(self, pos):
         """Runs when this element is moused over."""
+
+    def scroll(self, pos, is_scroll_up):
+        """Runs when the scroll wheel is used on this element. :is_scroll_up: should be True if the action was to scroll
+        the scroll wheel upwards, and False if the action was to scroll the scroll wheel downwards."""
 
 
 class MultipleComponentMixin:
@@ -150,9 +149,9 @@ class Scrollbar(MenuElement):
         scroll_handle_height = self.Images.scroll_handle.get_rect().height
         self._scroll_handle_offset = scroll_handle_height // 2
         # The height of the scrollbar
-        self.scroll_length = self.Images.scrollbar_background.get_rect().height
-        # The scrollable amount (slightly smaller than the scroll_length because the scroll handle takes up space)
-        self.clamp_length = self.scroll_length - scroll_handle_height
+        scroll_height = self.Images.scrollbar_background.get_rect().height
+        # The scrollable amount (slightly smaller than the scroll_height because the scroll handle takes up space)
+        self.clamp_length = scroll_height - scroll_handle_height
 
         # The rect for where the scroll handle currently is.
         self.scroll_handle_rect = None
@@ -246,10 +245,19 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
             scroll_handle_pos = self._components.scrollbar.move(pos_rel_to_scrollbar[1])
 
             # Move the entries
-            excess_length = max(0, self.entry_view.get_height() - self._components.scrollbar.scroll_length)
-            entries_offset = (excess_length * scroll_handle_pos) / self._components.scrollbar.clamp_length
+            excess_height = max(0, self.entry_view.get_height() - self.entry_view.viewport.height)
+            entries_offset = (excess_height * scroll_handle_pos) / self._components.scrollbar.clamp_length
 
-            viewport = self.entry_view.get_viewport()
-            viewport.top = entries_offset
-            self.entry_view.set_viewport(viewport)
+            self.entry_view.viewport.top = entries_offset
             self._update_scroll_view()
+
+    def scroll(self, pos, is_scroll_up):
+        if not self._scrolling:
+            moved_list_pos = self.entry_view.viewport.top + {True: -1, False: 1}[is_scroll_up] * config.SCROLL_SPEED
+            excess_height = self.entry_view.get_height() - self.entry_view.viewport.height
+            if excess_height > 0:
+                self.entry_view.viewport.top = tools.clamp(moved_list_pos, 0, excess_height)
+                moved_scrollbar_pos = (self.entry_view.viewport.top * self.entry_view.viewport.height) / excess_height
+                self._components.scrollbar.move(moved_scrollbar_pos)
+            self._update_scroll_view()
+

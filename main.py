@@ -1,4 +1,4 @@
-import program.factory.factory as factory
+import Game.program.misc.factory as factory
 
     
 def play(start_game=True, return_game=False):

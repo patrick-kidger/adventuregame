@@ -1,11 +1,11 @@
 import Tools as tools
 
 
-import config.config as config
-import config.internal_strings as internal_strings
+import Game.config.config as config
+import Game.config.internal_strings as internal_strings
 
-import program.misc.exceptions as exceptions
-import program.misc.helpers as helpers
+import Game.program.misc.exceptions as exceptions
+import Game.program.misc.helpers as helpers
 
 
 class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
@@ -25,8 +25,8 @@ class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
     opaque = False    # Whether entities cannot see through it
     
     def __init__(self, **kwargs):
-        self.entities = []
         super(Tile, self).__init__(**kwargs)
+        self.entities = []
         
     def set_from_data(self, single_tile_data):
         """Sets this tile based on the loaded data."""
@@ -34,6 +34,11 @@ class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
             self.pick_subclass(single_tile_data)
         except KeyError:
             raise exceptions.NoTileDefinitionException(internal_strings.Exceptions.NO_TILE_DEFINITION.format(definition=single_tile_data))
+
+
+_tile_appearance_rect = Tile.appearance.get_rect()
+width = _tile_appearance_rect.width
+height = _tile_appearance_rect.height
 
 
 class Tile2(Tile):

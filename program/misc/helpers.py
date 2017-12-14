@@ -2,9 +2,9 @@ import os
 import Tools as tools
 
 
-import config.internal_strings as internal_strings
+import Game.config.internal_strings as internal_strings
 
-import program.misc.sdl as sdl
+import Game.program.misc.sdl as sdl
 
 
 def appearance_from_filename(files_location):
@@ -45,13 +45,7 @@ def image_from_filename(files_location):
     The class 'ImageFilenames' should inherit from Container, which is given in mixins.py. (Probably referenced as
     Tools.Container)."""
 
-    class ImageGetterMetaclass(type):
-        # No class-property should we define this here.
-        @property
-        def size(cls):
-            return getattr(cls.Images, cls.size_image).get_rect()
-
-    class ImageGetter(metaclass=ImageGetterMetaclass):
+    class ImageGetter:
         class ImageFilenames(tools.Container):
             pass
 
@@ -61,6 +55,10 @@ def image_from_filename(files_location):
                 pass
             cls.Images = Images
             cls.update_images()
+
+        @tools.classproperty
+        def size(cls):
+            return getattr(cls.Images, cls.size_image).get_rect()
 
         @tools.combomethod
         def update_images(self_or_cls, image_identifier=None):
