@@ -1,3 +1,4 @@
+import collections
 import math
 import Tools as tools
 
@@ -265,7 +266,7 @@ class MainGame:
         if use_player_input:
             for play_inp, input_type in inputs:
                 if input_type == internal_strings.InputTypes.ACTION:
-                    self.action_entity(play_inp, self.player)
+                    self._action_entity(play_inp, self.player)
                 elif input_type == internal_strings.InputTypes.NO_INPUT:
                     pass
                 else:
@@ -278,15 +279,21 @@ class MainGame:
         self.out.overlays.game(self.player.appearance, (self.player.x, self.player.y))
         self.out.flush()
 
-    def action_entity(self, action, entity):
+    def _action_entity(self, action, entity):
         vert_actions = (internal_strings.Action.VERTICAL_UP, internal_strings.Action.VERTICAL_DOWN)
-        horz_actions = (internal_strings.Move.LEFT, internal_strings.Move.RIGHT,
-                        internal_strings.Move.UP, internal_strings.Move.DOWN)
-        print(action)
+        horz_actions = {internal_strings.Move.LEFT: tools.Object(x=-1, y=0),
+                        internal_strings.Move.RIGHT: tools.Object(x=1, y=0),
+                        internal_strings.Move.UP: tools.Object(x=0, y=-1),
+                        internal_strings.Move.DOWN: tools.Object(x=0, y=1)}
         if action in vert_actions:
             self._move_entity_vert(action, entity)
-        elif action in horz_actions:
+            return
+        try:
+            direction = horz_actions[action]
+        except KeyError:
             pass
+        else:
+            self._move_entity_rel(direction, entity)
 
     def _move_entity_vert(self, action, entity):
         current_pos = entity.square_pos
@@ -314,14 +321,14 @@ class MainGame:
 
         entity.z += dir
 
-    def move_entity_rel(self, direction, entity):
+    def _move_entity_rel(self, direction, entity):
         scaling = entity.speed / math.sqrt(direction.x ** 2 + direction.y ** 2)
         entity.x += direction.x * scaling
         entity.y += direction.y * scaling
 
-    def move_entity_abs(self, pos, entity):
+    def _move_entity_abs(self, pos, entity):
         direction = tools.Object(x=pos.x - entity.x, y=pos.y - entity.y)
-        self.move_entity_rel(direction, entity)
+        self._move_entity_rel(direction, entity)
             
     def _move_entity(self, direction, entity):
         """Moves the entity in the specified direction.

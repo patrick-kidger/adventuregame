@@ -178,7 +178,6 @@ class PlayListener(BaseListener):
     def __init__(self, *args, **kwargs):
         super(PlayListener, self).__init__(*args, **kwargs)
         listen_codes = (sdl.key.code(key_name) for key_name in config.Move.values())
-        # Normally I'd use my tools.Object here, but that's not hashable.
         Key = collections.namedtuple('Key', ['unicode', 'key'])
         self._listen_keys.update(Key(unicode=sdl.key.name(code), key=code) for code in listen_codes)
 
