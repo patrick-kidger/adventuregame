@@ -37,6 +37,13 @@ class Map:
                 for tile in y_row:
                     yield tile
 
+    def local(self, radius, center, z_level):
+        tile_radius = math.ceil(radius / tiles.size)
+        tile_center = tools.Object(x=math.floor(center.x / tiles.size), y=math.floor(center.y / tiles.size))
+        for x in range(tile_center.x - tile_radius, tile_center.x + tile_radius + 1):
+            for y in range(tile_center.y - tile_radius, tile_center.y + tile_radius + 1):
+                yield self[tools.Object(x=x, y=y, z=z_level)]
+
     def load(self, map_data):
         """Loads the specified map."""
         self.name = map_data.name
@@ -56,11 +63,11 @@ class Map:
             areas.append(tools.Object(x=max_x + 1, y=y + 1))
         self.convert_walls()
 
-        self.screens = [sdl.Surface((area.x * tiles.width, area.y * tiles.height)) for area in areas]
+        self.screens = [sdl.Surface((area.x * tiles.size, area.y * tiles.size)) for area in areas]
         for screen in self.screens:
             screen.fill(self.background_color)
         for tile in self:
-            self.screens[tile.z].blit(tile.appearance, (tile.x * tiles.width, tile.y * tiles.height))
+            self.screens[tile.z].blit(tile.appearance, (tile.x * tiles.size, tile.y * tiles.size))
 
     def convert_walls(self):
         """Customises the visuals of all the walls based on adjacent walls."""
@@ -203,8 +210,8 @@ class MainGame:
                 map_ = self._maps_access.get_map(map_name)
 
                 self.map.load(map_)
-                self.player.x = map_.start_pos.x * tiles.width
-                self.player.y = map_.start_pos.y * tiles.height
+                self.player.x = map_.start_pos.x * tiles.size
+                self.player.y = map_.start_pos.y * tiles.size
                 self.player.z = map_.start_pos.z
 
             return menu_to_go_to
@@ -323,27 +330,17 @@ class MainGame:
 
     def _move_entity_rel(self, direction, entity):
         scaling = entity.speed / math.sqrt(direction.x ** 2 + direction.y ** 2)
-        entity.x += direction.x * scaling
-        entity.y += direction.y * scaling
+        new_entity_pos = tools.Object(x=entity.center_x + direction.x * scaling,
+                                      y=entity.center_y + direction.y * scaling)
+        for tile in self.map.local(entity.radius, new_entity_pos, entity.z):
+            if tile.boundary or (tile.solid and not entity.incorporeal):
+                if tools.Circle(entity.radius, new_entity_pos)\
+                        .colliderect(sdl.Rect(tile.x * tiles.size, tile.y * tiles.size, tiles.size, tiles.size)):
+                    break
+        else:
+            entity.center_x = new_entity_pos.x
+            entity.center_y = new_entity_pos.y
 
     def _move_entity_abs(self, pos, entity):
         direction = tools.Object(x=pos.x - entity.x, y=pos.y - entity.y)
         self._move_entity_rel(direction, entity)
-            
-    def _move_entity(self, direction, entity):
-        """Moves the entity in the specified direction.
-        
-        Returns True/False based on if it was successfully able to move it or not."""
-        current_pos = entity.pos
-        new_pos = self.map.rel(current_pos, direction)
-        old_tile = self.map[current_pos]
-        new_tile = self.map[new_pos]
-        
-        if isinstance(new_tile, tools.qlist.Eater):
-            return False  # If we're trying to move outside the edge of the map
-        if new_tile.boundary:
-            return False  # Nothing can pass through boundaries
-        if new_tile.solid and not entity.incorporeal:
-            return False  # Corporeal entities cannot pass through solid barriers
-        entity.set_pos(new_pos)
-        return True

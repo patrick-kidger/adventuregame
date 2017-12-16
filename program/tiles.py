@@ -9,7 +9,7 @@ import Game.program.misc.helpers as helpers
 
 
 class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
-           helpers.HasPositionMixin,
+           tools.HasPositionMixin,
            tools.dynamic_subclassing_by_attr('definition'),
            tools.NoneAttributesMixin):
     """Represents a single empty tile of the map."""
@@ -36,9 +36,7 @@ class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
             raise exceptions.NoTileDefinitionException(internal_strings.Exceptions.NO_TILE_DEFINITION.format(definition=single_tile_data))
 
 
-_tile_appearance_rect = Tile.appearance.get_rect()
-width = _tile_appearance_rect.width
-height = _tile_appearance_rect.height
+size = Tile.appearance.get_rect().width  # assumed to equal Tile.appearance.get_rect().height
 
 
 class Tile2(Tile):

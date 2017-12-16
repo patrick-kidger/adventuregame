@@ -7,7 +7,7 @@ import Game.program.tiles as tiles
 import Game.program.misc.helpers as helpers
 
 
-class Entity(helpers.HasPositionMixin, helpers.appearance_from_filename(config.ENTITY_FOLDER)):
+class Entity(tools.HasPositionMixin, helpers.appearance_from_filename(config.ENTITY_FOLDER)):
     """Generic entity base class."""
     incorporeal = False  # Whether this entity can pass through walls
     flight = False  # Whether this entity can fly. Duh.
@@ -24,10 +24,30 @@ class Entity(helpers.HasPositionMixin, helpers.appearance_from_filename(config.E
         super(Entity, self).__init__(*args, **kwargs)
 
     @property
+    def center_x(self):
+        return self.pos.x + 0.5 * tiles.size
+
+    @center_x.setter
+    def center_x(self, val):
+        self.pos.x = val - 0.5 * tiles.size
+
+    @property
+    def center_y(self):
+        return self.pos.y + 0.5 * tiles.size
+
+    @center_y.setter
+    def center_y(self, val):
+        self.pos.y = val - 0.5 * tiles.size
+
+    @property
+    def center_pos(self):
+        return tools.Object(x=self.center_x, y=self.center_y)
+
+    @property
     def square_pos(self):
         square_pos = tools.Object()
-        square_pos.x = int((self.pos.x + 0.5 * tiles.width) // tiles.width)
-        square_pos.y = int((self.pos.y + 0.5 * tiles.height) // tiles.height)
+        square_pos.x = int(self.center_x // tiles.size)
+        square_pos.y = int(self.center_y // tiles.size)
         square_pos.z = self.pos.z
         return square_pos
         

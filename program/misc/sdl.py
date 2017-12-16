@@ -139,6 +139,11 @@ class display:
     update = pygame.display.update
 
 
+class draw:
+    circle = pygame.draw.circle
+    rect = pygame.draw.rect
+
+
 class event:
     clear = pygame.event.clear
     wait = pygame.event.wait
