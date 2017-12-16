@@ -5,6 +5,7 @@ import Game.config.config as config
 import Game.config.strings as strings
 
 import Game.program.misc.exceptions as exceptions
+import Game.program.misc.sdl as sdl
 
 
 def get_command(command_name):
@@ -191,7 +192,7 @@ class Get(SpecialInput):
         variable_name = inp_args[0]
         try:
             variable_value = tools.deepgetattr(game_instance, variable_name)
-        except AttributeError:
+        except (IndexError, AttributeError, sdl.error):
             game_instance.out.overlays.debug(strings.Play.VARIABLE_GET_FAILED.format(variable=variable_name), end='\n')
         else:
             game_instance.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name,

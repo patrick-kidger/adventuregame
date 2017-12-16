@@ -1,3 +1,4 @@
+import math
 import Tools as tools
 
 
@@ -23,7 +24,10 @@ class Map:
         super(Map, self).__init__()
 
     def __getitem__(self, item):
-        return self.tile_data[item.z][item.y][item.x]
+        try:
+            return self.tile_data[item.z][item.y][item.x]
+        except IndexError:
+            return tiles.Boundary(pos=tools.Object(x=item.x, y=item.y, z=item.z))
 
     def __iter__(self):
         """Iterates over all tiles."""
@@ -36,13 +40,13 @@ class Map:
         """Loads the specified map."""
         self.name = map_data.name
 
-        self.tile_data = tools.qlist()
+        self.tile_data = tools.nonneg_list()
         areas = []
         for z, data_z_level in enumerate(map_data.tile_data):
-            self.tile_data.append(tools.qlist())
+            self.tile_data.append(tools.nonneg_list())
             max_x = 0
             for y, data_y_row in enumerate(data_z_level):
-                self.tile_data[z].append(tools.qlist())
+                self.tile_data[z].append(tools.nonneg_list())
                 for x, single_tile_data in enumerate(data_y_row):
                     tile = tiles.Tile(pos=tools.Object(z=z, y=y, x=x))
                     tile.set_from_data(single_tile_data)
@@ -59,12 +63,13 @@ class Map:
 
     def convert_walls(self):
         """Customises the visuals of all the walls based on adjacent walls."""
+        adj_directions = (internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.UP,
+                          internal_strings.WallAdjacency.RIGHT, internal_strings.WallAdjacency.LEFT)
         for tile in self:
             if tile.wall:
-                adj_tiles = (self.tile_data[tile.z][tile.y + i][tile.x + j]
-                             for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1)))
-                adj_directions = (internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.UP,
-                                  internal_strings.WallAdjacency.RIGHT, internal_strings.WallAdjacency.LEFT)
+                adj_objs = (tools.Object(x=tile.x + j, y=tile.y + i, z=tile.z)
+                            for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1)))
+                adj_tiles = (self[adj_obj] for adj_obj in adj_objs)
                 for adj_tile, adj_direction in zip(adj_tiles, adj_directions):
                     if adj_tile.wall:
                         adj_tile.adjacent_walls.add(adj_direction)
@@ -72,26 +77,6 @@ class Map:
         for tile in self:
             if tile.wall:
                 tile.convert_wall()
-
-    @staticmethod
-    def rel(pos, direction):
-        """Gets a position based on an existing position and a direction."""
-        new_pos = tools.Object(x=pos.x, y=pos.y, z=pos.z)
-        if direction == internal_strings.Play.UP:
-            new_pos.y -= 1
-        elif direction == internal_strings.Play.DOWN:
-            new_pos.y += 1
-        elif direction == internal_strings.Play.LEFT:
-            new_pos.x -= 1
-        elif direction == internal_strings.Play.RIGHT:
-            new_pos.x += 1
-        elif direction == internal_strings.Play.VERTICAL_UP:
-            new_pos.z += 1
-        elif direction == internal_strings.Play.VERTICAL_DOWN:
-            new_pos.z -= 1
-        else:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_DIRECTION.format(direction=direction))
-        return new_pos
         
     def fall(self, pos):
         """Whether or not a flightless entity will fall through the specified position.
@@ -100,7 +85,7 @@ class Map:
         this_tile = self[pos]
         if this_tile.suspend:
             return False
-        pos_beneath = self.rel(pos, internal_strings.Play.VERTICAL_DOWN)
+        pos_beneath = tools.Object(x=pos.x, y=pos.y, z=pos.z - 1)
         return not(self[pos_beneath].ceiling or this_tile.floor)
 
     
@@ -167,14 +152,16 @@ class MainGame:
                 self.out.overlays.menu.reset()
                 callback = menus[current_menu]()  # Set up the current menu
                 self.out.flush()
-                while True:  # Wait for input from this menu
+                got_input = True
+                while got_input:  # Wait for input from this menu
                     self.clock.tick(config.RENDER_FRAMERATE)
-                    menu_results, input_type = self.inp()
+                    inputs = self.inp()
                     self.out.flush()
-                    if input_type == internal_strings.InputTypes.MENU:
-                        # Once a submit element is activated
-                        break
-                current_menu = callback(menu_results) # Do whatever this menu does
+                    for menu_results, input_type in inputs:
+                        if input_type == internal_strings.InputTypes.MENU:  # Once a submit element is activated
+                            current_menu = callback(menu_results)  # Do whatever this menu does
+                            got_input = False
+                            break
                 if current_menu == internal_strings.Menus.GAME_START:
                     # Start the game
                     break
@@ -215,7 +202,9 @@ class MainGame:
                 map_ = self._maps_access.get_map(map_name)
 
                 self.map.load(map_)
-                self.player.set_pos(map_.start_pos)
+                self.player.x = map_.start_pos.x * tiles.width
+                self.player.y = map_.start_pos.y * tiles.height
+                self.player.z = map_.start_pos.z
 
             return menu_to_go_to
 
@@ -253,8 +242,8 @@ class MainGame:
             self.render()
             while True:
                 while accumulator >= 0:
-                    play_inp, input_type = self.inp()
-                    self._tick(play_inp, input_type)
+                    inputs = self.inp()
+                    self._tick(inputs)
                     accumulator -= physics_framelength
                 accumulator += self.clock.tick(config.RENDER_FRAMERATE)
                 self.render()
@@ -263,32 +252,78 @@ class MainGame:
         """For use in 'with' statements. Enables both the listener and the overlay with the name :interface_name:"""
         return self.out.use(interface_name) + self.inp.use(interface_name)
     
-    def _tick(self, play_inp, input_type):
+    def _tick(self, inputs):
         """A single tick of the game."""
         use_player_input = True
-        if not self.player.flight and self.map.fall(self.player.pos):
+        if not self.player.flight and self.map.fall(self.player.square_pos):
             use_player_input = False
             self.player.fall_counter += 1
             if self.player.fall_counter == self.player.fall_speed:
-                self.move_entity(internal_strings.Play.VERTICAL_DOWN, self.player)
+                self._move_entity_vert(internal_strings.Action.VERTICAL_DOWN, self.player)
                 self.player.fall_counter = 0
 
         if use_player_input:
-            if input_type == internal_strings.InputTypes.MOVEMENT:
-                self.move_entity(play_inp, self.player)
-            elif input_type == internal_strings.InputTypes.NO_INPUT:
-                pass
-            else:
-                raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
+            for play_inp, input_type in inputs:
+                if input_type == internal_strings.InputTypes.ACTION:
+                    self.action_entity(play_inp, self.player)
+                elif input_type == internal_strings.InputTypes.NO_INPUT:
+                    pass
+                else:
+                    raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
 
     def render(self):
         """Outputs the current game state."""
         self.out.overlays.game.reset()
         self.out.overlays.game(self.map.screens[self.player.z])
-        self.out.overlays.game(self.player.appearance, (self.player.x * tiles.width, self.player.y * tiles.height))
+        self.out.overlays.game(self.player.appearance, (self.player.x, self.player.y))
         self.out.flush()
+
+    def action_entity(self, action, entity):
+        vert_actions = (internal_strings.Action.VERTICAL_UP, internal_strings.Action.VERTICAL_DOWN)
+        horz_actions = (internal_strings.Move.LEFT, internal_strings.Move.RIGHT,
+                        internal_strings.Move.UP, internal_strings.Move.DOWN)
+        print(action)
+        if action in vert_actions:
+            self._move_entity_vert(action, entity)
+        elif action in horz_actions:
+            pass
+
+    def _move_entity_vert(self, action, entity):
+        current_pos = entity.square_pos
+        old_tile = self.map[current_pos]
+        if action == internal_strings.Action.VERTICAL_UP:
+            dir = 1
+        else:  # Move down
+            dir = -1
+
+        new_pos = tools.Object(x=current_pos.x, y=current_pos.y, z=current_pos.z + dir)
+        new_tile = self.map[new_pos]
+
+        if new_tile.boundary:
+            return  # Nothing can move through boundaries
+
+        if action == internal_strings.Action.VERTICAL_UP:
+            if (old_tile.ceiling or new_tile.floor) and not entity.incorporeal:
+                return  # Corporeal entities cannot pass through solid floors and ceilings.
+            if not((old_tile.suspend and new_tile.suspend) or entity.flight):
+                return  # Flightless entities require a suspension to move vertically upwards
+
+        else:  # Move down
+            if (old_tile.floor or new_tile.ceiling) and not entity.incorporeal:
+                return  # Corporeal entities cannot pass through solid floors and ceilings.
+
+        entity.z += dir
+
+    def move_entity_rel(self, direction, entity):
+        scaling = entity.speed / math.sqrt(direction.x ** 2 + direction.y ** 2)
+        entity.x += direction.x * scaling
+        entity.y += direction.y * scaling
+
+    def move_entity_abs(self, pos, entity):
+        direction = tools.Object(x=pos.x - entity.x, y=pos.y - entity.y)
+        self.move_entity_rel(direction, entity)
             
-    def move_entity(self, direction, entity):
+    def _move_entity(self, direction, entity):
         """Moves the entity in the specified direction.
         
         Returns True/False based on if it was successfully able to move it or not."""
@@ -303,13 +338,5 @@ class MainGame:
             return False  # Nothing can pass through boundaries
         if new_tile.solid and not entity.incorporeal:
             return False  # Corporeal entities cannot pass through solid barriers
-        if direction == internal_strings.Play.VERTICAL_UP:
-            if (old_tile.ceiling or new_tile.floor) and not entity.incorporeal:
-                return False  # Corporeal entities cannot pass through solid floors and ceilings.
-            if not((old_tile.suspend and new_tile.suspend) or entity.flight):
-                return False  # Flightless entities require a suspension to move vertically upwards
-        if direction == internal_strings.Play.VERTICAL_DOWN:
-            if (old_tile.floor or new_tile.ceiling) and not entity.incorporeal:
-                return False  # Corporeal entities cannot pass through solid floors and ceilings.
         entity.set_pos(new_pos)
         return True

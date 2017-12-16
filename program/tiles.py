@@ -105,7 +105,7 @@ class InvisibleWall(Tile):
     solid = True
         
         
-class Boundary(Wall):
+class Boundary(Floor, Ceiling):
     """Represents a wall that is never passable."""
     definition = 'B'
     boundary = True

@@ -1,5 +1,9 @@
+import Tools as tools
+
+
 import Game.config.config as config
 
+import Game.program.tiles as tiles
 import Game.program.misc.helpers as helpers
 
 
@@ -15,7 +19,17 @@ class Entity(helpers.HasPositionMixin, helpers.appearance_from_filename(config.E
         self.fall_speed = config.FALL_TICKS
 
         self.speed = config.DEFAULT_ENTITY_SPEED
+
+        self.radius = self.appearance.get_rect().height / 2
         super(Entity, self).__init__(*args, **kwargs)
+
+    @property
+    def square_pos(self):
+        square_pos = tools.Object()
+        square_pos.x = int((self.pos.x + 0.5 * tiles.width) // tiles.width)
+        square_pos.y = int((self.pos.y + 0.5 * tiles.height) // tiles.height)
+        square_pos.z = self.pos.z
+        return square_pos
         
         
 class Player(Entity):

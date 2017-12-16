@@ -16,7 +16,6 @@ class Exceptions(tools.Container):
     NO_LISTENER = 'No listener enabled.'
     INVALID_LISTENER_REMOVAL = 'Tried to remove listener "{listener}", which is not the currently enabled listener.'
     # Moving the player
-    INVALID_DIRECTION = 'Unexpected direction "{direction}"'
     INVALID_FORCE_MOVE = 'Received an invalid force move command.'
     INVALID_INPUT_TYPE = 'Unexpected input type "{input}"'
 
@@ -31,14 +30,15 @@ class WallAdjacency(tools.Container):
     LEFT = 'left'
     RIGHT = 'right'
 
-# Playing the game
-class Play(tools.Container):
+class Move(tools.Container):
     DOWN = 'down'
     UP = 'up'
     LEFT = 'left'
     RIGHT = 'right'
-    VERTICAL_UP = 'vertical_up'
-    VERTICAL_DOWN = 'vertical_down'
+
+class Action(tools.Container):
+    VERTICAL_UP = 'vert_up'
+    VERTICAL_DOWN = 'vert_down'
 
 # Menus
 class Menus(tools.Container):
@@ -50,7 +50,7 @@ class Menus(tools.Container):
 # Input types
 class InputTypes(tools.Container):
     MENU = 'menu'
-    MOVEMENT = 'move'
+    ACTION = 'action'
     NO_INPUT = 'no_input'
 
 # Defines alignments when placing interface elements

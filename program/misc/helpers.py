@@ -69,7 +69,7 @@ def image_from_filename(files_location):
             else:
                 files_to_handle = ((image_identifier, getattr(self_or_cls.ImageFilenames, image_identifier)),)
 
-            for image_identifier_, image_filename in files_to_handle:
+            for image_identifier_, image_filename in files_to_handle.items():
                 image_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'images',
                                                *files_location.split('/'),
                                                *image_filename.split('/'))
@@ -147,6 +147,18 @@ class HasPositionMixin:
     def z(self):
         """The object's current z position."""
         return self.pos.z
+
+    @x.setter
+    def x(self, val):
+        self.pos.x = val
+
+    @y.setter
+    def y(self, val):
+        self.pos.y = val
+
+    @z.setter
+    def z(self, val):
+        self.pos.z = val
 
 
 class EnablerMixin:

@@ -1,7 +1,5 @@
 import Tools as tools
 
-import Game.config.internal_strings as internal_strings
-
 
 ### Gameplay Settings ###
 
@@ -9,9 +7,9 @@ import Game.config.internal_strings as internal_strings
 DEFAULT_ENTITY_SPEED = 10
 
 # How many ticks of physics should be done each second.
-PHYSICS_FRAMERATE = 200
+PHYSICS_FRAMERATE = 60
 # FPS cap
-RENDER_FRAMERATE = 200
+RENDER_FRAMERATE = 60
 
 # How many physics ticks it should take to fall through one z-level
 FALL_TICKS = 15
@@ -70,18 +68,17 @@ MENU_BACKGROUND_COLOR = (255, 255, 255)  # White
 # These define the input that the game is expecting, and should line up with e.g.
 # the standard keyboard keycodes. We also define messages regarding the input here.
 
-# Moving around. All commands here should in lower case.
 class Move(tools.Container):
-    """All valid inputs for moving around."""
+    """All valid inputs for moving the player character."""
     DOWN = 's'
     UP = 'w'
     LEFT = 'a'
     RIGHT = 'd'
+
+class Action(tools.Container):
+    """All valid inputs for commanding (other than moving) the player character."""
     VERTICAL_UP = 'r'
     VERTICAL_DOWN = 'f'
-    Direction = {DOWN: internal_strings.Play.DOWN, UP: internal_strings.Play.UP, LEFT: internal_strings.Play.LEFT,
-                 RIGHT: internal_strings.Play.RIGHT, VERTICAL_UP: internal_strings.Play.VERTICAL_UP,
-                 VERTICAL_DOWN: internal_strings.Play.VERTICAL_DOWN}
 
 class DebugCommands(tools.Container):
     """All valid commands in the console"""
@@ -98,8 +95,10 @@ class DebugCommands(tools.Container):
     RESET = 'reset'
 
 
-# How long a key should be held down for to generate repeat keypresses.
-KEY_REPEAT = 100
+# How long a key should be held down for to start generating repeat keypresses.
+KEY_REPEAT_DELAY = 100
+# How often a key generates repeat keypresses (once it's been held down long enough to generate them).
+KEY_REPEAT = 30
 
 # Button to toggle the console
 OPEN_CONSOLE = '\\'

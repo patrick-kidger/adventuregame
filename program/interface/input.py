@@ -29,34 +29,51 @@ class BaseListener(base.BaseIO):
     they are initialised to. (It is obviously not necessarily appropriate for all instance attributes to go here; it's
     really only those attributes which are modified during _handle which need to be reset.)
     """
+
     def __init__(self, name, *args, **kwargs):
         super(BaseListener, self).__init__(*args, **kwargs)
         self.name = name
+        self._listen_keys = set()
         self.reset()
 
     def __call__(self):
-        inp_result = None, internal_strings.InputTypes.NO_INPUT
-        handled = False
+        inp_results = []
 
-        event = sdl.event_stream(single_event=True)
+        events_to_handle = []
+        pressed_keys = sdl.key.get_pressed()
+        listened_keys = {x for x in self._listen_keys if pressed_keys[x.key]}
+        events = sdl.event.get(10, discard_old=True)
+        for event in events:
+            if sdl.event.is_key(event) and event.key in (x.key for x in listened_keys):
+                continue
+            else:
+                events_to_handle.append(event)
+        for listen_key in listened_keys:
+            events_to_handle.append(sdl.event.Event(sdl.KEYDOWN, unicode=listen_key.unicode, key=listen_key.key))
 
-        if sdl.key_event(event):
-            if event.unicode == config.OPEN_CONSOLE:
-                self.out.overlays.debug.toggle()
-                if self.out.overlays.debug.enabled:
-                    self.inp.add_listener('debug')
-                else:
-                    self.inp.remove_listener('debug')
-                handled = True
-            if event.unicode == config.SELECT_CONSOLE and self.out.overlays.debug.enabled:
-                self.inp.toggle_listener('debug')
-                handled = True
+        for event in events_to_handle:
+            inp_result = None, internal_strings.InputTypes.NO_INPUT
+            handled = False
 
-        if not handled:
-            _inp_result = self._handle(event)
-            if _inp_result is not None:
-                inp_result = _inp_result
-        return inp_result
+            if sdl.event.is_key(event):
+                if event.unicode == config.OPEN_CONSOLE:
+                    self.out.overlays.debug.toggle()
+                    if self.out.overlays.debug.enabled:
+                        self.inp.add_listener('debug')
+                    else:
+                        self.inp.remove_listener('debug')
+                    handled = True
+                if event.unicode == config.SELECT_CONSOLE and self.out.overlays.debug.enabled:
+                    self.inp.toggle_listener('debug')
+                    handled = True
+
+            if not handled:
+                _inp_result = self._handle(event)
+                if _inp_result is not None:
+                    inp_result = _inp_result
+
+            inp_results.append(inp_result)
+        return inp_results
 
     def reset(self):
         """Resets the listener back to its initialised state."""
@@ -83,7 +100,7 @@ class MenuListener(OverlayListener):
         super(MenuListener, self).reset()
 
     def _handle(self, event):
-        if sdl.mouse_event(event, valid_buttons=(1, 4, 5)):
+        if sdl.event.is_mouse(event, valid_buttons=(1, 4, 5)):
             if event.type == sdl.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
                     return self._left_click(event)
@@ -151,10 +168,26 @@ class MenuListener(OverlayListener):
 
 class PlayListener(BaseListener):
     """The listener for the main playing of the game - moving the player character and so forth."""
+    _input_to_action = {sdl.key.code(config.Move.UP): internal_strings.Move.UP,
+                        sdl.key.code(config.Move.DOWN): internal_strings.Move.DOWN,
+                        sdl.key.code(config.Move.LEFT): internal_strings.Move.LEFT,
+                        sdl.key.code(config.Move.RIGHT): internal_strings.Move.RIGHT,
+                        sdl.key.code(config.Action.VERTICAL_UP): internal_strings.Action.VERTICAL_UP,
+                        sdl.key.code(config.Action.VERTICAL_DOWN): internal_strings.Action.VERTICAL_DOWN}
+
+    def __init__(self, *args, **kwargs):
+        super(PlayListener, self).__init__(*args, **kwargs)
+        listen_codes = (sdl.key.code(key_name) for key_name in config.Move.values())
+        # Normally I'd use my tools.Object here, but that's not hashable.
+        Key = collections.namedtuple('Key', ['unicode', 'key'])
+        self._listen_keys.update(Key(unicode=sdl.key.name(code), key=code) for code in listen_codes)
+
     def _handle(self, event):
-        if sdl.key_event(event):
-            if event.unicode in config.Move:
-                return config.Move.Direction[event.unicode], internal_strings.InputTypes.MOVEMENT
+        if sdl.event.is_key(event):
+            try:
+                return self._input_to_action[event.key], internal_strings.InputTypes.ACTION
+            except KeyError:
+                return None
 
 
 class TextListener(OverlayListener):
@@ -165,7 +198,7 @@ class TextListener(OverlayListener):
 
     def _modify_text(self, event):
         """Modifies the overlays's 'text' attribute based on pygame text event input."""
-        if sdl.key_event(event):
+        if sdl.event.is_key(event):
             should_output = True
             if event.key == sdl.K_BACKSPACE:
                 # Disable outputting backspaces if we're not actually modifying the text with them.
@@ -192,7 +225,7 @@ class DebugListener(TextListener):
         super(DebugListener, self).reset()
 
     def _handle(self, event):
-        if sdl.key_event(event):
+        if sdl.event.is_key(event):
             if event.key in (sdl.K_UP, sdl.K_DOWN):
                 k_i = {sdl.K_UP: 1, sdl.K_DOWN: -1}
                 moved_text_memory_cursor = tools.clamp(self.text_memory_cursor + k_i[event.key],

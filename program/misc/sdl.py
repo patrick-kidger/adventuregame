@@ -1,9 +1,8 @@
 """Basically just a pygame wrapper, to make it easier to change it out later if need be."""
 
+import math
 import pygame
 import pygame.ftfont
-import pygame.display
-import pygame.event
 
 
 import Game.config.config as config
@@ -15,7 +14,7 @@ pygame.ftfont.init()
 pygame.display.init()
 pygame.event.set_allowed(None)
 pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION])
-pygame.key.set_repeat(config.KEY_REPEAT, config.KEY_REPEAT)
+pygame.key.set_repeat(config.KEY_REPEAT_DELAY, config.KEY_REPEAT)
 
 
 # Top-level pygame imports
@@ -83,6 +82,7 @@ class Surface(pygame.Surface):
 
 Rect = pygame.Rect
 quit = pygame.quit
+error = pygame.error
 
 # Event types
 NOEVENT = pygame.NOEVENT
@@ -102,6 +102,32 @@ K_BACKSLASH = pygame.K_BACKSLASH
 K_SLASH = pygame.K_SLASH
 K_UP = pygame.K_UP
 K_DOWN = pygame.K_DOWN
+K_a = pygame.K_a
+K_b = pygame.K_b
+K_c = pygame.K_c
+K_d = pygame.K_d
+K_e = pygame.K_e
+K_f = pygame.K_f
+K_g = pygame.K_g
+K_h = pygame.K_h
+K_i = pygame.K_i
+K_j = pygame.K_j
+K_k = pygame.K_k
+K_l = pygame.K_l
+K_m = pygame.K_m
+K_n = pygame.K_n
+K_o = pygame.K_o
+K_p = pygame.K_p
+K_q = pygame.K_q
+K_r = pygame.K_r
+K_s = pygame.K_s
+K_t = pygame.K_t
+K_u = pygame.K_u
+K_v = pygame.K_v
+K_w = pygame.K_w
+K_x = pygame.K_x
+K_y = pygame.K_y
+K_z = pygame.K_z
 
 
 # Emulate its modules
@@ -116,9 +142,66 @@ class display:
 class event:
     clear = pygame.event.clear
     wait = pygame.event.wait
-    get = pygame.event.get
     poll = pygame.event.poll
     Event = pygame.event.Event
+
+    @classmethod
+    def get(cls, num=math.inf, discard_old=False):
+        """
+        A generator providing a stream of events as inputs. If no events are waiting then it will return a NOEVENT.
+
+        :int num: is the number of events to return.
+        :bool discard_old: is whether to discard those events which aren't returned.
+        """
+        if discard_old:
+            if num == math.inf:
+                events = pygame.event.get()
+            else:
+                events = pygame.event.get()[:num]
+        else:
+            events = []
+            for i in range(num):
+                event_ = cls.poll()
+                if event_.type == NOEVENT:
+                    break
+                events.append(event_)
+
+        if not events:
+            events = [cls.Event(NOEVENT)]
+
+        for event_ in events:
+            if event_.type == QUIT:
+                raise exceptions.CloseException()
+            elif event_.type == KEYDOWN:
+                if event_.key in K_SHIFT:
+                    continue  # The modified key will be picked up on the next keystroke
+                if event_.unicode == '\r':
+                    event_.unicode = '\n'
+            yield event_
+
+    @staticmethod
+    def is_key(event_):
+        """Checks whether an event is a KEYDOWN event."""
+        return event_.type == KEYDOWN
+
+    @staticmethod
+    def is_mouse(event_, valid_buttons=(1, 2, 3)):
+        """Checks whether an event is a mouse event.
+
+        Meaning of :valid_buttons: elements:
+        1 - Left click
+        2 - Middle click
+        3 - Right click
+        4 - Scroll wheel up
+        5 - Scroll wheel down
+        6 - Mouse 4
+        7 - Mouse 5"""
+
+        if event_.type not in MOUSEEVENTS:
+            return False
+        if event_.type != MOUSEMOTION and event_.button not in valid_buttons:
+            return False
+        return True
 
 
 class ftfont:
@@ -133,61 +216,23 @@ class time:
     Clock = pygame.time.Clock
 
 
+class key:
+    get_pressed = pygame.key.get_pressed
+    name = pygame.key.name
+
+    # I can't believe there is no better way to do this.
+    _names_to_code = {
+        'a': K_a, 'b': K_b, 'c': K_c, 'd': K_d, 'e': K_e, 'f': K_f, 'g': K_g, 'h': K_h, 'i': K_i, 'j': K_j, 'k': K_k,
+        'l': K_l, 'm': K_m, 'n': K_n, 'o': K_o, 'p': K_p, 'q': K_q, 'r': K_r, 's': K_s, 't': K_w, 'u': K_u, 'v': K_v,
+        'w': K_w, 'x': K_x, 'y': K_y, 'z': K_z,
+    }
+
+    @classmethod
+    def code(cls, key_name):
+        return cls._names_to_code[key_name]
+
+
 # Custom stuff
 K_SHIFT = (K_LSHIFT, K_RSHIFT)
 K_ENTER = (K_KP_ENTER, K_RETURN)
 MOUSEEVENTS = (MOUSEBUTTONUP, MOUSEBUTTONDOWN, MOUSEMOTION)
-
-
-def event_stream(single_event=False, discard_old=True):
-    """A generator providing a stream of events as inputs.
-
-    If single_event is True, then it will instead just return a single event, or a blank event if there is no event in
-    the queue.
-    If discard_old is also True, then it will discard all the other events.
-    """
-    def _event_stream(events):
-        for event_ in events:
-            if event_.type == QUIT:
-                raise exceptions.CloseException()
-            elif event_.type == KEYDOWN:
-                if event_.key in K_SHIFT:
-                    continue  # The modified key will be picked up on the next keystroke
-                if event_.unicode == '\r':
-                    event_.unicode = '\n'
-            yield event_
-
-    if single_event:
-        events = (event.poll(),)
-        if discard_old:
-            event.clear()
-        return next(_event_stream(events), event.Event(NOEVENT))
-    else:
-        events = event.get()
-        return _event_stream(events)
-
-
-def key_event(event_):
-    """Checks whether an event is a KEYDOWN event."""
-    return event_.type == KEYDOWN
-
-
-def mouse_event(event_, valid_buttons=(1, 2, 3)):
-    """Takes an event and parses it so that if it is a mouse-related event relating to the specified mouse button, then
-    it returns it. Else it returns a blank event. As such all calls to this should probably be followed by checking the
-    type of its return value.
-
-    Meaning of :valid_buttons: elements:
-    1 - Left click
-    2 - Middle click
-    3 - Right click
-    4 - Scroll wheel up
-    5 - Scroll wheel down
-    6 - Mouse 4
-    7 - Mouse 5"""
-
-    if event_.type not in MOUSEEVENTS:
-        return False
-    if event_.type != MOUSEMOTION and event_.button not in valid_buttons:
-        return False
-    return True
