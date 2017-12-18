@@ -30,12 +30,14 @@ class WallAdjacency(tools.Container):
     LEFT = 'left'
     RIGHT = 'right'
 
+# Movement commands for the player
 class Move(tools.Container):
     DOWN = 'down'
     UP = 'up'
     LEFT = 'left'
     RIGHT = 'right'
 
+# Other commands for the player
 class Action(tools.Container):
     VERTICAL_UP = 'vert_up'
     VERTICAL_DOWN = 'vert_down'
@@ -60,3 +62,10 @@ class Alignment(tools.Container):
     TOP = 'top'
     BOTTOM = 'bottom'
     CENTER = 'center'
+
+# The rotations for tiles
+class TileRotation(tools.Container):
+    DOWN = 'down'
+    UP = 'up'
+    LEFT = 'left'
+    RIGHT = 'right'

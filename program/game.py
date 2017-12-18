@@ -61,30 +61,12 @@ class Map:
                     self.tile_data[z][y].append(tile)
                 max_x = max(max_x, x)
             areas.append(tools.Object(x=max_x + 1, y=y + 1))
-        self.convert_walls()
 
         self.screens = [sdl.Surface((area.x * tiles.size, area.y * tiles.size)) for area in areas]
         for screen in self.screens:
             screen.fill(self.background_color)
         for tile in self:
             self.screens[tile.z].blit(tile.appearance, (tile.x * tiles.size, tile.y * tiles.size))
-
-    def convert_walls(self):
-        """Customises the visuals of all the walls based on adjacent walls."""
-        adj_directions = (internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.UP,
-                          internal_strings.WallAdjacency.RIGHT, internal_strings.WallAdjacency.LEFT)
-        for tile in self:
-            if tile.wall:
-                adj_objs = (tools.Object(x=tile.x + j, y=tile.y + i, z=tile.z)
-                            for i, j in ((-1, 0), (1, 0), (0, -1), (0, 1)))
-                adj_tiles = (self[adj_obj] for adj_obj in adj_objs)
-                for adj_tile, adj_direction in zip(adj_tiles, adj_directions):
-                    if adj_tile.wall:
-                        adj_tile.adjacent_walls.add(adj_direction)
-
-        for tile in self:
-            if tile.wall:
-                tile.convert_wall()
         
     def fall(self, pos):
         """Whether or not a flightless entity will fall through the specified position.

@@ -8,12 +8,17 @@ import Game.program.misc.exceptions as exceptions
 import Game.program.misc.helpers as helpers
 
 
+def all_tiles():
+    omit_tiles = (Ceiling, Boundary)
+    return {key: val for key, val in Tile.subclasses().items() if val not in omit_tiles}
+
+
 class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
            tools.HasPositionMixin,
            tools.dynamic_subclassing_by_attr('definition'),
            tools.NoneAttributesMixin):
     """Represents a single empty tile of the map."""
-    definition = ' '  # The character used when defining a map to use this tile
+    definition = ' '  # Uniquely identifies this class of tile; used when saving and loading maps
     appearance_filename = 'empty.png'  # The name of the image file for this type of tile. An 'appearance' attribute is
                                        # then automagically added. It will be a Surface that actually contains the
                                        # image.
@@ -22,7 +27,9 @@ class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
     ceiling = False   # Whether entities can move upwards through it vertically
     suspend = False   # Whether flightless entities should fall through it
     boundary = False  # Whether every entity cannot pass through it
-    opaque = False    # Whether entities cannot see through it
+    opaque = False    # Whether entities can see through it
+    can_rotate = False  # Whether it makes sense to rotate this tile (e.g. doesn't make sense to rotate an empty tile;
+                        # it does make sense to rotate an angled wall
     
     def __init__(self, **kwargs):
         super(Tile, self).__init__(**kwargs)
@@ -39,11 +46,10 @@ class Tile(helpers.appearance_from_filename(config.TILE_FOLDER),
 size = Tile.appearance.get_rect().width  # assumed to equal Tile.appearance.get_rect().height
 
 
-class Tile2(Tile):
-    """Exactly the same as Tile, just with a different definition. When the parser reads a .map file, it strips all
-    leading whitespace - which might include spaces that are meant to mean empty tiles. This allows for explicitly
-    setting empty tiles as the first tile on a line in the .map file."""
-    definition = ','
+class Rotatable:
+    """Base class for rotatable tiles."""
+    _instance_properties = dict(rotation=internal_strings.TileRotation.UP)
+    can_rotate = True
 
             
 class Floor(Tile):
@@ -61,48 +67,42 @@ class Ceiling(Tile):
             
 class Wall(Floor, Ceiling):
     """Corporeal entities cannot move through this tile."""
-    _instance_properties = dict(adjacent_walls=set(), appearance=None)
     definition = 'W'
+    appearance_filename = 'wall.png'
     solid = True
     opaque = True
-    wall = True  # Denotes that its visuals should affect, and be affected by, adjacent walls.
 
-    wall_codes = {frozenset([internal_strings.WallAdjacency.UP, internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.LEFT, internal_strings.WallAdjacency.RIGHT]): 'wall_udlr.png',
-                  frozenset([internal_strings.WallAdjacency.UP, internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.LEFT                                      ]): 'wall_udl.png',
-                  frozenset([internal_strings.WallAdjacency.UP, internal_strings.WallAdjacency.DOWN,                                      internal_strings.WallAdjacency.RIGHT]): 'wall_udr.png',
-                  frozenset([internal_strings.WallAdjacency.UP,                                      internal_strings.WallAdjacency.LEFT, internal_strings.WallAdjacency.RIGHT]): 'wall_ulr.png',
-                  frozenset([                                   internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.LEFT, internal_strings.WallAdjacency.RIGHT]): 'wall_dlr.png',
-                  frozenset([internal_strings.WallAdjacency.UP, internal_strings.WallAdjacency.DOWN                                                                           ]): 'wall_ud.png',
-                  frozenset([internal_strings.WallAdjacency.UP,                                      internal_strings.WallAdjacency.LEFT                                      ]): 'wall_ul.png',
-                  frozenset([                                   internal_strings.WallAdjacency.DOWN, internal_strings.WallAdjacency.LEFT                                      ]): 'wall_dl.png',
-                  frozenset([internal_strings.WallAdjacency.UP,                                                                           internal_strings.WallAdjacency.RIGHT]): 'wall_ur.png',
-                  frozenset([                                   internal_strings.WallAdjacency.DOWN,                                      internal_strings.WallAdjacency.RIGHT]): 'wall_dr.png',
-                  frozenset([                                                                        internal_strings.WallAdjacency.LEFT, internal_strings.WallAdjacency.RIGHT]): 'wall_lr.png',
-                  frozenset([internal_strings.WallAdjacency.UP                                                                                                                ]): 'wall_u.png',
-                  frozenset([                                   internal_strings.WallAdjacency.DOWN                                                                           ]): 'wall_d.png',
-                  frozenset([                                                                        internal_strings.WallAdjacency.LEFT                                      ]): 'wall_l.png',
-                  frozenset([                                                                                                             internal_strings.WallAdjacency.RIGHT]): 'wall_r.png',
-                  frozenset([                                                                                                                                                 ]): 'wall_column.png'}
-    
-    def convert_wall(self):    
-        """Sets this tile to a custom visual based on adjacent walls."""
-        adjacent_walls = frozenset(self.adjacent_walls)
-        self.appearance_filename = self.wall_codes[adjacent_walls]
-        self.update_appearance()
 
-        
-class FakeWall(Wall):
-    """Looks like a wall, but corporeal entites can move through it."""
-    definition = 'F'
-    solid = False
-    
-    
-class InvisibleWall(Tile):
-    """Looks like an empty tile, but corporeal entities cannot move through it."""
-    definition = 'I'
-    solid = True
-        
-        
+class AngledWall(Rotatable, Wall):
+    """A triangular wall."""
+    definition = 'A'
+    appearance_filename = 'angled_wall.png'
+
+
+class ConcaveWall(Rotatable, Wall):
+    """A wall that is curved outwards."""
+    definition = 'Cc'
+    appearance_filename = 'concave_wall.png'
+
+
+class ConvexWall(Rotatable, Wall):
+    """A wall that is curved inwards."""
+    definition = 'Cv'
+    appearance_filename = 'convex_wall.png'
+
+
+class DoubleConcaveWall(Rotatable, Wall):
+    """A wall that is curved strongly inwards."""
+    definition = 'DCc'
+    appearance_filename = 'double_concave_wall.png'
+
+
+class DoubleConvexWall(Rotatable, Wall):
+    """A wall that is curved strongly outwards."""
+    definition = 'DCv'
+    appearance_filename = 'double_convex_wall.png'
+
+
 class Boundary(Floor, Ceiling):
     """Represents a wall that is never passable."""
     definition = 'B'
