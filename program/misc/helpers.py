@@ -1,39 +1,68 @@
+import collections
 import os
 import Tools as tools
 
 
 import Game.config.internal_strings as internal_strings
 
+import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
 
 
 def appearance_from_filename(files_location):
     """Allows for setting an 'appearance_filename' attribute on the class, which will then have an 'appearance'
-    attribute automagically added, which will be a Surface containing the image specified."""
+    attribute automagically added, which will be a Surfaces containing the images specified.
+
+    If an 'appearance_filenames' attribute is set, expected to be a dictionary, then an 'appearances' attribute will
+    be added. In this case the subclass should have an 'appearance_lookup' argument passed to it on initialisation,
+    specifying the dictionary key to use to find the appropriate appearance."""
 
     class Appearance:
-        _appearance_filename = None
+        appearance_filenames = collections.OrderedDict()
+        _appearance_filenames_id = id(appearance_filenames)
         appearance_filename = None
+        _appearance_filename_id = id(appearance_filename)
+
+        __sentinel = object()
+        def __init__(self, appearance_lookup=__sentinel, **kwargs):
+            if self.has_multiple_appearances:
+                if appearance_lookup is self.__sentinel:
+                    raise exceptions.ProgrammingException(internal_strings.Exceptions.NO_APPEARANCE_LOOKUP)
+                else:
+                    self.appearance_lookup = appearance_lookup
 
         def __init_subclass__(cls, **kwargs):
             super(Appearance, cls).__init_subclass__(**kwargs)
             cls.update_appearance()
 
-        @tools.combomethod
-        def update_appearance(self_or_cls):
-            """Should be called after setting appearance_filename, to update the appearance. It may be called as either
-            a class or an instance method, which will set the appearance attribute on the class or instance
-            respectively."""
+        @property
+        def has_multiple_appearances(self):
+            return hasattr(self, 'appearances')
 
-            if self_or_cls.appearance_filename != self_or_cls._appearance_filename:
-                appearance_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'images',
-                                                    *files_location.split('/'),
-                                                    *self_or_cls.appearance_filename.split('/'))
-                self_or_cls.appearance = sdl.image.load(appearance_file_path)
-                # Keep a record of what the current appearance has been set to. So if e.g. a subclass doesn't set a new
-                # appearance_filename, we don't need to load up another copy of the image, we can just use the
-                # appearance attribute on the parent class.
-                self_or_cls._appearance_filename = self_or_cls.appearance_filename
+        @classmethod
+        def _appearance_from_filename(cls, filename):
+            appearance_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'images',
+                                                *files_location.split('/'),
+                                                *filename.split('/'))
+            return sdl.image.load(appearance_file_path)
+
+        @classmethod
+        def update_appearance(cls):
+            """Should be called after setting appearance_filename or appearance_filenames, to update the appearance."""
+
+            if id(cls.appearance_filename) != cls._appearance_filename_id:
+                cls.appearance = cls._appearance_from_filename(cls.appearance_filename)
+                # Keep a record of what the current appearance has been set to. So if e.g. a subclass doesn't set
+                # a new appearance_filename, we don't need to load up another copy of the image, we can just use
+                # the appearance attribute on the parent class.
+                cls._appearance_filename_id = id(cls.appearance_filename)
+
+            if id(cls.appearance_filenames) != cls._appearance_filenames_id:
+                cls.appearances = collections.OrderedDict()
+                for name, appearance_filename in cls.appearance_filenames.items():
+                    cls.appearances[name] = cls._appearance_from_filename(appearance_filename)
+                    cls._appearance_filenames_id = id(cls.appearance_filenames)
+                cls.appearance = property(lambda self: self.appearances[self.appearance_lookup])
 
     return Appearance
 

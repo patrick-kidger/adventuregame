@@ -56,8 +56,7 @@ class Map:
             for y, data_y_row in enumerate(data_z_level):
                 self.tile_data[z].append(tools.nonneg_list())
                 for x, single_tile_data in enumerate(data_y_row):
-                    tile = tiles.Tile(pos=tools.Object(z=z, y=y, x=x))
-                    tile.set_from_data(single_tile_data)
+                    tile = tiles.set_from_data(single_tile_data, tools.Object(z=z, y=y, x=x))
                     self.tile_data[z][y].append(tile)
                 max_x = max(max_x, x)
             areas.append(tools.Object(x=max_x + 1, y=y + 1))
@@ -75,8 +74,7 @@ class Map:
         this_tile = self[pos]
         if this_tile.suspend:
             return False
-        pos_beneath = tools.Object(x=pos.x, y=pos.y, z=pos.z - 1)
-        return not(self[pos_beneath].ceiling or this_tile.floor)
+        return not this_tile.floor
 
     
 class MainGame:
@@ -299,14 +297,14 @@ class MainGame:
             return  # Nothing can move through boundaries
 
         if action == internal_strings.Action.VERTICAL_UP:
-            if (old_tile.ceiling or new_tile.floor) and not entity.incorporeal:
-                return  # Corporeal entities cannot pass through solid floors and ceilings.
+            if new_tile.floor and not entity.incorporeal:
+                return  # Corporeal entities cannot pass through solid floors
             if not((old_tile.suspend and new_tile.suspend) or entity.flight):
                 return  # Flightless entities require a suspension to move vertically upwards
 
         else:  # Move down
-            if (old_tile.floor or new_tile.ceiling) and not entity.incorporeal:
-                return  # Corporeal entities cannot pass through solid floors and ceilings.
+            if old_tile.floor and not entity.incorporeal:
+                return  # Corporeal entities cannot pass through solid floors
 
         entity.z += dir
 

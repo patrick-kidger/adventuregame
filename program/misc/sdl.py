@@ -215,10 +215,15 @@ class ftfont:
 
 class image:
     load = pygame.image.load
+    tostring = pygame.image.tostring
 
 
 class time:
     Clock = pygame.time.Clock
+
+
+class transform:
+    rotate = pygame.transform.rotate
 
 
 class key:
