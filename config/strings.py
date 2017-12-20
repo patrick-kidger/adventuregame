@@ -1,8 +1,40 @@
 import Tools as tools
 
 
+class Exceptions(tools.Container):
+    """The error messages in exceptions raised by the program."""
+
+    # Menu navigation
+    MENU_MOVE_WRONG = ("MENU event given - i.e. a submit or back element was used - without any of those elements "
+                       "having registered interactions, or with more than one of those elements having registered "
+                       "interactions.")
+    # Loading map data
+    NO_MAP_NAME = "Map with name {map_name} does not exist."
+    NO_ENTRY = "Required field {entry} cannot be found on map {map_name}."
+    MISCONFIGURED_MAP_DATA = "Map data not formatted correctly on map {map_name}."
+    # Interpreting map data
+    NO_TILE_DEFINITION = 'Cannot find a tile with definition "{definition}".'
+    BAD_TILE_GEOMETRY = 'Cannot interpret geometry "{geometry}".'
+    # Listeners
+    NO_LISTENER = 'No listener enabled.'
+    INVALID_LISTENER_REMOVAL = 'Tried to remove listener "{listener}", which is not the currently enabled listener.'
+    # Moving the player
+    INVALID_FORCE_MOVE = 'Received an invalid force move command.'
+    INVALID_INPUT_TYPE = 'Unexpected input type "{input}"'
+    # Appearance
+    NO_APPEARANCE_LOOKUP = ('No appearance lookup passed on tile initialisation, despite tile having multiple '
+                            'appearances.')
+    NON_SQUARE_TILE = 'Tile images must be squares.'
+    # Map Editor
+    NO_START_POS = 'The map needs a start position.'
+    NO_MAP_SAVE_NAME = 'Need a name for the map.'
+    NO_TILES = 'No tiles have been placed.'
+    BAD_START_POS = 'The start position is not over a tile.'
+
+
 class Sep(tools.Container):
-    """A string that is repeated to separate parts of the output."""
+    """A string that is repeated to separate parts of text output."""
+
     SEP = chr(9472)
     VERT_SEP = chr(9474)
     UDLR_SEP = chr(9532)
@@ -55,3 +87,22 @@ class Help(tools.Container):
     """Strings relating to using the help command."""
     HEADER = "Commands:"
     DEBUG_HEADER = "Debug commands:"
+
+
+class MapEditor(tools.Container):
+    WINDOW_TITLE = 'Game Map Editor'
+    QUIT_TITLE = 'Quit'
+    QUIT_QUESTION = 'Do you want to quit? Unsaved data will be lost.'
+    NEW = 'New'
+    SAVE = 'Save'
+    OPEN = 'Open'
+    OPEN_TITLE = 'Open file'
+    NEW_TITLE = ''
+    MAP_NAME_PROMPT = 'Map name: '
+    CURRENT_Z_LEVEL = "Current z level: "
+    CHANGE_Z_LEVEL = 'Change z level:'
+    SET_START_POS = 'Set starting position'
+    DELETE_TILE = 'Delete tile'
+    BAD_LOAD_TITLE = 'Could not load file'
+    BAD_LOAD_MESSAGE = 'Could not load file. File may be missing or corrupted.'
+    CANNOT_SAVE = 'Cannot save'

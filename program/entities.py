@@ -7,13 +7,16 @@ import Game.program.tiles as tiles
 import Game.program.misc.helpers as helpers
 
 
-class Entity(tools.HasPositionMixin, helpers.appearance_from_filename(config.ENTITY_FOLDER)):
+class Entity(helpers.HasAppearances, tools.HasPositionMixin, appearance_files_location=config.ENTITY_FOLDER):
     """Generic entity base class."""
+
     incorporeal = False  # Whether this entity can pass through walls
     flight = False  # Whether this entity can fly. Duh.
-    appearance_filename = 'entity.png'
+    appearance_filenames = {None: 'entity.png'}
 
     def __init__(self, *args, **kwargs):
+        super(Entity, self).__init__(*args, **kwargs)
+
         # fall_speed physics ticks have to have gone by, recorded in fall_counter, before falling another z-level
         self.fall_counter = 0
         self.fall_speed = config.FALL_TICKS
@@ -21,7 +24,6 @@ class Entity(tools.HasPositionMixin, helpers.appearance_from_filename(config.ENT
         self.speed = config.DEFAULT_ENTITY_SPEED
 
         self.radius = self.appearance.get_rect().height / 2
-        super(Entity, self).__init__(*args, **kwargs)
 
     @property
     def center_x(self):
@@ -54,4 +56,4 @@ class Entity(tools.HasPositionMixin, helpers.appearance_from_filename(config.ENT
         
 class Player(Entity):
     """Holds all player data."""
-    appearance_filename = 'player.png'
+    appearance_filenames = {None: 'player.png'}

@@ -15,6 +15,14 @@ class CloseException(BaseQuitException):
     """Indicates that the whole application should be closed."""
 
 
+class SaveException(Exception):
+    """Indicates that the map editor cannot save the file (e.g. due to not having a map name.)"""
+
+
+class MapLoadException(Exception):
+    """Indicates that the given string cannot be deserialised into a tile."""
+
+
 # Bad exceptions; probably raised because of code errors
 
 class BaseGameException(Exception):

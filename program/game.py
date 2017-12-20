@@ -1,11 +1,12 @@
-import collections
 import math
 import Tools as tools
 
 
 import Game.config.config as config
-import Game.config.internal_strings as internal_strings
+import Game.config.internal as internal
 import Game.config.strings as strings
+
+import Game.data.maps as maps
 
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
@@ -18,7 +19,6 @@ class Map:
     visual depiction on the screen, etc."""
     
     def __init__(self, background_color):
-        self.name = None  # The name of the map (surprise!)
         self.tile_data = None  # The tiles making up the map
         self.screens = None  # The visual depiction of the map
         self.background_color = background_color  # The background color to use where no tile is defined.
@@ -32,6 +32,7 @@ class Map:
 
     def __iter__(self):
         """Iterates over all tiles."""
+
         for z_level in self.tile_data:
             for y_row in z_level:
                 for tile in y_row:
@@ -44,19 +45,18 @@ class Map:
             for y in range(tile_center.y - tile_radius, tile_center.y + tile_radius + 1):
                 yield self[tools.Object(x=x, y=y, z=z_level)]
 
-    def load(self, map_data):
-        """Loads the specified map."""
-        self.name = map_data.name
+    def load_tiles(self, tile_data):
+        """Loads the specified map from the given tile data."""
 
         self.tile_data = tools.nonneg_list()
         areas = []
-        for z, data_z_level in enumerate(map_data.tile_data):
+        for z, data_z_level in enumerate(tile_data):
             self.tile_data.append(tools.nonneg_list())
             max_x = 0
             for y, data_y_row in enumerate(data_z_level):
                 self.tile_data[z].append(tools.nonneg_list())
                 for x, single_tile_data in enumerate(data_y_row):
-                    tile = tiles.set_from_data(single_tile_data, tools.Object(z=z, y=y, x=x))
+                    tile = tiles.Boundary(pos=tools.Object(x=x, y=y, z=z)) if single_tile_data is None else single_tile_data
                     self.tile_data[z][y].append(tile)
                 max_x = max(max_x, x)
             areas.append(tools.Object(x=max_x + 1, y=y + 1))
@@ -72,7 +72,7 @@ class Map:
         
         False means that they will not fall. True means that they will."""
         this_tile = self[pos]
-        if this_tile.suspend:
+        if this_tile.suspend_up or this_tile.suspend_down:
             return False
         return not this_tile.floor
 
@@ -80,9 +80,8 @@ class Map:
 class MainGame:
     """Main game instance."""
 
-    def __init__(self, maps_access, interface):
+    def __init__(self, interface):
         self.clock = sdl.time.Clock()
-        self._maps_access = maps_access  # Access to all the saved maps
         self.out = interface.out  # Output to screen
         self.inp = interface.inp  # Receive input from user
         interface.register_game(self)
@@ -130,10 +129,10 @@ class MainGame:
 
     def _menu(self):
         """Displays the menu system"""
-        current_menu = internal_strings.Menus.MAIN_MENU  # The first menu displayed
-        menus = {internal_strings.Menus.MAIN_MENU: self._main_menu,  # All of the menus
-                 internal_strings.Menus.MAP_SELECT: self._map_select,
-                 internal_strings.Menus.OPTIONS: self._options}
+        current_menu = internal.MenuIdentifiers.MAIN_MENU  # The first menu displayed
+        menus = {internal.MenuIdentifiers.MAIN_MENU: self._main_menu,  # All of the menus
+                 internal.MenuIdentifiers.MAP_SELECT: self._map_select,
+                 internal.MenuIdentifiers.OPTIONS: self._options}
         self.clock.tick()
         with self._use_interface('menu'):
             while True:  # Wait for the user to navigate through the menu system
@@ -146,27 +145,27 @@ class MainGame:
                     inputs = self.inp()
                     self.out.flush()
                     for menu_results, input_type in inputs:
-                        if input_type == internal_strings.InputTypes.MENU:  # Once a submit element is activated
+                        if input_type == internal.InputTypes.MENU:  # Once a submit element is activated
                             current_menu = callback(menu_results)  # Do whatever this menu does
                             got_input = False
                             break
-                if current_menu == internal_strings.Menus.GAME_START:
+                if current_menu == internal.MenuIdentifiers.GAME_START:
                     # Start the game
                     break
 
     def _main_menu(self):
         """Displays the main menu"""
         map_select_button = self.out.overlays.menu.submit(strings.MainMenu.START,
-                                                          horz_alignment=internal_strings.Alignment.CENTER,
-                                                          vert_alignment=internal_strings.Alignment.CENTER)
+                                                          horz_alignment=internal.Alignment.CENTER,
+                                                          vert_alignment=internal.Alignment.CENTER)
 
         options_button = self.out.overlays.menu.submit(strings.MainMenu.OPTIONS,
-                                                       horz_alignment=internal_strings.Alignment.CENTER,
-                                                       vert_alignment=internal_strings.Alignment.BOTTOM)
+                                                       horz_alignment=internal.Alignment.CENTER,
+                                                       vert_alignment=internal.Alignment.BOTTOM)
 
         def callback(menu_results):
-            button_menu_map = {map_select_button: internal_strings.Menus.MAP_SELECT,
-                               options_button: internal_strings.Menus.OPTIONS}
+            button_menu_map = {map_select_button: internal.MenuIdentifiers.MAP_SELECT,
+                               options_button: internal.MenuIdentifiers.OPTIONS}
             pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
             return menu_to_go_to
 
@@ -174,25 +173,27 @@ class MainGame:
 
     def _map_select(self):
         """Displays the menu to select a map."""
-        map_names = self._maps_access.setup_and_find_map_names()
+        map_names = maps.map_names()
 
         menu_list = self.out.overlays.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
         game_start_button = self.out.overlays.menu.submit(strings.MapSelectMenu.SELECT_MAP)
         main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
 
         def callback(menu_results):
-            button_menu_map = {game_start_button: internal_strings.Menus.GAME_START,
-                               main_menu_button: internal_strings.Menus.MAIN_MENU}
+            button_menu_map = {game_start_button: internal.MenuIdentifiers.GAME_START,
+                               main_menu_button: internal.MenuIdentifiers.MAIN_MENU}
             pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
             if pressed_button is game_start_button:
                 selected_index = menu_results[menu_list]
                 map_name = map_names[selected_index]
-                map_ = self._maps_access.get_map(map_name)
-
-                self.map.load(map_)
-                self.player.x = map_.start_pos.x * tiles.size
-                self.player.y = map_.start_pos.y * tiles.size
-                self.player.z = map_.start_pos.z
+                try:
+                    tile_data, start_pos = maps.get_map_data_from_map_name(map_name, tiles.all_tiles())
+                except exceptions.MapLoadException:
+                    # TODO: Show error window
+                    menu_to_go_to = internal.MenuIdentifiers.MAP_SELECT
+                else:
+                    self.map.load_tiles(tile_data)
+                    self.player.set_pos(x=start_pos.x * tiles.size, y=start_pos.y * tiles.size, z=start_pos.z)
 
             return menu_to_go_to
 
@@ -202,7 +203,7 @@ class MainGame:
         main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
 
         def callback(menu_results):
-            button_menu_map = {main_menu_button: internal_strings.Menus.MAIN_MENU}
+            button_menu_map = {main_menu_button: internal.MenuIdentifiers.MAIN_MENU}
             pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
             return menu_to_go_to
 
@@ -212,12 +213,12 @@ class MainGame:
     def _standard_menu_movement(menu_results, button_menu_map):
         pressed_buttons = [key for key in button_menu_map.keys() if menu_results[key]]
         if len(pressed_buttons) != 1:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.MENU_MOVE_WRONG)
+            raise exceptions.ProgrammingException(strings.Exceptions.MENU_MOVE_WRONG)
         pressed_button = pressed_buttons[0]
 
         menu_to_go_to = button_menu_map[pressed_button]
         if menu_to_go_to is None:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.MENU_MOVE_WRONG)
+            raise exceptions.ProgrammingException(strings.Exceptions.MENU_MOVE_WRONG)
 
         return pressed_button, menu_to_go_to
 
@@ -247,17 +248,17 @@ class MainGame:
             use_player_input = False
             self.player.fall_counter += 1
             if self.player.fall_counter == self.player.fall_speed:
-                self._move_entity_vert(internal_strings.Action.VERTICAL_DOWN, self.player)
+                self._move_entity_vert(internal.Action.VERTICAL_DOWN, self.player)
                 self.player.fall_counter = 0
 
         if use_player_input:
             for play_inp, input_type in inputs:
-                if input_type == internal_strings.InputTypes.ACTION:
+                if input_type == internal.InputTypes.ACTION:
                     self._action_entity(play_inp, self.player)
-                elif input_type == internal_strings.InputTypes.NO_INPUT:
+                elif input_type == internal.InputTypes.NO_INPUT:
                     pass
                 else:
-                    raise exceptions.ProgrammingException(internal_strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
+                    raise exceptions.ProgrammingException(strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
 
     def render(self):
         """Outputs the current game state."""
@@ -267,11 +268,11 @@ class MainGame:
         self.out.flush()
 
     def _action_entity(self, action, entity):
-        vert_actions = (internal_strings.Action.VERTICAL_UP, internal_strings.Action.VERTICAL_DOWN)
-        horz_actions = {internal_strings.Move.LEFT: tools.Object(x=-1, y=0),
-                        internal_strings.Move.RIGHT: tools.Object(x=1, y=0),
-                        internal_strings.Move.UP: tools.Object(x=0, y=-1),
-                        internal_strings.Move.DOWN: tools.Object(x=0, y=1)}
+        vert_actions = (internal.Action.VERTICAL_UP, internal.Action.VERTICAL_DOWN)
+        horz_actions = {internal.Move.LEFT: tools.Object(x=-1, y=0),
+                        internal.Move.RIGHT: tools.Object(x=1, y=0),
+                        internal.Move.UP: tools.Object(x=0, y=-1),
+                        internal.Move.DOWN: tools.Object(x=0, y=1)}
         if action in vert_actions:
             self._move_entity_vert(action, entity)
             return
@@ -285,7 +286,7 @@ class MainGame:
     def _move_entity_vert(self, action, entity):
         current_pos = entity.square_pos
         old_tile = self.map[current_pos]
-        if action == internal_strings.Action.VERTICAL_UP:
+        if action == internal.Action.VERTICAL_UP:
             dir = 1
         else:  # Move down
             dir = -1
@@ -296,10 +297,11 @@ class MainGame:
         if new_tile.boundary:
             return  # Nothing can move through boundaries
 
-        if action == internal_strings.Action.VERTICAL_UP:
+        if action == internal.Action.VERTICAL_UP:
             if new_tile.floor and not entity.incorporeal:
                 return  # Corporeal entities cannot pass through solid floors
-            if not((old_tile.suspend and new_tile.suspend) or entity.flight):
+            if not((old_tile.suspend_up and new_tile.suspend_down) or entity.flight):
+
                 return  # Flightless entities require a suspension to move vertically upwards
 
         else:  # Move down

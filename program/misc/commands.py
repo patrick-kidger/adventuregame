@@ -12,7 +12,7 @@ def get_command(command_name):
     return SpecialInput.find_subclass(command_name)
 
 
-class SpecialInput(tools.subclass_tracker('inp')):
+class SpecialInput(tools.SubclassTrackerMixin(), tracking_attr='inp'):
     """Base class for special inputs."""
     inp = ''             # What string should inputted to get this input
     needs_debug = False  # Whether this input needs debug mode enabled to work
@@ -26,10 +26,10 @@ class SpecialInput(tools.subclass_tracker('inp')):
             old_do = cls.do
 
             # ... then wrap the command in a function to check if debug is enabled
-            def do(cls, game_instance, inp_args):
+            def do(cls_, game_instance, inp_args):
                 if game_instance.debug_mode:
                     # __func__ to get the original (not bound) method
-                    old_do.__func__(cls, game_instance, inp_args)
+                    old_do.__func__(cls_, game_instance, inp_args)
                 else:
                     game_instance.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n')
 

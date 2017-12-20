@@ -2,7 +2,7 @@ import Tools as tools
 
 
 import Game.config.config as config
-import Game.config.internal_strings as internal_strings
+import Game.config.internal as internal
 import Game.config.strings as strings
 
 import Game.program.interface.base as base
@@ -80,7 +80,7 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         :iter[str] entries: The entries to put in the list.
         :bool necessary: Optional argument determining whether or not this element must have non-None data set before
             the menu can be submitted. If not passed, defaults to False..
-        :str horz_alignment: Optional argument. An internal_strings.Alignment attribute defining the horizontal
+        :str horz_alignment: Optional argument. An internal.Alignment attribute defining the horizontal
             placement of the list on the overlay's screen. If not passed, defaults to the center of the screen.
         :str vert_alignment: Optional argument. As horz_alignment, for vertical placement. If not passed, defaults to
             the center of the screen.
@@ -114,8 +114,8 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
             self.necessary_elements.add(created_button)
         return created_button
 
-    def submit(self, text, horz_alignment=internal_strings.Alignment.RIGHT,
-               vert_alignment=internal_strings.Alignment.BOTTOM):
+    def submit(self, text, horz_alignment=internal.Alignment.RIGHT,
+               vert_alignment=internal.Alignment.BOTTOM):
         """Creates a submit button with the given text - pressing this button will attempt to submit the menu.
 
         :str text: The text to put on the submit button.
@@ -125,8 +125,8 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         self.submit_elements.add(submit_button)
         return submit_button
 
-    def back(self, text, horz_alignment=internal_strings.Alignment.LEFT,
-               vert_alignment=internal_strings.Alignment.BOTTOM):
+    def back(self, text, horz_alignment=internal.Alignment.LEFT,
+             vert_alignment=internal.Alignment.BOTTOM):
         """Creates a back button with the given text - pressing this button is a submit button, as above, but that
         does not require necessary elements to have data."""
         back_button = self.button(text, horz_alignment=horz_alignment, vert_alignment=vert_alignment)

@@ -27,12 +27,12 @@ WINDOW_NAME = 'Maze Game'
 MAP_FILE_EXTENSION = 'map'
 
 # The name of the folder containing the map data
-MAP_FOLDER = 'map_data'
+MAP_FOLDER = 'data/map_data'
 
 # The names of the folders containing the interface / tile / entity images respectively
-INTERFACE_FOLDER = 'interface'
-TILE_FOLDER = 'tiles'
-ENTITY_FOLDER = 'entities'
+INTERFACE_FOLDER = 'images/interface'
+TILE_FOLDER = 'images/tiles'
+ENTITY_FOLDER = 'images/entities'
 
 
 ### Output ###

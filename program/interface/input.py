@@ -3,7 +3,7 @@ import Tools as tools
 
 
 import Game.config.config as config
-import Game.config.internal_strings as internal_strings
+import Game.config.internal as internal
 import Game.config.strings as strings
 
 import Game.program.interface.base as base
@@ -23,7 +23,7 @@ class BaseListener(base.BaseIO):
     instead it should store its current state in instance attributes which can then be used the next time _handle is
     called. If _handle returns something other than None, then this return value will be passed to the program.
     Typically this should be a 2-tuple; the first element passing the data that the program needs, and the second
-    element an internal_strings.InputTypes attribute defining what kind of input type it is.
+    element an internal.InputTypes attribute defining what kind of input type it is.
 
     Subclasses may also define a method 'reset', which should be used to reset the values of instance attributes to what
     they are initialised to. (It is obviously not necessarily appropriate for all instance attributes to go here; it's
@@ -52,7 +52,7 @@ class BaseListener(base.BaseIO):
             events_to_handle.append(sdl.event.Event(sdl.KEYDOWN, unicode=listen_key.unicode, key=listen_key.key))
 
         for event in events_to_handle:
-            inp_result = None, internal_strings.InputTypes.NO_INPUT
+            inp_result = None, internal.InputTypes.NO_INPUT
             handled = False
 
             if sdl.event.is_key(event):
@@ -157,7 +157,7 @@ class MenuListener(OverlayListener):
             if can_submit:
                 menu_results = self._menu_results
                 self.reset()
-                return menu_results, internal_strings.InputTypes.MENU
+                return menu_results, internal.InputTypes.MENU
 
     def _find_element(self, pos):
         """Returns the menu element that the given position is over, or None if it is not over any menu element."""
@@ -168,12 +168,12 @@ class MenuListener(OverlayListener):
 
 class PlayListener(BaseListener):
     """The listener for the main playing of the game - moving the player character and so forth."""
-    _input_to_action = {sdl.key.code(config.Move.UP): internal_strings.Move.UP,
-                        sdl.key.code(config.Move.DOWN): internal_strings.Move.DOWN,
-                        sdl.key.code(config.Move.LEFT): internal_strings.Move.LEFT,
-                        sdl.key.code(config.Move.RIGHT): internal_strings.Move.RIGHT,
-                        sdl.key.code(config.Action.VERTICAL_UP): internal_strings.Action.VERTICAL_UP,
-                        sdl.key.code(config.Action.VERTICAL_DOWN): internal_strings.Action.VERTICAL_DOWN}
+    _input_to_action = {sdl.key.code(config.Move.UP): internal.Move.UP,
+                        sdl.key.code(config.Move.DOWN): internal.Move.DOWN,
+                        sdl.key.code(config.Move.LEFT): internal.Move.LEFT,
+                        sdl.key.code(config.Move.RIGHT): internal.Move.RIGHT,
+                        sdl.key.code(config.Action.VERTICAL_UP): internal.Action.VERTICAL_UP,
+                        sdl.key.code(config.Action.VERTICAL_DOWN): internal.Action.VERTICAL_DOWN}
 
     def __init__(self, *args, **kwargs):
         super(PlayListener, self).__init__(*args, **kwargs)
@@ -185,7 +185,7 @@ class PlayListener(BaseListener):
     def _handle(self, event):
         if sdl.event.is_key(event):
             try:
-                return self._input_to_action[event.key], internal_strings.InputTypes.ACTION
+                return self._input_to_action[event.key], internal.InputTypes.ACTION
             except KeyError:
                 return None
 
@@ -330,7 +330,7 @@ class Input(base.BaseIO):
             if self._is_top_listener(listener_name):
                 self._enabled_listeners.pop()
             else:
-                raise exceptions.ListenerRemovalException(internal_strings.Exceptions.INVALID_LISTENER_REMOVAL.format(listener=listener_name))
+                raise exceptions.ListenerRemovalException(strings.Exceptions.INVALID_LISTENER_REMOVAL.format(listener=listener_name))
 
     def toggle_listener(self, listener_name):
         """Toggles the specified listener, i.e. enables it if is disabled, and vice versa."""
@@ -373,6 +373,6 @@ class Input(base.BaseIO):
         """The currently enabled listener that is at the top of the list of listeners, ignoring the special case of the
         debug listener."""
         if len(self._enabled_listeners) == 0:
-            raise exceptions.ProgrammingException(internal_strings.Exceptions.NO_LISTENER)
+            raise exceptions.ProgrammingException(strings.Exceptions.NO_LISTENER)
         return self._enabled_listeners[-1]
 

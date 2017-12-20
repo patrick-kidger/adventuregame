@@ -9,7 +9,7 @@ import Game.program.misc.helpers as helpers
 import Game.program.misc.sdl as sdl
 
 
-class MenuElement(helpers.image_from_filename(config.INTERFACE_FOLDER)):
+class MenuElement(helpers.HasImages, images_location=config.INTERFACE_FOLDER):
     """Base class for all menu elements.
 
     When initialising menu elements, they should be passed a pygame.Surface object to use to store what the element
