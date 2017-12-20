@@ -33,11 +33,11 @@ class ProgrammingException(BaseGameException):
     """Raised due to an internal problems, likely because of incorrect code."""
 
 
+class SdlException(BaseGameException):
+    """Raised due to a problem from SDL."""
+
+
 class ListenerRemovalException(BaseGameException):
     """Raised due to not being able to correctly remove a listener. Can mean that a listener added with add_listener
     was not properly removed with remove_listener once it was finished with."""
 
-
-class NoTileDefinitionException(BaseGameException):
-    """Raised when interpreting a map's tile data, and one of the characters does not correspond to any known tile
-    definition."""

@@ -20,25 +20,32 @@ def map_names():
     return map_names
 
 
-def get_map_data_from_map_name(map_name, tile_types):
+def get_map_data_from_map_name(map_name, tile_types, tile_data_default=_sentinel):
+    if tile_data_default is _sentinel:
+        tile_data_default = {}
     file_path = os.path.join(internal.Maps.MAP_LOC, map_name + '.' + config.MAP_FILE_EXTENSION)
-    with open(file_path, 'r') as file:
-        return _get_map_data(file, tile_types)
+    try:
+        with open(file_path, 'r') as file:
+            return map_name, _get_map_data(file, tile_types, tile_data_default)
+    except OSError:
+        raise exceptions.MapLoadException
 
 
-def get_map_data_from_file(file, tile_types):
+def get_map_data_from_file(file, tile_types, tile_data_default=_sentinel):
+    if tile_data_default is _sentinel:
+        tile_data_default = {}
     map_name = os.path.basename(file.name)
     map_name = os.path.splitext(map_name)[0]
-    tile_data_dict, start_pos = _get_map_data(file, tile_types)
+    tile_data_dict, start_pos = _get_map_data(file, tile_types, tile_data_default)
     return map_name, tile_data_dict, start_pos
 
 
-def _get_map_data(file, tile_types):
+def _get_map_data(file, tile_types, tile_data_default):
     try:
         map_file_contents = file.read()
         mapdata = ast.literal_eval(map_file_contents)  # ast.literal_eval is safe to use on untrusted sources.
 
-        # A list of constructuors of the types of tile in this map file.
+        # A list of constructors of the types of tile in this map file.
         tile_types = [_deserialize_tile_type(serial_tile, tile_types) for serial_tile in mapdata['tile_types']]
 
         start_pos = mapdata['start_pos']
@@ -46,38 +53,21 @@ def _get_map_data(file, tile_types):
             raise exceptions.MapLoadException
         start_pos = tools.Object(x=start_pos[0], y=start_pos[1], z=start_pos[2])
 
+        return_tile_data = tile_data_default
         tile_data = mapdata['tile_data']
         if not tile_data:
             raise exceptions.MapLoadException
-        if type(tile_data) != list:
-            raise exceptions.MapLoadException
-        z_len = len(tile_data[0])
-        y_len = len(tile_data[0][0])
-        return_tile_data = []
-        for z, z_level_data in enumerate(tile_data):
+        for z, z_level_data in tile_data.items():
             if not z_level_data:
                 raise exceptions.MapLoadException
-            if len(z_level_data) != z_len:
-                raise exceptions.MapLoadException
-            if type(z_level_data) != list:
-                raise exceptions.MapLoadException
-            return_tile_data.append([])
-            for y, y_row in enumerate(z_level_data):
-                if not y_row:
+            for (x, y), tile_def in z_level_data.items():
+                if any(type(i) is not int for i in (x, y, z)):
                     raise exceptions.MapLoadException
-                if len(y_row) != y_len:
-                    raise exceptions.MapLoadException
-                if type(y_row) != list:
-                    raise exceptions.MapLoadException
-                return_tile_data[-1].append([])
-                for x, tile_index in enumerate(y_row):
-                    if type(tile_index) != int:
-                        raise exceptions.MapLoadException
-                    return_tile_data[-1][-1].append(tile_types[tile_index](pos=tools.Object(x=x, y=y, z=z)))
+                return_tile_data.setdefault(z, {})[(x, y)] = tile_types[tile_def](pos=tools.Object(x=x, y=y, z=z))
 
     # SyntaxError from ast.literal_eval
-    except (FileNotFoundError, KeyError, TypeError, ValueError, SyntaxError):
-        raise exceptions.MapLoadException
+    except (KeyError, TypeError, ValueError, SyntaxError) as e:
+        raise exceptions.MapLoadException from e
     else:
         return return_tile_data, start_pos
 
@@ -97,11 +87,11 @@ def _deserialize_tile_type(serial, tile_types):
             raise exceptions.MapLoadException
     else:
         rotation = _sentinel
-    if len(tile_type.appearance_filenames) != 1:
+    if len(tile_type.appearances) != 1:
         appearance_lookup = tile_data['opts']['appearance_lookup']
-        # Our save file parser, ast.literal_eval, can't handle frozensets, so we convert them to regular sets first.
+        # Our save file parser, ast.literal_eval, can't handle frozensets, so we've converted them to regular sets.
         # As self.appearance_lookup is a dictionary key, it can only be a frozenset, not a set, so this change is
-        # unambiguous; we'll switch it back when we load a file.
+        # unambiguous - here we switch it back.
         # Nonetheless this seems a bit hacky.
         if isinstance(appearance_lookup, set):
             appearance_lookup = frozenset(appearance_lookup)

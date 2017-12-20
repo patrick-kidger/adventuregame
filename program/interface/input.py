@@ -162,7 +162,7 @@ class MenuListener(OverlayListener):
     def _find_element(self, pos):
         """Returns the menu element that the given position is over, or None if it is not over any menu element."""
         for menu_element in self.overlay.menu_elements:
-            if menu_element.screen.point_within(pos):
+            if menu_element.screen.point_within_offset(pos):
                 return menu_element
 
 

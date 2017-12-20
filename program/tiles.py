@@ -19,17 +19,6 @@ def all_tiles():
     return {key: val for key, val in TileBase.subclasses().items() if val not in omit_tiles}
 
 
-def set_from_data(tile_data, pos):
-    """Takes tile data and locates, instantiates and returns the appropriate tile."""
-
-    try:
-        TileClass = TileBase.find_subclass(tile_data)
-    except KeyError:
-        raise exceptions.NoTileDefinitionException(strings.Exceptions.NO_TILE_DEFINITION.format(definition=tile_data))
-    else:
-        return TileClass(pos=pos)
-
-
 class TileBase(helpers.HasAppearances, tools.HasPositionMixin, tools.SubclassTrackerMixin(),
                appearance_files_location=config.TILE_FOLDER, tracking_attr='definition'):
     """Base class for all tiles. Subclasses should:
@@ -48,9 +37,9 @@ class TileBase(helpers.HasAppearances, tools.HasPositionMixin, tools.SubclassTra
 class Empty(TileBase):
     """Represents a single empty tile of the map."""
 
-    definition = ' '  # Uniquely identifies this class of tile; used when saving and loading maps
+    definition = ''  # Uniquely identifies this class of tile; used when saving and loading maps. Cannot contain spaces.
     # The name of the image file for this type of tile. An 'appearance' property is then automagically added.
-    appearance_filenames = {None: 'empty.png'}
+    appearance_filenames = 'empty.png'
 
 
 _tile_size = Empty.appearances[None].get_rect()
@@ -64,15 +53,11 @@ class Rotatable(TileBase):
 
     can_rotate = True
 
-    _rotated_appearance_filenames_id = id(TileBase.appearance_filenames)
-
     def __init_subclass__(cls, **kwargs):
         super(Rotatable, cls).__init_subclass__(**kwargs)
 
         # Create rotations of all its appearances, if they need updating.
-        if id(cls.appearance_filenames) != cls._rotated_appearance_filenames_id:
-            cls._rotated_appearance_filenames_id = id(cls.appearance_filenames)
-
+        if 'appearance_filenames' in cls.__dict__:
             cls.left_appearances = collections.OrderedDict()
             cls.down_appearances = collections.OrderedDict()
             cls.right_appearances = collections.OrderedDict()
@@ -84,21 +69,29 @@ class Rotatable(TileBase):
     @property
     def unrotated_appearance(self):
         """The object's unrotated appearance."""
+        if self.appearance_lookup is helpers._sentinel:
+            raise exceptions.ProgrammingException(strings.Exceptions.NO_APPEARANCE_LOOKUP)
         return self.appearances[self.appearance_lookup]
 
     @property
     def left_appearance(self):
         """The object's appearance rotated 90 degrees anticlockwise."""
+        if self.appearance_lookup is helpers._sentinel:
+            raise exceptions.ProgrammingException(strings.Exceptions.NO_APPEARANCE_LOOKUP)
         return self.left_appearances[self.appearance_lookup]
 
     @property
     def down_appearance(self):
         """The object's appearance rotated 180 degrees."""
+        if self.appearance_lookup is helpers._sentinel:
+            raise exceptions.ProgrammingException(strings.Exceptions.NO_APPEARANCE_LOOKUP)
         return self.down_appearances[self.appearance_lookup]
 
     @property
     def right_appearance(self):
         """The object's appearance rotated 90 degrees clockwise."""
+        if self.appearance_lookup is helpers._sentinel:
+            raise exceptions.ProgrammingException(strings.Exceptions.NO_APPEARANCE_LOOKUP)
         return self.right_appearances[self.appearance_lookup]
 
     # Rebind appearance to the rotated appearance
@@ -129,7 +122,7 @@ class Floor(TileBase):
     """Corporeal entities cannot move downwards through this tile."""
 
     definition = '.'
-    appearance_filenames = {None: 'floor.png'}
+    appearance_filenames = 'floor.png'
     floor = True
 
 
@@ -169,7 +162,7 @@ class Boundary(TileBase):
     """Represents a wall that is never passable, to any entity, ever."""
 
     definition = 'B'
-    appearance_filenames = {None: 'boundary.png'}
+    appearance_filenames = 'boundary.png'
     boundary = True
 
     

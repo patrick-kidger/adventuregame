@@ -22,14 +22,18 @@ class Exceptions(tools.Container):
     INVALID_FORCE_MOVE = 'Received an invalid force move command.'
     INVALID_INPUT_TYPE = 'Unexpected input type "{input}"'
     # Appearance
-    NO_APPEARANCE_LOOKUP = ('No appearance lookup passed on tile initialisation, despite tile having multiple '
-                            'appearances.')
+    NO_APPEARANCE_LOOKUP = 'No appearance lookup set, despite tile having multiple appearances.'
     NON_SQUARE_TILE = 'Tile images must be squares.'
+    BAD_APPEARANCE_FILENAME = ('appearance_filename must either be of type str, type dict, or be a subclass of '
+                               'tools.Container')
     # Map Editor
     NO_START_POS = 'The map needs a start position.'
     NO_MAP_SAVE_NAME = 'Need a name for the map.'
     NO_TILES = 'No tiles have been placed.'
     BAD_START_POS = 'The start position is not over a tile.'
+    CANNOT_SAVE_FILE = 'Could not save the file due to a system error. Do you have permission to write to this file?'
+    # SDL
+    SUBSURFACE_OFFSET = 'Cannot set the offset of a subsurface or a cutout.'
 
 
 class Sep(tools.Container):

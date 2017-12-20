@@ -12,86 +12,30 @@ import Game.program.misc.sdl as sdl
 _sentinel = object()
 
 
-class _ImageGetter:
-    """Just provides one helper function, wrapped in a class for convenience."""
+class HasAppearances:
+    """Allows for setting a ((str | dict) type | tools.Container subclass) 'appearance_filenames' attribute on the
+    class. If 'appearance_filename' is of type str then it is treated as being the value in a dict type input, with key
+    None. The class will then have a (dict type | tools.Container subclass) 'appearances' attribute automagically added,
+    whose keys are the same as that of 'appearance_filename', and whose values will be pygame.Surfaces containing the
+    image(s) specified.
 
-    @classmethod
-    def _image_from_filename(cls, file_location, filename):
-        """Takes a file location and name and returns a Surface with the specified image on it."""
+    'appearance_files_location' should be passed as a keyword argument to the class constructor, specifying the folder
+    to look for appearance files in. Once this has been set on a parent class, all child classes will automatically use
+    the same value (unless they set it to something else, of course).
 
-        appearance_file_path = os.path.join(internal.Helpers.IMAGE_LOC, *file_location.split('/'), *filename.split('/'))
-        return sdl.image.load(appearance_file_path)
+    If len(appearances) == 1, for example because 'appearance_filename' was str type, then the property 'appearance'
+    will automatically point at the single value in 'appearances'.
 
+    If len(appearances) != 1, then subclasses may have an 'appearance_lookup' argument passed to them during
+    initialization, specifying one of the dictionary keys. Then the property 'appearance' will point at the appropriate
+    image.
 
-class HasImages(_ImageGetter):
-    """Allows for setting a class type attribute 'ImageFilenames', specifying a list of images that should be loaded.
-    A class type attribute 'Images' will be then be added, providing references to Surfaces containing the specified
-    images.
-
-    The class 'ImageFilenames' should inherit from Container, which is given in Tools/mixins.py. (Probably referenced as
-    tools.Container).
-
-    If the class also specifies a string type 'size_image' attribute then a Rect type 'size' attribute will be added
-    giving the Rect of the image whose identifier is given by 'size_image'.
-
-    Example usage:
-    >>> class Button(HasImages, images_location='image/files/location'):
-    ... size_image = 'button_base'
-    ... class ImageFilenames(tools.Container):
-    ...     button_base = 'general/button/button1.png'
-    ...     button_deselect = 'general/button/button2.png'
-    ...     button_select = 'general/button/button3.png'
-    """
-
-    class ImageFilenames(tools.Container):
-        pass
-
-    def __init_subclass__(cls, images_location=_sentinel, **kwargs):
-        super(HasImages, cls).__init_subclass__(**kwargs)
-
-        # So subclasses don't need to pass this as an argument, they can use whatever their parent class passed.
-        if images_location is _sentinel:
-            if hasattr(cls, '_images_location'):
-                images_location = cls._images_location
-            else:
-                raise exceptions.ProgrammingException(strings.Exceptions.NO_FILE_LOCATION)
-        else:
-            cls._images_location = images_location
-
-        class Images(tools.Container):
-            pass
-
-        for image_identifier, image_filename in cls.ImageFilenames.items():
-            image = cls._image_from_filename(images_location, image_filename)
-            setattr(Images, image_identifier, image)
-        cls.Images = Images
-
-        if hasattr(cls, 'size_image'):
-            cls.size = getattr(cls.Images, cls.size_image).get_rect()
-
-
-# For a while this also handled having a single appearance as a special case (setting just
-# appearance_filename = 'some_string'), but having the two systems side-by-side proved to be more complicated than it
-# was worth, and I didn't really want to create a whole new class ('HasAppearance', singular) to handle a special case
-# of this one, not least because the inheritance trees of their subclasses then get that much more complicated, with
-# some of them inheriting from one, some of them inheriting from the other.
-class HasAppearances(_ImageGetter):
-    """Allows for setting a dict type 'appearance_filenames' attribute on the class, which will then have a dict type
-     'appearances' attribute automagically added, whose values will be pygame.Surfaces containing the image specified.
-
-    If the dictionary contains more than one entry, then subclasses should have an 'appearance_lookup' argument passed
-    during initialisation, specifying the dictionary key to use to find the appropriate appearance. (This will be
-    handled automatically if there is only once choice of appearance.) This value be altered after initialisation, if
-    desired, by assigning to the 'appearance_lookup' attribute."""
+    Finally, if an attribute 'size_image' is set on the class, then the class will have a pygame.Rect type 'size'
+    attribute added, giving the Rect of the the image with key given by 'size_image'."""
 
     # Used when storing multiple appearances
     appearance_filenames = {}
-    _appearance_filenames_id = id(appearance_filenames)
-    appearances = None
-    # Immediately redefined in subclasses
-    appearance = None
-    # Subclasses should define this to set where it should look for the appearance files.
-    files_location = None
+    appearances = {}
 
     def __init_subclass__(cls, appearance_files_location=_sentinel, **kwargs):
         super(HasAppearances, cls).__init_subclass__(**kwargs)
@@ -101,36 +45,54 @@ class HasAppearances(_ImageGetter):
             if hasattr(cls, '_appearance_files_location'):
                 appearance_files_location = cls._appearance_files_location
             else:
-                raise exceptions.ProgrammingException(strings.Exceptions.NO_FILE_LOCATION)
+                return
         else:
             cls._appearance_files_location = appearance_files_location
 
-        if id(cls.appearance_filenames) != cls._appearance_filenames_id:
-            # Keep a record of what the current appearance has been set to. So if e.g. a subclass doesn't set
-            # a new appearance_filename, we don't need to load up another copy of the image, we can just use
-            # the appearance attribute on the parent class.
-            cls._appearance_filenames_id = id(cls.appearance_filenames)
+        # In particular we are not checking any of its parent classes.
+        if 'appearance_filenames' in cls.__dict__:
+            # This obviously feels a bit weird. A bit contrived and contrary to duck-typing. In practice we're just
+            # unifying a few different similar systems under one roof.
+            if isinstance(cls.appearance_filenames, str):
+                appearance_filenames = {None: cls.appearance_filenames}
+                cls.appearances = type(appearance_filenames)()
+            elif isinstance(cls.appearance_filenames, dict):
+                appearance_filenames = cls.appearance_filenames
+                cls.appearances = type(appearance_filenames)()
+            elif issubclass(cls.appearance_filenames, tools.Container):
+                appearance_filenames = cls.appearance_filenames
+                class appearances(tools.Container):
+                    pass
+                cls.appearances = appearances
+            else:
+                raise exceptions.ProgrammingException(strings.Exceptions.BAD_APPEARANCE_FILENAME)
 
-            cls.appearances = type(cls.appearance_filenames)()
-            for name, appearance_filename in cls.appearance_filenames.items():
+            for name, appearance_filename in appearance_filenames.items():
                 cls.appearances[name] = cls._image_from_filename(appearance_files_location, appearance_filename)
+
+            if hasattr(cls, 'size_image'):
+                cls.size = cls.appearances[cls.size_image].get_rect()
 
     def __init__(self, appearance_lookup=_sentinel, **kwargs):
         super(HasAppearances, self).__init__(**kwargs)
-        # So that we don't get HasAppearances or any of its subclasses defined before we start putting appearances on.
-        if self.appearances is not None:
-            if appearance_lookup is _sentinel:
-                if len(self.appearances) == 1:
-                    self.appearance_lookup = list(self.appearances.keys())[0]
-                else:
-                    raise exceptions.ProgrammingException(strings.Exceptions.NO_APPEARANCE_LOOKUP)
-            else:
-                self.appearance_lookup = appearance_lookup
+        if len(self.appearances) == 1:
+            self.appearance_lookup = list(self.appearances.keys())[0]
+        else:
+            self.appearance_lookup = appearance_lookup
 
     @property
     def appearance(self):
         """The object's appearance."""
+        if self.appearance_lookup is _sentinel:
+            raise exceptions.ProgrammingException(strings.Exceptions.NO_APPEARANCE_LOOKUP)
         return self.appearances[self.appearance_lookup]
+
+    @staticmethod
+    def _image_from_filename(file_location, filename):
+        """Takes a file location and name and returns a Surface with the specified image on it."""
+
+        appearance_file_path = os.path.join(internal.Helpers.IMAGE_LOC, *file_location.split('/'), *filename.split('/'))
+        return sdl.image.load(appearance_file_path)
 
 
 class AlignmentMixin:

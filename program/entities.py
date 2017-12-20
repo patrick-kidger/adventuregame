@@ -12,7 +12,7 @@ class Entity(helpers.HasAppearances, tools.HasPositionMixin, appearance_files_lo
 
     incorporeal = False  # Whether this entity can pass through walls
     flight = False  # Whether this entity can fly. Duh.
-    appearance_filenames = {None: 'entity.png'}
+    appearance_filenames = 'entity.png'
 
     def __init__(self, *args, **kwargs):
         super(Entity, self).__init__(*args, **kwargs)
@@ -56,4 +56,4 @@ class Entity(helpers.HasAppearances, tools.HasPositionMixin, appearance_files_lo
         
 class Player(Entity):
     """Holds all player data."""
-    appearance_filenames = {None: 'player.png'}
+    appearance_filenames = 'player.png'

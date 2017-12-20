@@ -9,7 +9,7 @@ import Game.program.misc.helpers as helpers
 import Game.program.misc.sdl as sdl
 
 
-class MenuElement(helpers.HasImages, images_location=config.INTERFACE_FOLDER):
+class MenuElement(helpers.HasAppearances, appearance_files_location=config.INTERFACE_FOLDER):
     """Base class for all menu elements.
 
     When initialising menu elements, they should be passed a pygame.Surface object to use to store what the element
@@ -17,14 +17,13 @@ class MenuElement(helpers.HasImages, images_location=config.INTERFACE_FOLDER):
     that changes to the menu element's screen automatically get forwarded to the overlay's screen. (And is why the
     screen is passed as an initialisation argument rather than being created within __init__.)
 
-    Menu elements may also define a class attribute 'ImageFilenames', which will be iterated over to find the locations
-    of the image files determining what the menu element looks like. The loaded images will then be stored in an
-    attribute called 'Images', with the same names as they were defined with in ImageFilenames.
+    Menu elements may also define a tools.Container-subclass class attribute 'appearance_filenames' specifying the
+    locations of the image files determining what the menu element looks like. The loaded images will then be stored in
+    an attribute called 'appearances', with the same structure.
 
-    Menu elements may define a class attribute 'size_image', which is the name of one of the loaded images, that will
-    be used to determine how large the menu element is, for example when determining its alignment on the screen. Note
-    that the value 'size_image' should be a string referring to the name of the python variable usedin 'ImageFilenames',
-    not the name of the file that it refers to.
+    Menu elements may define a class attribute 'size_image', which is the key corresponding to one of the loaded images,
+    that will be used to determine how large the menu element is, for example when determining its alignment on the
+    screen.
 
     Note that the position in the 'click' method is expected to be given in terms of the position of the click on the
     overall display, so self._screen_pos should be called on the position to determine the position relative to the
@@ -49,10 +48,6 @@ class MenuElement(helpers.HasImages, images_location=config.INTERFACE_FOLDER):
         """The difference of two positions."""
         return pos_a[0] - pos_b[0], pos_a[1] - pos_b[1]
 
-    def point_within(self, pos):
-        """Whether or not the given point is within the boundaries of this menu component."""
-        return self.screen.point_within(pos)
-
     def mousedown(self, pos):
         """Runs when this menu element is clicked on."""
 
@@ -70,10 +65,13 @@ class MenuElement(helpers.HasImages, images_location=config.INTERFACE_FOLDER):
         the scroll wheel upwards, and False if the action was to scroll the scroll wheel downwards."""
 
 
-class MultipleComponentMixin:
+class MultipleComponentMixin(MenuElement):
+    """Define a dict type '_components' attribute on the class to have it automatically pass mousedown events on to
+    its components."""
+
     def mousedown(self, pos):
         for count, component in enumerate(self._components.values()):
-            if component.point_within(pos):
+            if component.screen.point_within_offset(pos):
                 component_pos = component.screen_pos(pos)
                 click_result = component.mousedown(component_pos)
                 return tools.Object(count=count, component=component, click_result=click_result)
@@ -86,7 +84,7 @@ class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
 
     size_image = 'button_base'
 
-    class ImageFilenames(tools.Container):
+    class appearance_filenames(tools.Container):
         button_base = 'general/button/button_base.png'
         button_deselect = 'general/button/button_deselect.png'
         button_select = 'general/button/button_select.png'
@@ -94,24 +92,24 @@ class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
     def __init__(self, text, *args, **kwargs):
         align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
         super(Button, self).__init__(*args, **kwargs)
-        self.screen.blit(self.Images.button_base)
-        self.screen.blit(self.Images.button_deselect)
+        self.screen.blit(self.appearances.button_base)
+        self.screen.blit(self.appearances.button_deselect)
         button_text = self.render_text(text)
         text_centered = self._align(button_text.get_rect(), **align_kwargs)
         self.screen.blit(button_text, text_centered)
 
     def mousedown(self, pos):
-        self.screen.blit(self.Images.button_select)
+        self.screen.blit(self.appearances.button_select)
         return True
 
     def un_mousedown(self):
-        self.screen.blit(self.Images.button_deselect)
+        self.screen.blit(self.appearances.button_deselect)
 
 
 class Entry(Button):
     """An entry in a List. Each entry has text on it."""
 
-    class ImageFilenames(tools.Container):
+    class appearance_filenames(tools.Container):
         button_base = 'general/list/list_entry_base.png'
         button_deselect = 'general/list/list_entry_deselected.png'
         button_select = 'general/list/list_entry_selected.png'
@@ -140,16 +138,16 @@ class Entries(MultipleComponentMixin, MenuElement, base.FontMixin):
 
 class Scrollbar(MenuElement):
 
-    class ImageFilenames(tools.Container):
+    class appearance_filenames(tools.Container):
         scrollbar_background = 'general/list/scrollbar_background.png'
         scroll_handle = 'general/list/list_scroll_handle.png'
 
     def __init__(self, *args, **kwargs):
         # To put the middle, not the top, of the handle where the user's cursor is.
-        scroll_handle_height = self.Images.scroll_handle.get_rect().height
+        scroll_handle_height = self.appearances.scroll_handle.get_rect().height
         self._scroll_handle_offset = scroll_handle_height // 2
         # The height of the scrollbar
-        scroll_height = self.Images.scrollbar_background.get_rect().height
+        scroll_height = self.appearances.scrollbar_background.get_rect().height
         # The scrollable amount (slightly smaller than the scroll_height because the scroll handle takes up space)
         self.clamp_length = scroll_height - scroll_handle_height
 
@@ -161,8 +159,8 @@ class Scrollbar(MenuElement):
 
     def move(self, pos):
         pos_ = tools.clamp(pos - self._scroll_handle_offset, 0, self.clamp_length)
-        self.screen.blit(self.Images.scrollbar_background)
-        self.scroll_handle_rect = self.screen.blit(self.Images.scroll_handle, (0, pos_))
+        self.screen.blit(self.appearances.scrollbar_background)
+        self.scroll_handle_rect = self.screen.blit(self.appearances.scroll_handle, (0, pos_))
         return pos_
 
 
@@ -171,7 +169,7 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
 
     size_image = 'list_background'
 
-    class ImageFilenames(tools.Container):
+    class appearance_filenames(tools.Container):
         list_background = 'general/list/list_background.png'
 
     class Alignment:  # Tidied up into a class here rather than keeping them all as individual variables.
@@ -192,7 +190,7 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
 
         super(List, self).__init__(font=font, *args, **kwargs)
         # Set up what the 'background' images for the list are doing
-        self.screen.blit(self.Images.list_background)
+        self.screen.blit(self.appearances.list_background)
         title_text = self.render_text(title)
         self.screen.blit(title_text, self.Alignment.title_offset)
 
@@ -227,13 +225,15 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
             self._scrolling = False
 
         if click_result.component is self._components.entries:
-            if self._clicked_entry is not None:
-                self._clicked_entry.un_mousedown()
             self._clicked_entry = click_result.click_result.component
             self._clicked_entry_index = click_result.click_result.count
 
         self._update_scroll_view()
         return self._clicked_entry_index
+
+    def un_mousedown(self):
+        if self._clicked_entry is not None:
+            self._clicked_entry.un_mousedown()
 
     def mouseup(self, pos):
         self._scrolling = False
@@ -253,11 +253,11 @@ class List(MultipleComponentMixin, MenuElement, base.FontMixin):
 
     def scroll(self, pos, is_scroll_up):
         if not self._scrolling:
-            moved_list_pos = self.entry_view.viewport.top + {True: -1, False: 1}[is_scroll_up] * config.SCROLL_SPEED
             excess_height = self.entry_view.get_height() - self.entry_view.viewport.height
             if excess_height > 0:
+                moved_list_pos = self.entry_view.viewport.top + {True: -1, False: 1}[is_scroll_up] * config.SCROLL_SPEED
                 self.entry_view.viewport.top = tools.clamp(moved_list_pos, 0, excess_height)
                 moved_scrollbar_pos = (self.entry_view.viewport.top * self.entry_view.viewport.height) / excess_height
                 self._components.scrollbar.move(moved_scrollbar_pos)
-            self._update_scroll_view()
+                self._update_scroll_view()
 

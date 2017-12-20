@@ -26,17 +26,16 @@ class Map:
 
     def __getitem__(self, item):
         try:
-            return self.tile_data[item.z][item.y][item.x]
+            return self.tile_data[item.z][(item.x, item.y)]
         except IndexError:
             return tiles.Boundary(pos=tools.Object(x=item.x, y=item.y, z=item.z))
 
     def __iter__(self):
         """Iterates over all tiles."""
 
-        for z_level in self.tile_data:
-            for y_row in z_level:
-                for tile in y_row:
-                    yield tile
+        for z_level in self.tile_data.values():
+            for tile in z_level.values():
+                yield tile
 
     def local(self, radius, center, z_level):
         tile_radius = math.ceil(radius / tiles.size)
@@ -48,8 +47,19 @@ class Map:
     def load_tiles(self, tile_data):
         """Loads the specified map from the given tile data."""
 
-        self.tile_data = tools.nonneg_list()
+        self.tile_data = tile_data
         areas = []
+        for z_level in tile_data.values():
+            max_x = -math.inf
+            max_y = -math.inf
+            min_x = math.inf
+            min_y = math.inf
+            for x, y in z_level.keys():
+                max_x = max(x, max_x)
+                max_y = max(y, max_y)
+                min_x = min(x, min_x)
+                min_y = min(y, min_y)
+            areas.append(tools.Object(x=max_x - min_x + 1, y=max_y - min_y + 1))
         for z, data_z_level in enumerate(tile_data):
             self.tile_data.append(tools.nonneg_list())
             max_x = 0

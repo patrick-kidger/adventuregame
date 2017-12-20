@@ -6,6 +6,7 @@ import pygame.ftfont
 
 
 import Game.config.config as config
+import Game.config.strings as strings
 
 import Game.program.misc.exceptions as exceptions
 
@@ -17,67 +18,142 @@ pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, p
 pygame.key.set_repeat(config.KEY_REPEAT_DELAY, config.KEY_REPEAT)
 
 
-# Top-level pygame imports
 class Surface(pygame.Surface):
-    def __init__(self, *args, viewport=None, **kwargs):
-        super(Surface, self).__init__(*args, **kwargs)
-        # Allows for setting the offset for non-subsurfaces.
-        self._init(viewport=viewport)
+    """An extended version of pygame.Surface. It includes several enhancements:
+    - Non-subsurfaces can now have a notion of being offset
+    - Can clip the region that is blitted, both by the in-built 'viewport' on the source surface, or by the 'dest'
+        argument passed when calling the blit command.
+    - Can treat another (independent) Surface as a subsurface of this one, via cutouts.
 
-    def _init(self, viewport):
+    Detailed description of new features:
+    - Can give a non-subsurface a notion of being offset, via 'set_offset'. This will be reflected when calling
+        'get_offset', or calling 'get_abs_offset' of a subsurface. Note that by default everything ignores offsets
+        (both the usual subsurface offset and this new one): blitting and taking subsurfaces are alaways with respect to
+        *this* surface, not its offset. The new functions - cutouts, viewports etc. - work the same way.
+    - Can clip the region that is being displayed by setting the attribute 'viewport', which should be a Rect. It may
+        be set either by passing a 'viewport' argument during initialisation or by assigning to it afterwards. Then
+        blitting from this surface will use this clipped region.
+    - If we have two surfaces, then we can make one behave as a subsurface of the other by calling 'cutout' on the
+        'parent' surface, with a 'location' argument being a Rect specifying where on the parent surface the 'child'
+        surface should be (in the same way as cutouts), and the second argument being the 'child' surface. Unlike true
+        subsurfaces, blitting to one won't automatically update the other: 'update_cutouts' should be called on the
+        parent surface to have it pick up changes made to the child. A converse hasn't yet been implemented.
+    """
+
+    def __init__(self, *args, viewport=None, offset=(0, 0), **kwargs):
+        super(Surface, self).__init__(*args, **kwargs)
+        self._init(viewport=viewport, is_subsurface=False)
+        self.set_offset(offset)
+
+    def _init(self, viewport, is_subsurface):
+        """Pulled out as a separate function so that we can call it after subsurfaces have been created, as __init__ is
+        not called on a subsurface when creating it."""
+
         if viewport is None:
             viewport = self.get_rect()
         self.viewport = viewport
+        self._cutout_locations = []
         self._cutouts = []
-        self._offset = None
+        self._is_subsurface = is_subsurface
+        self._is_cutout = False
 
     def cutout(self, location, target):
-        target._set_offset(location.topleft)
+        """See description in Surface class docstring."""
+
+        target.set_offset(location.topleft)
+        target._is_cutout = True
+        self._cutout_locations.append(location)
         self._cutouts.append(target)
 
     def update_cutouts(self):
-        for cutout in self._cutouts:
+        """See description in Surface class docstring."""
+
+        for location, cutout in zip(self._cutout_locations, self._cutouts):
             cutout.update_cutouts()
-            view = cutout.get_view_from_viewport()
-            location = cutout.get_offset()
-            self.blit(view, location)
+            self.blit(cutout, location)
 
-    def _set_offset(self, offset):
-        self._offset = offset
+    def set_offset(self, offset):
+        """Set the offset of a non-subsurface Surface."""
 
-    # Can't just call it 'get_view' as that is something else entirely, built-in to pygame.Surface already.
-    def get_view_from_viewport(self):
-        clipped_viewport = self.get_rect().clip(self.viewport)
-        return self.subsurface(clipped_viewport)
+        if self._is_subsurface or self._is_cutout:
+            raise exceptions.SdlException(strings.Exceptions.SUBSURFACE_OFFSET)
+        else:
+            self._offset = offset
 
     def subsurface(self, *args, viewport=None, **kwargs):
         return_surface = super(Surface, self).subsurface(*args, **kwargs)
-        return_surface._init(viewport=viewport)
+        return_surface._init(viewport=viewport, is_subsurface=True)
         return return_surface
 
     def get_offset(self):
-        if self._offset is not None:
+        if not self._is_subsurface:
             return self._offset
         else:
             return super(Surface, self).get_offset()
 
     def get_abs_offset(self):
-        if self._offset is not None:
-            # Should only occur for non-subsurfaces, as __init__ is only called when creating a new Surface.
-            return self._offset
-        else:
-            return super(Surface, self).get_abs_offset()
+        top_level_offset = self.get_abs_parent().get_offset()
+        subsurface_offset = super(Surface, self).get_abs_offset()
+        return top_level_offset[0] + subsurface_offset[0], top_level_offset[1] + subsurface_offset[1]
 
     def get_viewport_offset(self):
         return self.viewport.topleft
 
-    def blit(self, source, dest=(0, 0), *args, **kwargs):  # Added default argument to dest
-        return super(Surface, self).blit(source, dest, *args, **kwargs)
+    def blit(self, source, dest=(0, 0), area=None, *args, **kwargs):  # Added default argument to dest.
+        """Enhanced version of blit. If 'dest' is a Rect then the blitting will be clipped to the rectangular area it
+        specifies. If 'area' is not passed as an argument then the blitting will be clipped to the viewport of the
+        source."""
 
-    def point_within(self, pos):
+        # Instance check so that we don't try doing this with the original pygame.Surfaces which some pygame functions
+        # still return.
+        if isinstance(source, Surface) and area is None:
+            area = source.viewport
+        else:
+            area = source.get_rect()
+        # Reference to the original pygame.Rect so that any future extending by us of just Rect, below, won't break this
+        if isinstance(dest, pygame.Rect):
+            area = Rect(area.left, area.top, min(dest.width, area.width), min(dest.height, area.height))
+        return super(Surface, self).blit(source, dest, area, *args, **kwargs)
+
+    def blit_offset(self, source, dest=(0, 0), area=None, *args, **kwargs):
+        """Blitting normally interprets the destination as being relative to the top left corner of the Surface. This
+        blit takes into account the offset of the surface."""
+
         offset = self.get_offset()
+        if isinstance(dest, pygame.Rect):
+            dest = dest.move(-1 * offset[0], -1 * offset[1])
+        else:
+            dest = dest[0] - offset[0], dest[1] - offset[1]
+        return self.blit(source, dest, area, *args, **kwargs)
+
+    def blit_abs_offset(self, source, dest=(0, 0), area=None, *args, **kwargs):
+        """Blitting normally interprets the destination as being relative to the top left corner of the Surface. This
+        blit takes into account the absolute offset of the surface."""
+
+        offset = self.get_abs_offset()
+        if isinstance(dest, pygame.Rect):
+            dest = dest.move(-1 * offset[0], -1 * offset[1])
+        else:
+            dest = dest[0] - offset[0], dest[1] - offset[1]
+        return self.blit(source, dest, area, *args, **kwargs)
+
+    def point_within(self, pos, offset=(0, 0)):
+        """Whether or not a given point is within the Surface's Rect."""
+
         rect = self.get_rect(left=offset[0], top=offset[1])
         return rect.collidepoint(pos)
+
+    def point_within_offset(self, pos):
+        """Whether or not a given point is within the Surface's Rect, relative to its offset."""
+
+        offset = self.get_offset()
+        return self.point_within(pos, offset)
+
+    def point_within_abs_offset(self, pos):
+        """Whether or not a given point is within the Surface's Rect, relative to its absolute offset."""
+
+        offset = self.get_abs_offset()
+        return self.point_within(pos, offset)
 
 
 Rect = pygame.Rect

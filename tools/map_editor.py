@@ -461,17 +461,15 @@ class MainApplication:
         if open_file is not None:  # If they don't hit cancel
             try:
                 with open_file:
-                    map_name, tile_data, start_pos = maps.get_map_data_from_file(open_file, self._tk_tile_types)
-            except exceptions.MapLoadException:
+                    map_name, tile_data, start_pos = \
+                        maps.get_map_data_from_file(open_file, self._tk_tile_types,
+                                                    tile_data_default=tools.deldefaultdict(lambda: tools.deldict()))
+            except (OSError, exceptions.MapLoadException):
                 tkinter.messagebox.showerror(strings.MapEditor.BAD_LOAD_TITLE, strings.MapEditor.BAD_LOAD_MESSAGE)
             else:
                 self.reset()
                 self._level_name_entry.insert(0, map_name)
-                for z, z_level in enumerate(tile_data):
-                    for y, y_row in enumerate(z_level):
-                        for x, tile in enumerate(y_row):
-                            if tile is not None:
-                                self._tile_data_dict[z][(x, y)] = tile
+                self._tile_data_dict = tile_data
                 self.set_start_pos(x=start_pos.x, y=start_pos.y, z=start_pos.z)
                 self.refresh_canvas()
 
@@ -479,20 +477,24 @@ class MainApplication:
         """Save the current map."""
 
         try:
-            map_name, tile_types, tile_data, start_pos  = self.check_can_save()
+            map_name, tile_types, tile_data, start_pos = self.check_can_save()
         except exceptions.SaveException as e:
             tkinter.messagebox.showerror(strings.MapEditor.CANNOT_SAVE, str(e))
         else:
-            save = str({'tile_types': tile_types, 'tile_data': tile_data, 'start_pos': start_pos}) #.replace(' ', '')
+            save = str({'tile_types': tile_types, 'tile_data': tile_data, 'start_pos': start_pos}).replace(' ', '')
             save_file = tkinter.filedialog.asksaveasfile(
                 initialdir=internal.Maps.MAP_LOC,
                 initialfile=map_name + '.map',
                 title='Save file',
                 filetypes=(('map files', '.map'), ('all files', '.*')))
             if save_file is not None:  # If they don't hit cancel
-                with save_file:
-                    save_file.write(save)
-                self.have_saved = True
+                try:
+                    with save_file:
+                        save_file.write(save)
+                except OSError:
+                    tkinter.messagebox.showerror(strings.MapEditor.CANNOT_SAVE, strings.Exceptions.CANNOT_SAVE_FILE)
+                else:
+                    self.have_saved = True
 
     def check_can_save(self):
         """Whether or not we're trying to save a valid map. Will raise a SaveException if the map is invalid. Will
@@ -512,45 +514,32 @@ class MainApplication:
 
         # We always normalise on saving so that we begin at x, y, z set to 0.
         x_min = y_min = z_min = math.inf
-        x_max = y_max = z_max = -math.inf
         for z_level, z_level_data in self._tile_data_dict.items():
             z_min = min(z_level, z_min)
-            z_max = max(z_level, z_max)
             for x, y in z_level_data.keys():
-                x_max = max(x, x_max)
                 x_min = min(x, x_min)
-                y_max = max(y, y_max)
                 y_min = min(y, y_min)
 
-        if {x_min, y_min, z_min, x_max, y_max, z_max}.intersection({math.inf, -math.inf}) != set():
+        if math.inf in {x_min, y_min, z_min}:
             raise exceptions.SaveException(strings.Exceptions.NO_TILES)
 
         start_pos = (self._start_pos.x - x_min, self._start_pos.y - y_min, self._start_pos.z - z_min)
 
-        tile_types = [str(None)]
-        tile_type_to_index = {str(None): 0}
-        tile_data = [[[0 for i in range(x_min, x_max + 1)]
-                      for j in range(y_min, y_max + 1)]
-                     for k in range(z_min, z_max + 1)]
-        for z in range(z_min, z_max + 1):
-            if z in self._tile_data_dict:  # To avoid the creating-default behaviour
-                for y in range(y_min, y_max + 1):
-                    for x in range(x_min, x_max + 1):
-                        try:
-                            tile = self._tile_data_dict[z][(x, y)]
-                        except KeyError:
-                            pass
-                        else:
-                            serial_tile_data = tile.serialize()
-                            if serial_tile_data not in tile_types:
-                                tile_types.append(serial_tile_data)
-                                tile_type_to_index[serial_tile_data] = len(tile_types) - 1
-                            tile_data[z - z_min][y - y_min][x - x_min] = tile_type_to_index[serial_tile_data]
+        tile_data = {}
+        tile_types = []
+        tile_type_to_index = {}
+        for z_level, z_level_data in self._tile_data_dict.items():
+            for (x, y), tile in z_level_data.items():
+                serial_tile_data = tile.serialize()
+                if serial_tile_data not in tile_types:
+                    tile_types.append(serial_tile_data)
+                    tile_type_to_index[serial_tile_data] = len(tile_types) - 1
+                # Not using a defaultdict as we're going to take the str of tile_data and save it to file.
+                tile_data.setdefault(z_level - z_min, {})[(x - x_min, y - y_min)] = tile_type_to_index[serial_tile_data]
 
         if not tile_data:
-            # Should never get here, the earlier check that all of x,y,z min and max are noninfinite should have
-            # already handled this case.
-            # Buuuuuut just in case... ;)
+            # Should never get here, the earlier check that all of x,y,z min are not infinity should have already
+            # handled this case. Buuuuuut just in case... ;)
             raise exceptions.SaveException(strings.Exceptions.NO_TILES)
 
         return map_name, tile_types, tile_data, start_pos
