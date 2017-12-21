@@ -27,7 +27,7 @@ class Map:
     def __getitem__(self, item):
         try:
             return self.tile_data[item.z][(item.x, item.y)]
-        except IndexError:
+        except KeyError:
             return tiles.Boundary(pos=tools.Object(x=item.x, y=item.y, z=item.z))
 
     def __iter__(self):
@@ -37,12 +37,12 @@ class Map:
             for tile in z_level.values():
                 yield tile
 
-    def local(self, radius, center, z_level):
+    def local(self, radius, pos):
         tile_radius = math.ceil(radius / tiles.size)
-        tile_center = tools.Object(x=math.floor(center.x / tiles.size), y=math.floor(center.y / tiles.size))
+        tile_center = tools.Object(x=math.floor(pos.x / tiles.size), y=math.floor(pos.y / tiles.size))
         for x in range(tile_center.x - tile_radius, tile_center.x + tile_radius + 1):
             for y in range(tile_center.y - tile_radius, tile_center.y + tile_radius + 1):
-                yield self[tools.Object(x=x, y=y, z=z_level)]
+                yield self[tools.Object(x=x, y=y, z=pos.z)]
 
     def load_tiles(self, tile_data):
         """Loads the specified map from the given tile data."""
@@ -59,34 +59,83 @@ class Map:
                 max_y = max(y, max_y)
                 min_x = min(x, min_x)
                 min_y = min(y, min_y)
-            areas.append(tools.Object(x=max_x - min_x + 1, y=max_y - min_y + 1))
-        for z, data_z_level in enumerate(tile_data):
-            self.tile_data.append(tools.nonneg_list())
-            max_x = 0
-            for y, data_y_row in enumerate(data_z_level):
-                self.tile_data[z].append(tools.nonneg_list())
-                for x, single_tile_data in enumerate(data_y_row):
-                    tile = tiles.Boundary(pos=tools.Object(x=x, y=y, z=z)) if single_tile_data is None else single_tile_data
-                    self.tile_data[z][y].append(tile)
-                max_x = max(max_x, x)
-            areas.append(tools.Object(x=max_x + 1, y=y + 1))
+            areas.append(tools.Object(x=max_x - min_x + 1, y=max_y - min_y + 1, min_x=min_x, min_y=min_y))
 
-        self.screens = [sdl.Surface((area.x * tiles.size, area.y * tiles.size)) for area in areas]
-        for screen in self.screens:
-            screen.fill(self.background_color)
+        self.screens = []
+        for area in areas:
+            surf = sdl.Surface((area.x * tiles.size, area.y * tiles.size))
+            surf.set_offset((area.min_x * tiles.size, area.min_y * tiles.size))
+            surf.fill(self.background_color)
+            self.screens.append(surf)
+
         for tile in self:
-            self.screens[tile.z].blit(tile.appearance, (tile.x * tiles.size, tile.y * tiles.size))
+            self.screens[tile.z].blit_offset(tile.appearance, (tile.x * tiles.size, tile.y * tiles.size))
         
-    def fall(self, pos):
+    def fall(self, entity):
         """Whether or not a flightless entity will fall through the specified position.
         
         False means that they will not fall. True means that they will."""
-        this_tile = self[pos]
-        if this_tile.suspend_up or this_tile.suspend_down:
-            return False
-        return not this_tile.floor
 
-    
+        below_pos = tools.Object(x=entity.pos.x, y=entity.pos.y, z=entity.pos.z - 1)
+        # If the entity can't fly
+        if entity.flight:
+            return False
+        # And doesn't collide with the tile below
+        if self.entity_wall_collide(entity, below_pos):
+            return False
+        # And doesn't collide with the tile we're on
+        if self.entity_floor_collide(entity, entity.pos):
+            return False
+        # And isn't able to hold onto a suspension
+        if self.entity_suspend_collide(entity, entity.pos):
+            return False
+        # Then the entity falls
+        return True
+
+    def entity_wall_collide(self, entity, pos):
+        for tile in self.local(entity.radius, pos):
+            # If the tile has a wall to collide with
+            if tile.boundary or (tile.solid and not entity.incorporeal):
+                # And the entity collides with the square that is the tile
+                if self._collide_square(entity, pos, tile):
+                    # Then the entity collides with the wall
+                    return True
+        return False
+
+    def entity_floor_collide(self, entity, pos):
+        for tile in self.local(entity.radius, pos):
+            # If the tile has a floor to collide with
+            if tile.floor and not entity.incorporeal:
+                # And the entity collides with the square that is the tile
+                if self._collide_square(entity, pos, tile):
+                    # Then the entity collides with the floor
+                    return True
+        return False
+
+    def entity_suspend_collide(self, entity, pos):
+        for tile in self.local(entity.radius, pos):
+            # If the tile has a suspension to collide with
+            if tile.suspend_up or tile.suspend_down:
+                # And the entity collides with the square that is the tile
+                if self._collide_square(entity, pos, tile):
+                    # Then the entity collides with the suspension
+                    return True
+            # A bit special: incorporeal entities shouldn't just fall through the floor to the bottom of the world, so
+            # we let them count floors as suspensions.
+            if tile.floor and entity.incorporeal:
+                if self._collide_square(entity, pos, tile):
+                    return True
+        return False
+
+    @staticmethod
+    def _collide_square(entity, pos, tile):
+        """Whether or not the given entity at the given position collides with the square that is the tile."""
+        return tools.Circle(entity.radius, pos).colliderect(sdl.Rect(tile.x * tiles.size,
+                                                                     tile.y * tiles.size,
+                                                                     tiles.size,
+                                                                     tiles.size))
+
+
 class MainGame:
     """Main game instance."""
 
@@ -197,13 +246,16 @@ class MainGame:
                 selected_index = menu_results[menu_list]
                 map_name = map_names[selected_index]
                 try:
-                    tile_data, start_pos = maps.get_map_data_from_map_name(map_name, tiles.all_tiles())
+                    map_name, tile_data, start_pos = maps.get_map_data_from_map_name(map_name, tiles.all_tiles())
                 except exceptions.MapLoadException:
                     # TODO: Show error window
                     menu_to_go_to = internal.MenuIdentifiers.MAP_SELECT
                 else:
                     self.map.load_tiles(tile_data)
-                    self.player.set_pos(x=start_pos.x * tiles.size, y=start_pos.y * tiles.size, z=start_pos.z)
+                    # + 0.5 to move the player to center of the tile
+                    self.player.set_pos(x=(start_pos.x + 0.5) * tiles.size,
+                                        y=(start_pos.y + 0.5) * tiles.size,
+                                        z=start_pos.z)
 
             return menu_to_go_to
 
@@ -254,7 +306,7 @@ class MainGame:
     def _tick(self, inputs):
         """A single tick of the game."""
         use_player_input = True
-        if not self.player.flight and self.map.fall(self.player.square_pos):
+        if self.map.fall(self.player):
             use_player_input = False
             self.player.fall_counter += 1
             if self.player.fall_counter == self.player.fall_speed:
@@ -274,64 +326,71 @@ class MainGame:
         """Outputs the current game state."""
         self.out.overlays.game.reset()
         self.out.overlays.game(self.map.screens[self.player.z])
-        self.out.overlays.game(self.player.appearance, (self.player.x, self.player.y))
+        self.out.overlays.game(self.player.appearance, (self.player.topleft_x, self.player.topleft_y))
         self.out.flush()
 
     def _action_entity(self, action, entity):
-        vert_actions = (internal.Action.VERTICAL_UP, internal.Action.VERTICAL_DOWN)
+        vert_actions = {internal.Action.VERTICAL_UP, internal.Action.VERTICAL_DOWN}
+        horz_actions = {internal.Move.LEFT, internal.Move.RIGHT, internal.Move.UP, internal.Move.DOWN}
+        if action in vert_actions:
+            self._move_entity_vert(action, entity)
+        elif action in horz_actions:
+            self._move_entity_rel(action, entity)
+        else:
+            raise exceptions.ProgrammingException(strings.Exceptions.BAD_ACTION.format(action=action))
+
+    def _move_entity_vert(self, action, entity):
+        vert_actions = {internal.Action.VERTICAL_UP: 1,
+                        internal.Action.VERTICAL_DOWN: -1}
+        direction = vert_actions[action]
+        new_entity_pos = tools.Object(x=entity.x, y=entity.y, z=entity.z + direction)
+        if direction == 1:
+            if self.map.entity_wall_collide(entity, new_entity_pos) or self.map.entity_floor_collide(entity, new_entity_pos):
+                return
+        if direction == -1:
+            if self.map.entity_wall_collide(entity, new_entity_pos) or self.map.entity_floor_collide(entity, entity.pos):
+                return
+
+        entity.z += direction
+
+        # current_pos = entity.grid_pos
+        # old_tile = self.map[current_pos]
+        # if action == internal.Action.VERTICAL_UP:
+        #     dir = 1
+        # else:  # Move down
+        #     dir = -1
+        #
+        # new_entity_pos = tools.Object(x=current_pos.x, y=current_pos.y, z=current_pos.z + dir)
+        # if self.map.entity_wall_collide(entity, new_entity_pos):
+        #     return
+        #
+        # new_tile = self.map[new_entity_pos]
+        #
+        # if action == internal.Action.VERTICAL_UP:
+        #     if new_tile.floor and not entity.incorporeal:
+        #         return  # Corporeal entities cannot pass through solid floors
+        #     if not ((old_tile.suspend_up and new_tile.suspend_down) or entity.flight):
+        #         return  # Flightless entities require a suspension to move vertically upwards
+        #
+        # else:  # Move down
+        #     if old_tile.floor and not entity.incorporeal:
+        #         return  # Corporeal entities cannot pass through solid floors
+        #
+        # entity.z += dir
+
+    def _move_entity_rel(self, action, entity):
         horz_actions = {internal.Move.LEFT: tools.Object(x=-1, y=0),
                         internal.Move.RIGHT: tools.Object(x=1, y=0),
                         internal.Move.UP: tools.Object(x=0, y=-1),
                         internal.Move.DOWN: tools.Object(x=0, y=1)}
-        if action in vert_actions:
-            self._move_entity_vert(action, entity)
-            return
-        try:
-            direction = horz_actions[action]
-        except KeyError:
-            pass
-        else:
-            self._move_entity_rel(direction, entity)
-
-    def _move_entity_vert(self, action, entity):
-        current_pos = entity.square_pos
-        old_tile = self.map[current_pos]
-        if action == internal.Action.VERTICAL_UP:
-            dir = 1
-        else:  # Move down
-            dir = -1
-
-        new_pos = tools.Object(x=current_pos.x, y=current_pos.y, z=current_pos.z + dir)
-        new_tile = self.map[new_pos]
-
-        if new_tile.boundary:
-            return  # Nothing can move through boundaries
-
-        if action == internal.Action.VERTICAL_UP:
-            if new_tile.floor and not entity.incorporeal:
-                return  # Corporeal entities cannot pass through solid floors
-            if not((old_tile.suspend_up and new_tile.suspend_down) or entity.flight):
-
-                return  # Flightless entities require a suspension to move vertically upwards
-
-        else:  # Move down
-            if old_tile.floor and not entity.incorporeal:
-                return  # Corporeal entities cannot pass through solid floors
-
-        entity.z += dir
-
-    def _move_entity_rel(self, direction, entity):
+        direction = horz_actions[action]
         scaling = entity.speed / math.sqrt(direction.x ** 2 + direction.y ** 2)
-        new_entity_pos = tools.Object(x=entity.center_x + direction.x * scaling,
-                                      y=entity.center_y + direction.y * scaling)
-        for tile in self.map.local(entity.radius, new_entity_pos, entity.z):
-            if tile.boundary or (tile.solid and not entity.incorporeal):
-                if tools.Circle(entity.radius, new_entity_pos)\
-                        .colliderect(sdl.Rect(tile.x * tiles.size, tile.y * tiles.size, tiles.size, tiles.size)):
-                    break
-        else:
-            entity.center_x = new_entity_pos.x
-            entity.center_y = new_entity_pos.y
+        new_entity_pos = tools.Object(x=entity.x + direction.x * scaling,
+                                      y=entity.y + direction.y * scaling,
+                                      z=entity.z)
+        if not self.map.entity_wall_collide(entity, new_entity_pos):
+            entity.x = new_entity_pos.x
+            entity.y = new_entity_pos.y
 
     def _move_entity_abs(self, pos, entity):
         direction = tools.Object(x=pos.x - entity.x, y=pos.y - entity.y)

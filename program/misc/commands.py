@@ -12,7 +12,7 @@ def get_command(command_name):
     return SpecialInput.find_subclass(command_name)
 
 
-class SpecialInput(tools.SubclassTrackerMixin(), tracking_attr='inp'):
+class SpecialInput(tools.SubclassTrackerMixin('inp')):
     """Base class for special inputs."""
     inp = ''             # What string should inputted to get this input
     needs_debug = False  # Whether this input needs debug mode enabled to work

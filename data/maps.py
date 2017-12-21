@@ -20,27 +20,23 @@ def map_names():
     return map_names
 
 
-def get_map_data_from_map_name(map_name, tile_types, tile_data_default=_sentinel):
-    if tile_data_default is _sentinel:
-        tile_data_default = {}
+def get_map_data_from_map_name(map_name, tile_types):
     file_path = os.path.join(internal.Maps.MAP_LOC, map_name + '.' + config.MAP_FILE_EXTENSION)
     try:
         with open(file_path, 'r') as file:
-            return map_name, _get_map_data(file, tile_types, tile_data_default)
+            return (map_name, *_get_map_data(file, tile_types))
     except OSError:
         raise exceptions.MapLoadException
 
 
-def get_map_data_from_file(file, tile_types, tile_data_default=_sentinel):
-    if tile_data_default is _sentinel:
-        tile_data_default = {}
+def get_map_data_from_file(file, tile_types):
     map_name = os.path.basename(file.name)
     map_name = os.path.splitext(map_name)[0]
-    tile_data_dict, start_pos = _get_map_data(file, tile_types, tile_data_default)
+    tile_data_dict, start_pos = _get_map_data(file, tile_types)
     return map_name, tile_data_dict, start_pos
 
 
-def _get_map_data(file, tile_types, tile_data_default):
+def _get_map_data(file, tile_types):
     try:
         map_file_contents = file.read()
         mapdata = ast.literal_eval(map_file_contents)  # ast.literal_eval is safe to use on untrusted sources.
@@ -53,7 +49,7 @@ def _get_map_data(file, tile_types, tile_data_default):
             raise exceptions.MapLoadException
         start_pos = tools.Object(x=start_pos[0], y=start_pos[1], z=start_pos[2])
 
-        return_tile_data = tile_data_default
+        return_tile_data = {}
         tile_data = mapdata['tile_data']
         if not tile_data:
             raise exceptions.MapLoadException

@@ -18,9 +18,9 @@ class Exceptions(tools.Container):
     # Listeners
     NO_LISTENER = 'No listener enabled.'
     INVALID_LISTENER_REMOVAL = 'Tried to remove listener "{listener}", which is not the currently enabled listener.'
-    # Moving the player
-    INVALID_FORCE_MOVE = 'Received an invalid force move command.'
+    # Moving and actioning the player
     INVALID_INPUT_TYPE = 'Unexpected input type "{input}"'
+    BAD_ACTION = 'Action "{action}" not known.'
     # Appearance
     NO_APPEARANCE_LOOKUP = 'No appearance lookup set, despite tile having multiple appearances.'
     NON_SQUARE_TILE = 'Tile images must be squares.'
@@ -83,7 +83,6 @@ class Play(tools.Container):
     VARIABLE_GET = '{variable} has value {value}'
     VARIABLE_GET_FAILED = 'variable {variable} could not be found'
     DEBUG_NOT_ENABLED = 'Debug mode must be enabled to use this command: debug True'
-    # The message for input that could not be made sense of.
     INVALID_INPUT = 'Invalid input, please try again. Type \'help\' for help.'
 
 
@@ -101,7 +100,8 @@ class MapEditor(tools.Container):
     SAVE = 'Save'
     OPEN = 'Open'
     OPEN_TITLE = 'Open file'
-    NEW_TITLE = ''
+    NEW_TITLE = 'Clear map?'
+    NEW_MESSAGE = 'Clear all map data? All unsaved data will be lost.'
     MAP_NAME_PROMPT = 'Map name: '
     CURRENT_Z_LEVEL = "Current z level: "
     CHANGE_Z_LEVEL = 'Change z level:'

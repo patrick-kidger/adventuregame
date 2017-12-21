@@ -54,7 +54,7 @@ class GraphicsOverlay(BaseOverlay):
     """Handles outputting graphics to the screen."""
 
     def __call__(self, source, dest=(0, 0), area=None, special_flags=0, *args, **kwargs):
-        self.screen.blit(source, dest, area, special_flags)
+        self.screen.blit_offset(source, dest, area, special_flags)
         super(GraphicsOverlay, self).__call__(*args, **kwargs)
 
 

@@ -4,7 +4,7 @@ import Tools as tools
 ### Gameplay Settings ###
 
 # Default speed of all entities
-DEFAULT_ENTITY_SPEED = 5
+DEFAULT_ENTITY_SPEED = 4
 
 # How many ticks of physics should be done each second.
 PHYSICS_FRAMERATE = 60

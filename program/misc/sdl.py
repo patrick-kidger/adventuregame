@@ -117,24 +117,26 @@ class Surface(pygame.Surface):
 
     def blit_offset(self, source, dest=(0, 0), area=None, *args, **kwargs):
         """Blitting normally interprets the destination as being relative to the top left corner of the Surface. This
-        blit takes into account the offset of the surface."""
+        blit takes into account the offset of the surfaces."""
 
-        offset = self.get_offset()
+        target_offset = self.get_offset()
+        source_offset = source.get_offset()
         if isinstance(dest, pygame.Rect):
-            dest = dest.move(-1 * offset[0], -1 * offset[1])
+            dest = dest.move(source_offset[0] - target_offset[0], source_offset[1] - target_offset[1])
         else:
-            dest = dest[0] - offset[0], dest[1] - offset[1]
+            dest = dest[0] + source_offset[0] - target_offset[0], dest[1] + source_offset[1] - target_offset[1]
         return self.blit(source, dest, area, *args, **kwargs)
 
     def blit_abs_offset(self, source, dest=(0, 0), area=None, *args, **kwargs):
         """Blitting normally interprets the destination as being relative to the top left corner of the Surface. This
         blit takes into account the absolute offset of the surface."""
 
-        offset = self.get_abs_offset()
+        target_offset = self.get_abs_offset()
+        source_offset = source.get_abs_offset()
         if isinstance(dest, pygame.Rect):
-            dest = dest.move(-1 * offset[0], -1 * offset[1])
+            dest = dest.move(source_offset[0] - target_offset[0], source_offset[1] - target_offset[1])
         else:
-            dest = dest[0] - offset[0], dest[1] - offset[1]
+            dest = dest[0] + source_offset[0] - target_offset[0], dest[1] + source_offset[1] - target_offset[1]
         return self.blit(source, dest, area, *args, **kwargs)
 
     def point_within(self, pos, offset=(0, 0)):

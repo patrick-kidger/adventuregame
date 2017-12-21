@@ -26,34 +26,14 @@ class Entity(helpers.HasAppearances, tools.HasPositionMixin, appearance_files_lo
         self.radius = self.appearance.get_rect().height / 2
 
     @property
-    def center_x(self):
-        return self.pos.x + 0.5 * tiles.size
-
-    @center_x.setter
-    def center_x(self, val):
-        self.pos.x = val - 0.5 * tiles.size
+    def topleft_x(self):
+        return self.pos.x - self.radius
 
     @property
-    def center_y(self):
-        return self.pos.y + 0.5 * tiles.size
+    def topleft_y(self):
+        return self.pos.y - self.radius
 
-    @center_y.setter
-    def center_y(self, val):
-        self.pos.y = val - 0.5 * tiles.size
 
-    @property
-    def center_pos(self):
-        return tools.Object(x=self.center_x, y=self.center_y)
-
-    @property
-    def square_pos(self):
-        square_pos = tools.Object()
-        square_pos.x = int(self.center_x // tiles.size)
-        square_pos.y = int(self.center_y // tiles.size)
-        square_pos.z = self.pos.z
-        return square_pos
-        
-        
 class Player(Entity):
     """Holds all player data."""
     appearance_filenames = 'player.png'

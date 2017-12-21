@@ -19,8 +19,8 @@ def all_tiles():
     return {key: val for key, val in TileBase.subclasses().items() if val not in omit_tiles}
 
 
-class TileBase(helpers.HasAppearances, tools.HasPositionMixin, tools.SubclassTrackerMixin(),
-               appearance_files_location=config.TILE_FOLDER, tracking_attr='definition'):
+class TileBase(helpers.HasAppearances, tools.HasPositionMixin, tools.SubclassTrackerMixin('definition'),
+               appearance_files_location=config.TILE_FOLDER):
     """Base class for all tiles. Subclasses should:
     - Define an appearance. This is done either by setting a string type 'appearance_filename' attribute, or by setting
     a collections.OrderedDict type 'appearance_filenames' attribute."""

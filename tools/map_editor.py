@@ -222,7 +222,7 @@ class MainApplication:
         # The tiles that have been placed down
         self._tile_data_dict = None
         # The current z level we're displaying and working on
-        self._z_level = None
+        self._z = None
         # The starting position of the player
         self._start_pos = None
         # The image on the canvas marking the starting position of the player.
@@ -236,8 +236,8 @@ class MainApplication:
     def reset(self):
         """Resets the map editor back to its default state."""
         self.have_saved = True
-        self._tile_data_dict = tools.deldefaultdict(lambda: tools.deldict())
-        self._z_level = 0
+        self._tile_data_dict = {}
+        self._z = 0
         self._start_pos = None
         self._start_pos_marker = None
         self._grid_lines = []
@@ -264,23 +264,27 @@ class MainApplication:
     def up_z_level(self):
         """Move up a z level."""
 
-        self._z_level += 1
-        self._cur_z_level_label.config(text=strings.MapEditor.CURRENT_Z_LEVEL + str(self._z_level))
+        self._z += 1
+        self._cur_z_level_label.config(text=strings.MapEditor.CURRENT_Z_LEVEL + str(self._z))
         self.refresh_canvas()
 
     def down_z_level(self):
         """Move down a z level."""
 
-        self._z_level -= 1
-        self._cur_z_level_label.config(text=strings.MapEditor.CURRENT_Z_LEVEL + str(self._z_level))
+        self._z -= 1
+        self._cur_z_level_label.config(text=strings.MapEditor.CURRENT_Z_LEVEL + str(self._z))
         self.refresh_canvas()
 
     def refresh_canvas(self):
         """Update the canvas."""
 
         self._canvas.delete(tkinter.ALL)
-        if self._z_level in self._tile_data_dict:
-            for pos, tile in self._tile_data_dict[self._z_level].items():
+        try:
+            z_level = self._tile_data_dict[self._z]
+        except KeyError:
+            pass
+        else:
+            for pos, tile in z_level.items():
                 id_ = self._canvas.create_image((pos[0] * tiles.size, pos[1] * tiles.size),
                                                 image=tile.tk_appearance,
                                                 anchor=tkinter.NW)
@@ -298,7 +302,7 @@ class MainApplication:
         if self._start_pos_marker is not None:
             self._canvas.delete(self._start_pos_marker)
         if self._start_pos is not None:
-            if self._start_pos.z == self._z_level:
+            if self._start_pos.z == self._z:
                 self._start_pos_marker = self._canvas.create_image((self._start_pos.x * tiles.size,
                                                                     self._start_pos.y * tiles.size),
                                                                    image=self._start_pos_image, anchor=tkinter.NW)
@@ -348,7 +352,7 @@ class MainApplication:
         self._last_grid_loc = grid_loc
 
         if self._current_tile == internal.MapEditor.START_POS:  # Place the start marker
-            self.set_start_pos(x=grid_loc.tile_x, y=grid_loc.tile_y, z=self._z_level)
+            self.set_start_pos(x=grid_loc.tile_x, y=grid_loc.tile_y, z=self._z)
             self.place_start_pos_marker()
         else:
             # If we're not placing the start marker, then delete the image that was already there.
@@ -361,14 +365,19 @@ class MainApplication:
                 del self._canvas_images[(grid_loc.tile_x, grid_loc.tile_y)]
 
             if self._current_tile is None:  # Delete current tile
-                # Deleting from the internal store
-                del self._tile_data_dict[self._z_level][(grid_loc.tile_x, grid_loc.tile_y)]
-                if not self._tile_data_dict[self._z_level]:
-                    del self._tile_data_dict[self._z_level]
+                try:
+                    # Deleting from the internal store
+                    z_level = self._tile_data_dict[self._z]
+                    del z_level[(grid_loc.tile_x, grid_loc.tile_y)]
+                    if not z_level:
+                        del self._tile_data_dict[self._z]
+                except KeyError:
+                    pass
+
             else:
                 # Overwriting in the internal store
                 this_tile = self._current_tile()
-                self._tile_data_dict[self._z_level][(grid_loc.tile_x, grid_loc.tile_y)] = this_tile
+                self._tile_data_dict.setdefault(self._z, {})[(grid_loc.tile_x, grid_loc.tile_y)] = this_tile
                 # Place the new canvas image
                 id_ = self._canvas.create_image((grid_loc.x, grid_loc.y), image=this_tile.tk_appearance,
                                                 anchor=tkinter.NW)
@@ -380,7 +389,7 @@ class MainApplication:
 
         grid_loc = self.click_to_grid(event)
         try:
-            tile = self._tile_data_dict[self._z_level][(grid_loc.tile_x, grid_loc.tile_y)]
+            tile = self._tile_data_dict[self._z][(grid_loc.tile_x, grid_loc.tile_y)]
         except KeyError:
             pass
         else:
@@ -446,11 +455,11 @@ class MainApplication:
         """Clear the canvas and reset."""
 
         if self.have_saved:
-            res = tkinter.YES
+            self.reset()
         else:
             res = tkinter.messagebox.askyesno(strings.MapEditor.NEW_TITLE, strings.MapEditor.NEW_MESSAGE)
-        if res == tkinter.YES:
-            self.reset()
+            if res == tkinter.YES:
+                self.reset()
 
     def open(self):
         """Open a map file."""
@@ -462,9 +471,8 @@ class MainApplication:
             try:
                 with open_file:
                     map_name, tile_data, start_pos = \
-                        maps.get_map_data_from_file(open_file, self._tk_tile_types,
-                                                    tile_data_default=tools.deldefaultdict(lambda: tools.deldict()))
-            except (OSError, exceptions.MapLoadException):
+                        maps.get_map_data_from_file(open_file, self._tk_tile_types)
+            except RuntimeError: #(OSError, exceptions.MapLoadException):
                 tkinter.messagebox.showerror(strings.MapEditor.BAD_LOAD_TITLE, strings.MapEditor.BAD_LOAD_MESSAGE)
             else:
                 self.reset()
@@ -514,9 +522,9 @@ class MainApplication:
 
         # We always normalise on saving so that we begin at x, y, z set to 0.
         x_min = y_min = z_min = math.inf
-        for z_level, z_level_data in self._tile_data_dict.items():
-            z_min = min(z_level, z_min)
-            for x, y in z_level_data.keys():
+        for z, z_level in self._tile_data_dict.items():
+            z_min = min(z, z_min)
+            for x, y in z_level.keys():
                 x_min = min(x, x_min)
                 y_min = min(y, y_min)
 
@@ -528,14 +536,14 @@ class MainApplication:
         tile_data = {}
         tile_types = []
         tile_type_to_index = {}
-        for z_level, z_level_data in self._tile_data_dict.items():
-            for (x, y), tile in z_level_data.items():
+        for z, z_level in self._tile_data_dict.items():
+            for (x, y), tile in z_level.items():
                 serial_tile_data = tile.serialize()
                 if serial_tile_data not in tile_types:
                     tile_types.append(serial_tile_data)
                     tile_type_to_index[serial_tile_data] = len(tile_types) - 1
                 # Not using a defaultdict as we're going to take the str of tile_data and save it to file.
-                tile_data.setdefault(z_level - z_min, {})[(x - x_min, y - y_min)] = tile_type_to_index[serial_tile_data]
+                tile_data.setdefault(z - z_min, {})[(x - x_min, y - y_min)] = tile_type_to_index[serial_tile_data]
 
         if not tile_data:
             # Should never get here, the earlier check that all of x,y,z min are not infinity should have already
