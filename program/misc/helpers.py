@@ -65,7 +65,7 @@ class HasAppearances:
                     pass
                 cls.appearances = appearances
             else:
-                raise exceptions.ProgrammingException(strings.Exceptions.BAD_APPEARANCE_FILENAME)
+                raise exceptions.ProgrammingException
 
             for name, appearance_filename in appearance_filenames.items():
                 cls.appearances[name] = cls._image_from_filename(appearance_files_location, appearance_filename)

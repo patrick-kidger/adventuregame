@@ -1,3 +1,4 @@
+import math
 import Tools as tools
 
 
@@ -6,6 +7,8 @@ import Game.config.strings as strings
 
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
+
+import Game.program.tiles as tiles
 
 
 def get_command(command_name):
@@ -29,9 +32,9 @@ class SpecialInput(tools.SubclassTrackerMixin('inp')):
             def do(cls_, game_instance, inp_args):
                 if game_instance.debug_mode:
                     # __func__ to get the original (not bound) method
-                    old_do.__func__(cls_, game_instance, inp_args)
+                    return old_do.__func__(cls_, game_instance, inp_args)
                 else:
-                    game_instance.out.overlays.debug(strings.Play.DEBUG_NOT_ENABLED, end='\n')
+                    game_instance.out.overlays.debug(strings.Debug.DEBUG_NOT_ENABLED, end='\n')
 
             cls.do = classmethod(do)
 
@@ -48,20 +51,24 @@ class SpecialInput(tools.SubclassTrackerMixin('inp')):
 class Variable(SpecialInput):
     """Provides a simple base class for setting variables."""
     variables = tuple()   # The name of the variables to set
-    variable_bool = True  # If the variables are boolean
+    variable_type = bool  # The type of the variable that this command sets
     
     @classmethod
     def do(cls, game_instance, inp_args):
         variable_value_to_set = inp_args[0]
         for variable_name in cls.variables:
             current_variable_value = tools.deepgetattr(game_instance, variable_name)
-            if cls.variable_bool:
+            if cls.variable_type is bool:
                 variable_value = cls.toggle(variable_value_to_set, current_variable_value)
             else:
-                variable_value = variable_value_to_set
+                try:
+                    variable_value = cls.variable_type(variable_value_to_set)
+                except ValueError:
+                    return strings.Debug.VARIABLE_SET_FAILED.format(value=variable_value_to_set,
+                                                                    variable_type=cls.variable_type)
             tools.deepsetattr(game_instance, variable_name, variable_value)
-            game_instance.out.overlays.debug(strings.Play.VARIABLE_SET.format(variable=variable_name,
-                                                                              value=variable_value),
+            game_instance.out.overlays.debug(strings.Debug.VARIABLE_SET.format(variable=variable_name,
+                                                                               value=variable_value),
                                              end='\n')
         
     @staticmethod
@@ -93,9 +100,9 @@ class Help(SpecialInput):
                 command_help_strings = [x.description for x in commands_matched_values]
                 game_instance.out.overlays.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
                 
-        output_matched_commands(Help.commands, strings.Help.HEADER)
+        output_matched_commands(Help.commands, strings.Debug.HEADER)
         if game_instance.debug_mode:
-            output_matched_commands(Debug.commands, strings.Help.DEBUG_HEADER)
+            output_matched_commands(Debug.commands, strings.Debug.DEBUG_HEADER)
 
 
 # Register help with itself. Can't do this via decorator as Help hasn't yet been defined at decoration time.
@@ -144,6 +151,15 @@ class Ghost(Variable):
     needs_debug = True
 
 
+@tools.register(config.DebugCommands.SETSPEED, Debug.commands)
+class SetSpeed(Variable):
+    """Sets the player's speed."""
+    inp = config.DebugCommands.SETSPEED
+    variables = ('player.speedmult',)
+    variable_type = float
+    needs_debug = True
+
+
 @tools.register(config.DebugCommands.CLOSE, Help.commands)
 class Close(SpecialInput):
     """Closes the whole game."""
@@ -181,6 +197,29 @@ class Reset(SpecialInput):
         raise exceptions.ResetException()
 
 
+@tools.register(config.DebugCommands.CURRENT_TILE, Debug.commands)
+class CurrentTile(SpecialInput):
+    """Gets an attribute of the tile that the player is currently over. If an attribute argument is not passed then the
+    tile itself is printed."""
+    inp = config.DebugCommands.CURRENT_TILE
+    needs_debug = True
+
+    @classmethod
+    def do(cls, game_instance, inp_args):
+        tile_x = math.floor(game_instance.player.x / tiles.size)
+        tile_y = math.floor(game_instance.player.y / tiles.size)
+        tile = game_instance.map[tools.Object(x=tile_x, y=tile_y, z=game_instance.player.z)]
+
+        variable_name = inp_args[0]
+        if variable_name == '':
+            return str(tile)
+        else:
+            try:
+                return str(tools.deepgetattr(tile, variable_name))
+            except (AttributeError, sdl.error):
+                return strings.Debug.VARIABLE_GET_FAILED.format(variable=variable_name)
+
+
 @tools.register(config.DebugCommands.GET, Debug.commands)
 class Get(SpecialInput):
     """Gets the value of a variable."""
@@ -192,9 +231,7 @@ class Get(SpecialInput):
         variable_name = inp_args[0]
         try:
             variable_value = tools.deepgetattr(game_instance, variable_name)
-        except (IndexError, AttributeError, sdl.error):
-            game_instance.out.overlays.debug(strings.Play.VARIABLE_GET_FAILED.format(variable=variable_name), end='\n')
+        except (AttributeError, sdl.error):
+            return strings.Debug.VARIABLE_GET_FAILED.format(variable=variable_name)
         else:
-            game_instance.out.overlays.debug(strings.Play.VARIABLE_GET.format(variable=variable_name,
-                                                                              value=variable_value),
-                                             end='\n')
+            return strings.Debug.VARIABLE_GET.format(variable=variable_name, value=variable_value)

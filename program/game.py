@@ -22,13 +22,24 @@ class Map:
         self.tile_data = None  # The tiles making up the map
         self.screens = None  # The visual depiction of the map
         self.background_color = background_color  # The background color to use where no tile is defined.
+        self.max_z = -math.inf
+        self.max_y = -math.inf
+        self.max_x = -math.inf
+        self.min_z = math.inf
+        self.min_y = math.inf
+        self.min_x = math.inf
         super(Map, self).__init__()
 
     def __getitem__(self, item):
         try:
             return self.tile_data[item.z][(item.x, item.y)]
         except KeyError:
-            return tiles.Boundary(pos=tools.Object(x=item.x, y=item.y, z=item.z))
+            if item.z > self.max_z or item.z < self.min_z \
+                    or item.y > self.max_y or item.y < self.min_y \
+                    or item.x > self.max_x or item.x < self.min_x:
+                return tiles.Boundary(pos=tools.Object(x=item.x, y=item.y, z=item.z))
+            else:
+                return tiles.Empty(pos=tools.Object(x=item.x, y=item.y, z=item.z))
 
     def __iter__(self):
         """Iterates over all tiles."""
@@ -48,25 +59,35 @@ class Map:
         """Loads the specified map from the given tile data."""
 
         self.tile_data = tile_data
-        areas = []
-        for z_level in tile_data.values():
-            max_x = -math.inf
-            max_y = -math.inf
-            min_x = math.inf
-            min_y = math.inf
+        self.screens = {}
+        self.max_z = -math.inf
+        self.max_y = -math.inf
+        self.max_x = -math.inf
+        self.min_z = math.inf
+        self.min_y = math.inf
+        self.min_x = math.inf
+        for z, z_level in tile_data.items():
+            self.max_z = max(z, self.max_z)
+            self.min_z = min(z, self.min_z)
+            level_max_x = -math.inf
+            level_max_y = -math.inf
+            level_min_x = math.inf
+            level_min_y = math.inf
             for x, y in z_level.keys():
-                max_x = max(x, max_x)
-                max_y = max(y, max_y)
-                min_x = min(x, min_x)
-                min_y = min(y, min_y)
-            areas.append(tools.Object(x=max_x - min_x + 1, y=max_y - min_y + 1, min_x=min_x, min_y=min_y))
-
-        self.screens = []
-        for area in areas:
-            surf = sdl.Surface((area.x * tiles.size, area.y * tiles.size))
-            surf.set_offset((area.min_x * tiles.size, area.min_y * tiles.size))
+                level_max_x = max(x, level_max_x)
+                level_max_y = max(y, level_max_y)
+                level_min_x = min(x, level_min_x)
+                level_min_y = min(y, level_min_y)
+            self.max_x = max(level_max_x, self.max_x)
+            self.min_x = min(level_min_x, self.min_x)
+            self.max_y = max(level_max_y, self.max_y)
+            self.min_y = min(level_min_y, self.min_y)
+            width = level_max_x - level_min_x + 1
+            height = level_max_y - level_min_y + 1
+            surf = sdl.Surface((width * tiles.size, height * tiles.size))
+            surf.set_offset((level_min_x * tiles.size, level_min_y * tiles.size))
             surf.fill(self.background_color)
-            self.screens.append(surf)
+            self.screens[z] = surf
 
         for tile in self:
             self.screens[tile.z].blit_offset(tile.appearance, (tile.x * tiles.size, tile.y * tiles.size))
@@ -81,59 +102,25 @@ class Map:
         if entity.flight:
             return False
         # And doesn't collide with the tile below
-        if self.entity_wall_collide(entity, below_pos):
+        if self.wall_collide(entity, below_pos):
             return False
         # And doesn't collide with the tile we're on
-        if self.entity_floor_collide(entity, entity.pos):
+        if self.floor_collide(entity, entity.pos):
             return False
         # And isn't able to hold onto a suspension
-        if self.entity_suspend_collide(entity, entity.pos):
+        if self.suspend_collide(entity, entity.pos):
             return False
         # Then the entity falls
         return True
 
-    def entity_wall_collide(self, entity, pos):
-        for tile in self.local(entity.radius, pos):
-            # If the tile has a wall to collide with
-            if tile.boundary or (tile.solid and not entity.incorporeal):
-                # And the entity collides with the square that is the tile
-                if self._collide_square(entity, pos, tile):
-                    # Then the entity collides with the wall
-                    return True
-        return False
+    def wall_collide(self, entity, pos):
+        return any(tile.wall_collide(entity, pos) for tile in self.local(entity.radius, pos))
 
-    def entity_floor_collide(self, entity, pos):
-        for tile in self.local(entity.radius, pos):
-            # If the tile has a floor to collide with
-            if tile.floor and not entity.incorporeal:
-                # And the entity collides with the square that is the tile
-                if self._collide_square(entity, pos, tile):
-                    # Then the entity collides with the floor
-                    return True
-        return False
+    def floor_collide(self, entity, pos):
+        return any(tile.floor_collide(entity, pos) for tile in self.local(entity.radius, pos))
 
-    def entity_suspend_collide(self, entity, pos):
-        for tile in self.local(entity.radius, pos):
-            # If the tile has a suspension to collide with
-            if tile.suspend_up or tile.suspend_down:
-                # And the entity collides with the square that is the tile
-                if self._collide_square(entity, pos, tile):
-                    # Then the entity collides with the suspension
-                    return True
-            # A bit special: incorporeal entities shouldn't just fall through the floor to the bottom of the world, so
-            # we let them count floors as suspensions.
-            if tile.floor and entity.incorporeal:
-                if self._collide_square(entity, pos, tile):
-                    return True
-        return False
-
-    @staticmethod
-    def _collide_square(entity, pos, tile):
-        """Whether or not the given entity at the given position collides with the square that is the tile."""
-        return tools.Circle(entity.radius, pos).colliderect(sdl.Rect(tile.x * tiles.size,
-                                                                     tile.y * tiles.size,
-                                                                     tiles.size,
-                                                                     tiles.size))
+    def suspend_collide(self, entity, pos):
+        return any(tile.suspend_collide(entity, pos) for tile in self.local(entity.radius, pos))
 
 
 class MainGame:
@@ -147,8 +134,8 @@ class MainGame:
 
         # Immediately redefined in reset()
         # Just defined here for clarity about what instance properties we have
-        self.map = None  # The map that the player is on
-        self.player = None  # The player. Unsurprisingly.
+        self.map = None
+        self.player = None
         self.debug_mode = None  # Whether or not cheaty debug commands can be executed
         
     def reset(self):
@@ -305,29 +292,35 @@ class MainGame:
     
     def _tick(self, inputs):
         """A single tick of the game."""
-        use_player_input = True
+        # We should only handle falling once per tick
         if self.map.fall(self.player):
-            use_player_input = False
             self.player.fall_counter += 1
             if self.player.fall_counter == self.player.fall_speed:
                 self._move_entity_vert(internal.Action.VERTICAL_DOWN, self.player)
                 self.player.fall_counter = 0
 
-        if use_player_input:
-            for play_inp, input_type in inputs:
+        for play_inp, input_type in inputs:
+            # But the result of some inputs might put us in a falling position, in which case we shouldn't evaluate the
+            # other inputs
+            if not self.map.fall(self.player):
                 if input_type == internal.InputTypes.ACTION:
                     self._action_entity(play_inp, self.player)
-                elif input_type == internal.InputTypes.NO_INPUT:
-                    pass
                 else:
-                    raise exceptions.ProgrammingException(strings.Exceptions.INVALID_INPUT_TYPE.format(input=input_type))
+                    raise exceptions.ProgrammingException
 
     def render(self):
         """Outputs the current game state."""
         self.out.overlays.game.reset()
-        self.out.overlays.game(self.map.screens[self.player.z])
-        self.out.overlays.game(self.player.appearance, (self.player.topleft_x, self.player.topleft_y))
+        self.out.overlays.game(self.map.screens[self.player.z], offset=self.camera_offset)
+        self.out.overlays.game(self.player.appearance, (self.player.topleft_x, self.player.topleft_y),
+                               offset=self.camera_offset)
         self.out.flush()
+
+    @property
+    def camera_offset(self):
+        x = self.player.pos.x - self.out.screen_size.width / 2
+        y = self.player.pos.y - self.out.screen_size.height / 2
+        return tools.Object(x=x, y=y)
 
     def _action_entity(self, action, entity):
         vert_actions = {internal.Action.VERTICAL_UP, internal.Action.VERTICAL_DOWN}
@@ -337,7 +330,7 @@ class MainGame:
         elif action in horz_actions:
             self._move_entity_rel(action, entity)
         else:
-            raise exceptions.ProgrammingException(strings.Exceptions.BAD_ACTION.format(action=action))
+            raise exceptions.ProgrammingException
 
     def _move_entity_vert(self, action, entity):
         vert_actions = {internal.Action.VERTICAL_UP: 1,
@@ -345,38 +338,13 @@ class MainGame:
         direction = vert_actions[action]
         new_entity_pos = tools.Object(x=entity.x, y=entity.y, z=entity.z + direction)
         if direction == 1:
-            if self.map.entity_wall_collide(entity, new_entity_pos) or self.map.entity_floor_collide(entity, new_entity_pos):
+            if self.map.wall_collide(entity, new_entity_pos) or self.map.floor_collide(entity, new_entity_pos):
                 return
         if direction == -1:
-            if self.map.entity_wall_collide(entity, new_entity_pos) or self.map.entity_floor_collide(entity, entity.pos):
+            if self.map.wall_collide(entity, new_entity_pos) or self.map.floor_collide(entity, entity.pos):
                 return
 
         entity.z += direction
-
-        # current_pos = entity.grid_pos
-        # old_tile = self.map[current_pos]
-        # if action == internal.Action.VERTICAL_UP:
-        #     dir = 1
-        # else:  # Move down
-        #     dir = -1
-        #
-        # new_entity_pos = tools.Object(x=current_pos.x, y=current_pos.y, z=current_pos.z + dir)
-        # if self.map.entity_wall_collide(entity, new_entity_pos):
-        #     return
-        #
-        # new_tile = self.map[new_entity_pos]
-        #
-        # if action == internal.Action.VERTICAL_UP:
-        #     if new_tile.floor and not entity.incorporeal:
-        #         return  # Corporeal entities cannot pass through solid floors
-        #     if not ((old_tile.suspend_up and new_tile.suspend_down) or entity.flight):
-        #         return  # Flightless entities require a suspension to move vertically upwards
-        #
-        # else:  # Move down
-        #     if old_tile.floor and not entity.incorporeal:
-        #         return  # Corporeal entities cannot pass through solid floors
-        #
-        # entity.z += dir
 
     def _move_entity_rel(self, action, entity):
         horz_actions = {internal.Move.LEFT: tools.Object(x=-1, y=0),
@@ -388,7 +356,7 @@ class MainGame:
         new_entity_pos = tools.Object(x=entity.x + direction.x * scaling,
                                       y=entity.y + direction.y * scaling,
                                       z=entity.z)
-        if not self.map.entity_wall_collide(entity, new_entity_pos):
+        if not self.map.wall_collide(entity, new_entity_pos):
             entity.x = new_entity_pos.x
             entity.y = new_entity_pos.y
 

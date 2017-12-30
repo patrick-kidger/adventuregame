@@ -53,7 +53,9 @@ class BaseOverlay(base.BaseIO, helpers.EnablerMixin):
 class GraphicsOverlay(BaseOverlay):
     """Handles outputting graphics to the screen."""
 
-    def __call__(self, source, dest=(0, 0), area=None, special_flags=0, *args, **kwargs):
+    def __call__(self, source, dest=(0, 0), area=None, special_flags=0, offset=None, *args, **kwargs):
+        if offset is not None:
+            dest = dest[0] - offset.x, dest[1] - offset.y
         self.screen.blit_offset(source, dest, area, special_flags)
         super(GraphicsOverlay, self).__call__(*args, **kwargs)
 
@@ -254,6 +256,7 @@ class Output(base.BaseIO):
     def __init__(self, overlays, *args, **kwargs):
         self.overlays = overlays
         self.screen = sdl.display.set_mode(config.SCREEN_SIZE)
+        self.screen_size = self.screen.get_rect()
         sdl.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__(*args, **kwargs)
 

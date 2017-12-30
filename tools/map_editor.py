@@ -97,15 +97,7 @@ class TkTileMixin(tiles.TileBase):
         if self.can_rotate:
             opts['rotation'] = self.rotation
         if len(self.appearances) != 1:
-            # Our save file parser, ast.literal_eval, can't handle frozensets, so we convert them to regular sets first.
-            # As self.appearance_lookup is a dictionary key, it can only be a frozenset, not a set, so this change is
-            # unambiguous; we'll switch it back when we load a file.
-            # Nonetheless this seems a bit hacky.
-            if isinstance(self.appearance_lookup, frozenset):
-                appearance_lookup = set(self.appearance_lookup)
-            else:
-                appearance_lookup = self.appearance_lookup
-            opts['appearance_lookup'] = appearance_lookup
+            opts['appearance_lookup'] = self.appearance_lookup
 
         if opts:
             returnval['opts'] = opts
@@ -164,6 +156,15 @@ class MainApplication:
         self._start_pos_frame.pack(side=tkinter.TOP, fill=tkinter.X)
         self._start_pos_button.pack(side=tkinter.TOP)
 
+        # The we-are-setting-a-cuboid message
+        self._cuboid_frame = tkinter.Frame(self._menu, relief=tkinter.RIDGE, borderwidth=3)
+        self._cuboid_label_hide = tkinter.Frame(self._cuboid_frame)
+        self._cuboid_label = tkinter.Label(self._cuboid_frame, text=strings.MapEditor.SETTING_CUBOID)
+        self._cuboid_frame.pack(side=tkinter.TOP, fill=tkinter.X)
+        self._cuboid_label_hide.pack(fill=tkinter.BOTH, expand=1)
+        self._cuboid_label.pack(side=tkinter.TOP, in_=self._cuboid_label_hide)
+        self._cuboid_label.lower(self._cuboid_label_hide)
+
         # The panel for changing z level.
         self._z_button_frame = tkinter.Frame(self._menu, relief=tkinter.RIDGE, borderwidth=3)
         self._z_level_label = tkinter.Label(self._z_button_frame, text=strings.MapEditor.CHANGE_Z_LEVEL)
@@ -204,6 +205,7 @@ class MainApplication:
         # The main canvas we're placing elements on.
         self._canvas = tkinter.Canvas(tk, background=self.background_color)
         self._canvas.bind("<Button-1>", self.place_tile)  # Place a tile
+        self._canvas.bind("<Double-Button-1>", self.place_cuboid)
         self._canvas.bind("<B1-Motion>", self.place_tile_drag)  # Place many tiles
         self._canvas.bind("<Button-2>", self.canvas_mark)  # Drag the canvas around
         self._canvas.bind("<B2-Motion>", self.canvas_move)  #
@@ -231,6 +233,8 @@ class MainApplication:
         self._grid_lines = None
         # The other images on the canvas. (i.e. the tiles)
         self._canvas_images = None
+        # The corner of a cuboid placement
+        self._place_rect_marker = None
         self.reset()
 
     def reset(self):
@@ -242,6 +246,7 @@ class MainApplication:
         self._start_pos_marker = None
         self._grid_lines = []
         self._canvas_images = {}
+        self._place_rect_marker = None
         self.refresh_canvas()
         self._level_name_entry.delete(0, tkinter.END)
 
@@ -337,22 +342,43 @@ class MainApplication:
         """Place a tile at the target location on the canvas."""
 
         grid_loc = self.click_to_grid(event)
-        self._place_tile(grid_loc)
+        self._place_tile(grid_loc, self._z)
 
     def place_tile_drag(self, event):
         """Place tiles whilst dragging the mouse."""
 
         grid_loc = self.click_to_grid(event)
         if grid_loc.tile_x != self._last_grid_loc.tile_x or grid_loc.tile_y != self._last_grid_loc.tile_y:
-            self._place_tile(grid_loc)
+            self._place_tile(grid_loc, self._z)
 
-    def _place_tile(self, grid_loc):
+    def place_cuboid(self, event):
+        """Fill a cuboid region with the currently selected tile."""
+
+        grid_loc = self.click_to_grid(event)
+        if self._place_rect_marker is None:
+            self._place_rect_marker = tools.Object(tile_x=grid_loc.tile_x, tile_y=grid_loc.tile_y, z=self._z)
+            self._cuboid_label.lift(self._cuboid_label_hide)
+        else:
+            x_min = min(grid_loc.tile_x, self._place_rect_marker.tile_x)
+            x_max = max(grid_loc.tile_x, self._place_rect_marker.tile_x)
+            y_min = min(grid_loc.tile_y, self._place_rect_marker.tile_y)
+            y_max = max(grid_loc.tile_y, self._place_rect_marker.tile_y)
+            z_min = min(self._z, self._place_rect_marker.z)
+            z_max = max(self._z, self._place_rect_marker.z)
+            for tile_x in range(x_min, x_max + 1):
+                for tile_y in range(y_min, y_max + 1):
+                    for z in range(z_min, z_max + 1):
+                        self._place_tile(tools.Object(tile_x=tile_x, tile_y=tile_y), z)
+            self._place_rect_marker = None
+            self._cuboid_label.lower(self._cuboid_label_hide)
+
+    def _place_tile(self, grid_loc, z):
         """Place a tile at the particular grid location."""
         self.have_saved = False
         self._last_grid_loc = grid_loc
 
         if self._current_tile == internal.MapEditor.START_POS:  # Place the start marker
-            self.set_start_pos(x=grid_loc.tile_x, y=grid_loc.tile_y, z=self._z)
+            self.set_start_pos(x=grid_loc.tile_x, y=grid_loc.tile_y, z=z)
             self.place_start_pos_marker()
         else:
             # If we're not placing the start marker, then delete the image that was already there.
@@ -367,19 +393,21 @@ class MainApplication:
             if self._current_tile is None:  # Delete current tile
                 try:
                     # Deleting from the internal store
-                    z_level = self._tile_data_dict[self._z]
+                    z_level = self._tile_data_dict[z]
                     del z_level[(grid_loc.tile_x, grid_loc.tile_y)]
                     if not z_level:
-                        del self._tile_data_dict[self._z]
+                        del self._tile_data_dict[z]
                 except KeyError:
                     pass
 
             else:
                 # Overwriting in the internal store
                 this_tile = self._current_tile()
-                self._tile_data_dict.setdefault(self._z, {})[(grid_loc.tile_x, grid_loc.tile_y)] = this_tile
+                self._tile_data_dict.setdefault(z, {})[(grid_loc.tile_x, grid_loc.tile_y)] = this_tile
+                grid_loc_x = grid_loc.tile_x * tiles.size
+                grid_loc_y = grid_loc.tile_y * tiles.size
                 # Place the new canvas image
-                id_ = self._canvas.create_image((grid_loc.x, grid_loc.y), image=this_tile.tk_appearance,
+                id_ = self._canvas.create_image((grid_loc_x, grid_loc_y), image=this_tile.tk_appearance,
                                                 anchor=tkinter.NW)
                 self._canvas.tag_lower(id_)  # Below the grid lines
                 self._canvas_images[(grid_loc.tile_x, grid_loc.tile_y)] = id_
@@ -398,8 +426,10 @@ class MainApplication:
                 # Rotate the tile
                 tile.next_rotate()
                 # Update the appearance on the canvas
+                grid_loc_x = grid_loc.tile_x * tiles.size
+                grid_loc_y = grid_loc.tile_y * tiles.size
                 self._canvas.delete(self._canvas_images[(grid_loc.tile_x, grid_loc.tile_y)])
-                id_ = self._canvas.create_image((grid_loc.x, grid_loc.y), image=tile.tk_appearance,
+                id_ = self._canvas.create_image((grid_loc_x, grid_loc_y), image=tile.tk_appearance,
                                                 anchor=tkinter.NW)
                 self._canvas.tag_lower(id_)
                 self._canvas_images[(grid_loc.tile_x, grid_loc.tile_y)] = id_
@@ -411,11 +441,8 @@ class MainApplication:
         canvas_y = self._canvas.canvasy(event.y)
         tile_x = math.floor(canvas_x / tiles.size)
         tile_y = math.floor(canvas_y / tiles.size)
-        x = tile_x * tiles.size
-        y = tile_y * tiles.size
-        # x, y are the position on the canvas
         # tile_x, tile_y are the grid coordinates
-        return tools.Object(x=x, y=y, tile_x=tile_x, tile_y=tile_y)
+        return tools.Object(tile_x=tile_x, tile_y=tile_y)
 
     def canvas_tile_grid(self):
         """Draw a grid on the canvas."""

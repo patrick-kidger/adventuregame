@@ -52,7 +52,6 @@ class BaseListener(base.BaseIO):
             events_to_handle.append(sdl.event.Event(sdl.KEYDOWN, unicode=listen_key.unicode, key=listen_key.key))
 
         for event in events_to_handle:
-            inp_result = None, internal.InputTypes.NO_INPUT
             handled = False
 
             if sdl.event.is_key(event):
@@ -68,11 +67,9 @@ class BaseListener(base.BaseIO):
                     handled = True
 
             if not handled:
-                _inp_result = self._handle(event)
-                if _inp_result is not None:
-                    inp_result = _inp_result
-
-            inp_results.append(inp_result)
+                inp_result = self._handle(event)
+                if inp_result is not None:
+                    inp_results.append(inp_result)
         return inp_results
 
     def reset(self):
@@ -263,13 +260,15 @@ class DebugListener(TextListener):
         except KeyError:
             self.invalid_input()
         else:
-            command.do(self.inp.game_instance, command_args)
+            print_result = command.do(self.inp.game_instance, command_args)
+            if print_result is not None:
+                self.overlay(print_result, end='\n')
         finally:
             self.reset()
 
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
-        self.overlay(strings.Play.INVALID_INPUT, end='\n')
+        self.overlay(strings.Debug.INVALID_INPUT, end='\n')
 
 
 class Input(base.BaseIO):

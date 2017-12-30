@@ -3,7 +3,6 @@ import Tools as tools
 
 import Game.config.config as config
 
-import Game.program.tiles as tiles
 import Game.program.misc.helpers as helpers
 
 
@@ -21,9 +20,14 @@ class Entity(helpers.HasAppearances, tools.HasPositionMixin, appearance_files_lo
         self.fall_counter = 0
         self.fall_speed = config.FALL_TICKS
 
-        self.speed = config.DEFAULT_ENTITY_SPEED
+        self._speed = config.DEFAULT_ENTITY_SPEED
+        self.speedmult = 1
 
         self.radius = self.appearance.get_rect().height / 2
+
+    @property
+    def speed(self):
+        return self._speed * self.speedmult
 
     @property
     def topleft_x(self):

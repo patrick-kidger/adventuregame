@@ -4,10 +4,10 @@ import Tools as tools
 ### Gameplay Settings ###
 
 # Default speed of all entities
-DEFAULT_ENTITY_SPEED = 4
+DEFAULT_ENTITY_SPEED = 2.0
 
 # How many ticks of physics should be done each second.
-PHYSICS_FRAMERATE = 60
+PHYSICS_FRAMERATE = 120
 # FPS cap
 RENDER_FRAMERATE = 60
 
@@ -88,11 +88,13 @@ class DebugCommands(tools.Container):
     NOCLIP = 'noclip'
     FLY = 'fly'
     GHOST = 'ghost'
+    SETSPEED = 'setspeed'
     GET = 'get'
     QUIT = 'quit'
     EXIT = 'exit'   # Does the same thing as quit
     CLOSE = 'close'  # Does not do the same thing as quit
     RESET = 'reset'
+    CURRENT_TILE = 'currenttile'
 
 
 # How long a key should be held down for to start generating repeat keypresses.

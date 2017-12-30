@@ -85,12 +85,6 @@ def _deserialize_tile_type(serial, tile_types):
         rotation = _sentinel
     if len(tile_type.appearances) != 1:
         appearance_lookup = tile_data['opts']['appearance_lookup']
-        # Our save file parser, ast.literal_eval, can't handle frozensets, so we've converted them to regular sets.
-        # As self.appearance_lookup is a dictionary key, it can only be a frozenset, not a set, so this change is
-        # unambiguous - here we switch it back.
-        # Nonetheless this seems a bit hacky.
-        if isinstance(appearance_lookup, set):
-            appearance_lookup = frozenset(appearance_lookup)
         if appearance_lookup not in tile_type.appearance_filenames.keys():
             raise exceptions.MapLoadException
     else:
@@ -100,8 +94,8 @@ def _deserialize_tile_type(serial, tile_types):
     def callback(**kwargs):
         if appearance_lookup is not _sentinel:
             kwargs['appearance_lookup'] = appearance_lookup
-        tile = tile_type(**kwargs)
         if rotation is not _sentinel:
-            tile.rotation = rotation
+            kwargs['rotation'] = rotation
+        tile = tile_type(**kwargs)
         return tile
     return callback

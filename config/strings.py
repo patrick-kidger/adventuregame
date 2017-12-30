@@ -18,14 +18,9 @@ class Exceptions(tools.Container):
     # Listeners
     NO_LISTENER = 'No listener enabled.'
     INVALID_LISTENER_REMOVAL = 'Tried to remove listener "{listener}", which is not the currently enabled listener.'
-    # Moving and actioning the player
-    INVALID_INPUT_TYPE = 'Unexpected input type "{input}"'
-    BAD_ACTION = 'Action "{action}" not known.'
     # Appearance
     NO_APPEARANCE_LOOKUP = 'No appearance lookup set, despite tile having multiple appearances.'
     NON_SQUARE_TILE = 'Tile images must be squares.'
-    BAD_APPEARANCE_FILENAME = ('appearance_filename must either be of type str, type dict, or be a subclass of '
-                               'tools.Container')
     # Map Editor
     NO_START_POS = 'The map needs a start position.'
     NO_MAP_SAVE_NAME = 'Need a name for the map.'
@@ -38,8 +33,7 @@ class Exceptions(tools.Container):
 
 class Sep(tools.Container):
     """A string that is repeated to separate parts of text output."""
-
-    SEP = chr(9472)
+    SEP      = chr(9472)
     VERT_SEP = chr(9474)
     UDLR_SEP = chr(9532)
     UDL_SEP  = chr(9508)
@@ -54,17 +48,17 @@ class Sep(tools.Container):
     LR_SEP   = SEP
 
 
-class Menus(tools.Container):
+class _Menus(tools.Container):
     MAIN_MENU = 'Main menu'
 
 
-class MainMenu(Menus):
+class MainMenu(_Menus):
     """Strings relating to the main menu."""
     START = 'Start'
     OPTIONS = 'Options'
 
 
-class MapSelectMenu(Menus):
+class MapSelectMenu(_Menus):
     """Strings relating to the selecting of a map."""
     TITLE = "Choose a map:"
     HEADERS = ['Code', 'Name']
@@ -73,21 +67,14 @@ class MapSelectMenu(Menus):
     SELECT_MAP = 'Select map'
 
 
-class OptionsMenu(Menus):
-    """Strings relating to the options screen."""
-
-
-class Play(tools.Container):
-    """Strings relating to the bulk of playing the game."""
+class Debug(tools.Container):
+    """Strings relating to using debug commands."""
     VARIABLE_SET = '{variable} is now {value}'
+    VARIABLE_SET_FAILED = '"{value}" could not be interpreted as type {variable_type}'
     VARIABLE_GET = '{variable} has value {value}'
     VARIABLE_GET_FAILED = 'variable {variable} could not be found'
     DEBUG_NOT_ENABLED = 'Debug mode must be enabled to use this command: debug True'
     INVALID_INPUT = 'Invalid input, please try again. Type \'help\' for help.'
-
-
-class Help(tools.Container):
-    """Strings relating to using the help command."""
     HEADER = "Commands:"
     DEBUG_HEADER = "Debug commands:"
 
@@ -110,3 +97,4 @@ class MapEditor(tools.Container):
     BAD_LOAD_TITLE = 'Could not load file'
     BAD_LOAD_MESSAGE = 'Could not load file. File may be missing or corrupted.'
     CANNOT_SAVE = 'Cannot save'
+    SETTING_CUBOID = 'Setting cuboid'

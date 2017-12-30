@@ -44,7 +44,6 @@ class InputTypes(tools.Container):
 
     MENU = 'menu'
     ACTION = 'action'
-    NO_INPUT = 'no_input'
 
 
 class Alignment(tools.Container):
@@ -69,8 +68,10 @@ class TileRotation(tools.Container):
 class StairDirection(tools.Container):
     """Used to define whether a set of stairs go up, down, neither or both."""
 
-    VERTICAL_UP = 'vert_up'
-    VERTICAL_DOWN = 'vert_down'
+    UP = 'up'
+    DOWN = 'down'
+    BOTH = 'both'
+    NEITHER = 'neither'
 
 
 class Geometry(tools.Container):
@@ -83,6 +84,7 @@ class Geometry(tools.Container):
     DOUBLE_CONVEX = 'doub_conv'
     CIRCLE = 'circle'
     SQUARE = 'square'
+    RECTANGLE = 'rectangle'
 
 
 class MapEditor(tools.Container):
