@@ -7,10 +7,6 @@ class QuitException(BaseQuitException):
     """Indicates the the main menu screen should be returned to."""
 
 
-class ResetException(QuitException):
-    """Indicates that the whole instance should start over from scratch."""
-
-
 class CloseException(BaseQuitException):
     """Indicates that the whole application should be closed."""
 
@@ -21,6 +17,10 @@ class SaveException(Exception):
 
 class MapLoadException(Exception):
     """Indicates that the given string cannot be deserialised into a tile."""
+
+
+class UnhandledInput(Exception):
+    """Indicates that the listener did not handle the input."""
 
 
 # Bad exceptions; probably raised because of code errors

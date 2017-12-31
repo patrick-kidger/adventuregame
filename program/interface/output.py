@@ -1,3 +1,4 @@
+import collections
 import Tools as tools
 
 
@@ -66,7 +67,8 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
     menu listener will then determine which of these menu elements are interacted with."""
 
     def reset(self):
-        self.menu_elements = set()       # All menu elements
+        self.screen.clear_cutouts()
+        self.menu_elements = collections.deque()  # All menu elements
         self.necessary_elements = set()  # Those elements which must have non-None data set before the menu can be
                                          # 'submitted', i.e. pass data back to the game.
         self.submit_elements = set()     # Those elements which, when interacted with, will attempt to 'submit' the
@@ -74,6 +76,13 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         self.back_elements = set()       # As submit_elements, but do not require the necessary elements to have
                                          # non-None data to submit. (i.e. for returning to earlier menus)
         super(MenuOverlay, self).reset()
+
+    def remove(self, element):
+        self.screen.discard_cutout(element.screen)
+        self.menu_elements.remove(element)
+        self.necessary_elements.discard(element)
+        self.submit_elements.discard(element)
+        self.back_elements.discard(element)
 
     def list(self, title, entry_text, necessary=False, **kwargs):
         """Creates a list with the given title, entries, and alignment.
@@ -90,12 +99,25 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         # Not specified as arguments above so that they automatically use the default argument values in self._view
         align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
 
-        list_screen = self._view(menu_elements.List.size, **align_kwargs)
+        list_screen = sdl.Surface.from_rect(menu_elements.List.size)
+        list_screen.fill(self.background_color)
+        self._view_cutout(list_screen, **align_kwargs)
         created_list = menu_elements.List(screen=list_screen, title=title, entry_text=entry_text, font=self.font)
-        self.menu_elements.add(created_list)
+        self.menu_elements.appendleft(created_list)
         if necessary:
             self.necessary_elements.add(created_list)
         return created_list
+
+    def messagebox(self, title, text, buttons=(strings.Menus.OK,), **kwargs):
+        # Not specified as arguments above so that they automatically use the default argument values in self._view
+        align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
+        messagebox_screen = sdl.Surface.from_rect(menu_elements.MessageBox.size)
+        messagebox_screen.fill(self.background_color)
+        self._view_cutout(messagebox_screen, **align_kwargs)
+        created_messagebox = menu_elements.MessageBox(screen=messagebox_screen, title=title, text=text, buttons=buttons,
+                                                      font=self.font)
+        self.menu_elements.appendleft(created_messagebox)
+        return created_messagebox
 
     def button(self, text, necessary=False, **kwargs):
         """Creates a button with the given text.
@@ -109,9 +131,11 @@ class MenuOverlay(GraphicsOverlay, base.FontMixin, helpers.AlignmentMixin):
         # Not specified as arguments above so that they automatically use the default argument values in self._view
         align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
 
-        button_screen = self._view(menu_elements.Button.size, **align_kwargs)
+        button_screen = sdl.Surface.from_rect(menu_elements.Button.size)
+        button_screen.fill(self.background_color)
+        self._view_cutout(button_screen, **align_kwargs)
         created_button = menu_elements.Button(screen=button_screen, text=text, font=self.font)
-        self.menu_elements.add(created_button)
+        self.menu_elements.appendleft(created_button)
         if necessary:
             self.necessary_elements.add(created_button)
         return created_button
@@ -144,35 +168,39 @@ class TextOverlay(BaseOverlay, base.FontMixin):
         self._screen_height = self.screen.get_rect().height
 
     def reset(self):
+        self.previous_lines = []
         self.text = ''
         super(TextOverlay, self).reset()
 
-    def __call__(self, output_val, width=None, end='', **kwargs):
+    def __call__(self, output_val, width=None, max_text_width=None, end='', **kwargs):
         """Outputs text.
 
         :str output_val: The string to output.
-        :int width: Optional. The text with be padded to this width.
+        :int width: Optional. The text that is enterd on this __call__ with be padded to this width.
+        :int max_text_width: Optional. The overall text width will be line-wrapped to this.
         :str end: Added to output_val (after setting its width) to produce the overall string that is being added. It's
             mostly here to mimic the 'end' argument that the built-in print function allows."""
 
         if width is not None:
             output_val = '{{:{}}}'.format(width).format(output_val)
         output_val += end
-        self.text += output_val
+        text = self.text + output_val
 
         # Handle backspaces
-        self.text = tools.re_sub_recursive(r'[^\x08]\x08', '', self.text)  # \x08 = backspace. \b doesn't work.
-        self.text.lstrip('\b')
+        text = tools.re_sub_recursive(r'[^\x08]\x08', '', text)  # \x08 = backspace. \b doesn't work.
+        text.lstrip('\b')
+
+        new_previous_lines = []
+        split_text = text.split('\n')
+        for line in split_text:
+            new_previous_lines.extend(list(tools.slice_pieces(line, config.CONSOLE_LINE_LENGTH)))
+        self.previous_lines.extend(new_previous_lines[:-1])
+        self.text = new_previous_lines[-1]
 
         self.wipe()
 
-        split_text = self.text.split('\n')[::-1]
-        text_cursor = self._screen_height
-        for output_text in split_text:
-            text = self.render_text(output_text)
-            text_height = text.get_rect().height
-            text_area = self.screen.blit(text, (0, text_cursor - text_height))
-            text_cursor = text_area.top
+        text = self.render_text_with_newlines(self.previous_lines + [self.text], background=self.background_color)
+        self.screen.blit(text, (0, self._screen_height - text.get_rect().height))
         super(TextOverlay, self).__call__(**kwargs)
 
     def sep(self, length, **kwargs):
@@ -260,11 +288,15 @@ class Output(base.BaseIO):
         sdl.display.set_caption(config.WINDOW_NAME)
         super(Output, self).__init__(*args, **kwargs)
 
-    def reset(self):
-        """Resets the output back to its initial state."""
-        for overlay in self.overlays.values():
-            overlay.reset()
-            overlay.disable()
+    def reset(self, overlay_to_reset=None):
+        """Resets the output back to its initial state. If passed an argument, it will instead reset just that overlay.
+        """
+        if overlay_to_reset is None:
+            for overlay in self.overlays.values():
+                overlay.reset()
+                overlay.disable()
+        else:
+            self.overlays[overlay_to_reset].reset()
 
     def register_interface(self, interface):
         for overlay in self.overlays.values():
@@ -275,6 +307,7 @@ class Output(base.BaseIO):
         """Pushes the changes from the overlays to the main screen."""
         for overlay in self.overlays.values():
             if overlay.enabled:
+                overlay.screen.update_cutouts()
                 self.screen.blit(overlay.screen, overlay.location)
 
         sdl.display.update()

@@ -90,10 +90,9 @@ class DebugCommands(tools.Container):
     GHOST = 'ghost'
     SETSPEED = 'setspeed'
     GET = 'get'
-    QUIT = 'quit'
-    EXIT = 'exit'   # Does the same thing as quit
-    CLOSE = 'close'  # Does not do the same thing as quit
-    RESET = 'reset'
+    QUIT = 'quit'  # Quits back to menus
+    EXIT = 'exit'   # Quits back to menus
+    CLOSE = 'close'  # Closes the whole application
     CURRENT_TILE = 'currenttile'
 
 
@@ -106,7 +105,9 @@ KEY_REPEAT = 30
 OPEN_CONSOLE = '\\'
 # Button to (de)select the console if it's open
 SELECT_CONSOLE = '/'
-# How many of its past commands the console should remember
+# How many of its past commands the console should remember when using the arrow keys to copy past commands
 CONSOLE_MEMORY_SIZE = 20
+# How long each line should be in the console before getting wrapped
+CONSOLE_LINE_LENGTH = 130
 # What the prompt should be in the console
 CONSOLE_PROMPT = '> '

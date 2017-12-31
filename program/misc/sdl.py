@@ -38,6 +38,7 @@ class Surface(pygame.Surface):
         surface should be (in the same way as cutouts), and the second argument being the 'child' surface. Unlike true
         subsurfaces, blitting to one won't automatically update the other: 'update_cutouts' should be called on the
         parent surface to have it pick up changes made to the child. A converse hasn't yet been implemented.
+    - Can be created from a Rect via the new 'from_rect' method.
     """
 
     def __init__(self, *args, viewport=None, offset=(0, 0), **kwargs):
@@ -57,6 +58,11 @@ class Surface(pygame.Surface):
         self._is_subsurface = is_subsurface
         self._is_cutout = False
 
+    @classmethod
+    def from_rect(cls, rect, *args, **kwargs):
+        """Returns a new Surface using the given rectangle to define its width, height and offset."""
+        return cls((rect.width, rect.height), *args, offset=(rect.left, rect.top), **kwargs)
+
     def cutout(self, location, target):
         """See description in Surface class docstring."""
 
@@ -64,6 +70,27 @@ class Surface(pygame.Surface):
         target._is_cutout = True
         self._cutout_locations.append(location)
         self._cutouts.append(target)
+
+    def remove_cutout(self, target):
+        """Removes a particular cutout."""
+
+        i = self._cutouts.index(target)
+        del self._cutouts[i]
+        del self._cutout_locations[i]
+
+    def discard_cutout(self, target):
+        """Removes a particular cutout; does not through an error if the target is not a current cutout."""
+
+        try:
+            self.remove_cutout(target)
+        except ValueError:
+            pass
+
+    def clear_cutouts(self):
+        """Clears tracking of all cutouts."""
+
+        self._cutout_locations = []
+        self._cutouts = []
 
     def update_cutouts(self):
         """See description in Surface class docstring."""
@@ -268,10 +295,10 @@ class event:
         return event_.type == KEYDOWN
 
     @staticmethod
-    def is_mouse(event_, valid_buttons=(1, 2, 3)):
+    def is_mouse(event_, valid_buttons=(1, 2, 3, 4, 5, 6, 7)):
         """Checks whether an event is a mouse event.
 
-        Meaning of :valid_buttons: elements:
+        Meaning of 'valid_buttons' elements:
         1 - Left click
         2 - Middle click
         3 - Right click

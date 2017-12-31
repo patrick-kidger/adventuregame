@@ -186,17 +186,6 @@ class Exit(Quit):
     inp = config.DebugCommands.EXIT
 
 
-@tools.register(config.DebugCommands.RESET, Debug.commands)
-class Reset(SpecialInput):
-    """Resets the game."""
-    inp = config.DebugCommands.RESET
-    needs_debug = True
-
-    @classmethod
-    def do(cls, game_instance, inp_args):
-        raise exceptions.ResetException()
-
-
 @tools.register(config.DebugCommands.CURRENT_TILE, Debug.commands)
 class CurrentTile(SpecialInput):
     """Gets an attribute of the tile that the player is currently over. If an attribute argument is not passed then the

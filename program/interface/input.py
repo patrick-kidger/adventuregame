@@ -72,6 +72,9 @@ class BaseListener(base.BaseIO):
                     inp_results.append(inp_result)
         return inp_results
 
+    def _handle(self, event):
+        raise NotImplementedError
+
     def reset(self):
         """Resets the listener back to its initialised state."""
         # Endpoint for super calls.
@@ -93,68 +96,100 @@ class MenuListener(OverlayListener):
         # Whether we are currently still clicking the element. (i.e. we are in between mousedown and mouseup)
         self._mouse_is_down = False
         # The current state of all the menu elements
-        self._menu_results = collections.defaultdict(lambda: None)
+        self._menu_results = tools.deldefaultdict(lambda: None)
         super(MenuListener, self).reset()
 
+    def remove(self, element):
+        if element is self._clicked_element:
+            self._clicked_element = None
+        del self._menu_results[element]
+        self.overlay.remove(element)
+
     def _handle(self, event):
+        returnval = None
         if sdl.event.is_mouse(event, valid_buttons=(1, 4, 5)):
+            menu_element = self._find_element(event.pos)
+
             if event.type == sdl.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
-                    return self._left_click(event)
+                    self._left_click(event, menu_element)
                 elif event.button in (4, 5):  # Scroll wheel
-                    menu_element = self._find_element(event.pos)
-                    if menu_element is not None:
-                        element_pos = menu_element.screen_pos(event.pos)
-                        is_scroll_up = (event.button == 4)
-                        menu_element.scroll(element_pos, is_scroll_up)
+                    self._scroll(event, menu_element)
+                else:
+                    raise exceptions.ProgrammingException
 
             elif event.type == sdl.MOUSEBUTTONUP:
-                self._mouse_is_down = False
-
-                if self._clicked_element is not None:
-                    element_pos = self._clicked_element.screen_pos(event.pos)
-                    self._clicked_element.mouseup(element_pos)
+                returnval = self._mouseup(event, menu_element)
 
             elif event.type == sdl.MOUSEMOTION:
-                if self._mouse_is_down and self._clicked_element is not None:
-                    element_pos = self._clicked_element.screen_pos(event.pos)
-                    self._clicked_element.mousemotion(element_pos)
+                self._mousemotion(event, menu_element)
+                self._mouseover(event, menu_element)
 
-    def _left_click(self, event):
+            else:
+                raise exceptions.ProgrammingException
+
+            if returnval is not None:
+                return returnval, internal.InputTypes.MENU
+
+    def _left_click(self, event, menu_element):
         """Handles left clicking on a menu element. Pulled out as a separate function for clarity."""
 
         self._mouse_is_down = True
 
         # Unclick the previous menu element
-        if self._clicked_element is not None:
-            self._clicked_element.un_mousedown()
+        if self._clicked_element is not None and self._clicked_element is not menu_element:
+            element_pos = self._clicked_element.screen_pos(event.pos)
+            self._clicked_element.un_mousedown(self._menu_results, element_pos)
 
-        menu_element = self._find_element(event.pos)
+        # Click this menu element
+        self._clicked_element = menu_element
         if menu_element is not None:
-            # Click this menu element
-            self._clicked_element = menu_element
             element_pos = menu_element.screen_pos(event.pos)
-            click_result = menu_element.mousedown(element_pos)
-            # Stores its result
-            self._menu_results[menu_element] = click_result
+            click_result, store_result = menu_element.mousedown(self._menu_results, element_pos)
+            if store_result:
+                self._menu_results[menu_element] = click_result
 
-            can_submit = False
+    def _scroll(self, event, menu_element):
+        if menu_element is not None:
+            element_pos = menu_element.screen_pos(event.pos)
+            is_scroll_up = (event.button == 4)
+            click_result, store_result = menu_element.scroll(self._menu_results, is_scroll_up, element_pos)
+            if store_result:
+                self._menu_results[menu_element] = click_result
+
+    def _mouseup(self, event, menu_element):
+        self._mouse_is_down = False
+        if self._clicked_element is not None:
+            element_pos = self._clicked_element.screen_pos(event.pos)
+            click_result, store_result = self._clicked_element.mouseup(self._menu_results, element_pos)
+            if store_result:
+                self._menu_results[self._clicked_element] = click_result
+
             # If we clicked a submit element
-            if menu_element in self.overlay.submit_elements:
+            if self._clicked_element in self.overlay.submit_elements:
                 # Make sure all necessary elements have data
                 for necessary_element in self.overlay.necessary_elements:
                     if self._menu_results[necessary_element] is None:
                         break  # Necessary element doesn't have data
                 else:
                     # All necessary elements have data; we're done here.
-                    can_submit = True
-            elif menu_element in self.overlay.back_elements:
-                can_submit = True
+                    return click_result
+            elif self._clicked_element in self.overlay.back_elements:
+                return click_result
 
-            if can_submit:
-                menu_results = self._menu_results
-                self.reset()
-                return menu_results, internal.InputTypes.MENU
+    def _mousemotion(self, event, menu_element):
+        if self._mouse_is_down and self._clicked_element is not None:
+            element_pos = self._clicked_element.screen_pos(event.pos)
+            click_result, store_result = self._clicked_element.mousemotion(self._menu_results, element_pos)
+            if store_result:
+                self._menu_results[self._clicked_element] = click_result
+
+    def _mouseover(self, event, menu_element):
+        if menu_element is not None:
+            element_pos = menu_element.screen_pos(event.pos)
+            click_result, store_result = menu_element.mouseover(self._menu_results, element_pos)
+            if store_result:
+                self._menu_results[menu_element] = click_result
 
     def _find_element(self, pos):
         """Returns the menu element that the given position is over, or None if it is not over any menu element."""
@@ -296,12 +331,17 @@ class Input(base.BaseIO):
         """Call to request input from the currently enabled listener."""
         return self.enabled_listener(*args, **kwargs)
 
-    def reset(self):
-        """Resets this class back to its initialised state."""
-        self._debug_listener_enabled = False  # Debug listener is handled specially so that it's always at the top
-        self._enabled_listeners = []
-        for listener in self._listeners.values():
-            listener.reset()
+    def reset(self, listener_to_reset=None):
+        """Resets this class back to its initialised state. If passed an argument, it will instead reset just that
+        listener."""
+
+        if listener_to_reset is None:
+            self._debug_listener_enabled = False  # Debug listener is handled specially so that it's always at the top
+            self._enabled_listeners = []
+            for listener in self._listeners.values():
+                listener.reset()
+        else:
+            self._listeners[listener_to_reset].reset()
 
     def register_interface(self, interface):
         for listener in self._listeners.values():

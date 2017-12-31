@@ -48,17 +48,18 @@ class Sep(tools.Container):
     LR_SEP   = SEP
 
 
-class _Menus(tools.Container):
+class Menus(tools.Container):
     MAIN_MENU = 'Main menu'
+    OK = 'Ok'
 
 
-class MainMenu(_Menus):
+class MainMenu(Menus):
     """Strings relating to the main menu."""
     START = 'Start'
     OPTIONS = 'Options'
 
 
-class MapSelectMenu(_Menus):
+class MapSelectMenu(Menus):
     """Strings relating to the selecting of a map."""
     TITLE = "Choose a map:"
     HEADERS = ['Code', 'Name']
@@ -79,7 +80,12 @@ class Debug(tools.Container):
     DEBUG_HEADER = "Debug commands:"
 
 
-class MapEditor(tools.Container):
+class FileLoading(tools.Container):
+    BAD_LOAD_TITLE = 'Could not load file'
+    BAD_LOAD_MESSAGE = 'Could not load file. File may be missing or corrupted.'
+
+
+class MapEditor(FileLoading):
     WINDOW_TITLE = 'Game Map Editor'
     QUIT_TITLE = 'Quit'
     QUIT_QUESTION = 'Do you want to quit? Unsaved data will be lost.'
@@ -94,7 +100,5 @@ class MapEditor(tools.Container):
     CHANGE_Z_LEVEL = 'Change z level:'
     SET_START_POS = 'Set starting position'
     DELETE_TILE = 'Delete tile'
-    BAD_LOAD_TITLE = 'Could not load file'
-    BAD_LOAD_MESSAGE = 'Could not load file. File may be missing or corrupted.'
     CANNOT_SAVE = 'Cannot save'
     SETTING_CUBOID = 'Setting cuboid'

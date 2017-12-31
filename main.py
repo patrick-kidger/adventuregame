@@ -45,9 +45,9 @@ def interface_factory():
                                        background_color=config.DEBUG_BACKGROUND_COLOR,
                                        font=debug_font)
     overlays = tools.OrderedObject()
-    overlays.game = game_overlay    # Done after object creation to ensure they are in the correct order.
+    overlays.debug = debug_overlay  # Done after object creation to ensure they are in the correct order.
     overlays.menu = menu_overlay    #
-    overlays.debug = debug_overlay  # Top overlay last
+    overlays.game = game_overlay    #
     output_instance = output.Output(overlays)
 
     # Input

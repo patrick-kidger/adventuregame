@@ -129,13 +129,23 @@ class AlignmentMixin:
 
         return horz_pos, vert_pos
 
+    def _view_rect(self, image_rect, horz_alignment=internal.Alignment.CENTER, vert_alignment=internal.Alignment.CENTER):
+        """Takes a rectangle and some alignment options and returns the rectangle, translated according to the alignment
+        options."""
+        horz_pos, vert_pos = self._align(image_rect, horz_alignment, vert_alignment)
+        moved_image_rect = sdl.Rect(horz_pos, vert_pos, image_rect.width, image_rect.height)
+        return moved_image_rect
+
     def _view(self, image_rect, horz_alignment=internal.Alignment.CENTER, vert_alignment=internal.Alignment.CENTER):
         """As _align, but returns a subsurface of the instance's screen corresponding to where :image_rect: should be
         placed."""
+        moved_image_rect = self._view_rect(image_rect, horz_alignment, vert_alignment)
+        return self.screen.subsurface(moved_image_rect)
 
-        horz_pos, vert_pos = self._align(image_rect, horz_alignment, vert_alignment)
-        image_rect = sdl.Rect(horz_pos, vert_pos, image_rect.width, image_rect.height)
-        return self.screen.subsurface(image_rect)
+    def _view_cutout(self, target, horz_alignment=internal.Alignment.CENTER, vert_alignment=internal.Alignment.CENTER):
+        """As _view, but instead wires up an already created screen using cutouts."""
+        cutout_rect = self._view_rect(target.get_rect(), horz_alignment, vert_alignment)
+        self.screen.cutout(cutout_rect, target)
 
 
 class EnablerMixin:
@@ -159,4 +169,4 @@ class EnablerMixin:
 
     def use(self):
         """Temporarily sets the enabled attribute to True. Used with a with statement."""
-        return tools.set_context_variable(self, 'enabled')
+        return tools.set_context_variables(self, ('enabled',))

@@ -35,3 +35,23 @@ class FontMixin:
 
     def render_text(self, text):
         return self.font.render(text)
+
+    def render_text_with_newlines(self, text_pieces, background=(255, 255, 255)):
+        rendered_pieces = []
+        total_height = 0
+        max_width = 0
+        for piece in text_pieces:
+            rendered_piece = self.render_text(piece)
+            piece_rect = rendered_piece.get_rect()
+            max_width = max(max_width, piece_rect.width)
+            total_height += piece_rect.height
+            rendered_pieces.append(rendered_piece)
+        return_surf = sdl.Surface((max_width, total_height))
+        return_surf.fill(background)
+        cursor = 0
+        for rendered_piece in rendered_pieces:
+            return_surf.blit(rendered_piece, (0, cursor))
+            cursor += rendered_piece.get_rect().height
+        return return_surf
+
+

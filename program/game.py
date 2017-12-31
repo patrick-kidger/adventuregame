@@ -152,51 +152,48 @@ class MainGame:
         
     def start(self):
         """Starts the game."""
-        reset = True
-        menu = True
         while True:
             try:
-                if reset:
-                    self.reset()
-                    reset = False
-                if menu:
-                    self._menu()
-                    menu = False
+                self.reset()
+
+                menus = {internal.MenuIdentifiers.MAIN_MENU: self._main_menu,
+                         internal.MenuIdentifiers.MAP_SELECT: self._map_select,
+                         internal.MenuIdentifiers.OPTIONS: self._options}
+                game_start_menu = {internal.MenuIdentifiers.GAME_START}
+                self._menu(menus, game_start_menu)
+
                 self._run()
                 break
             except exceptions.CloseException:
                 sdl.quit()
                 break
-            except exceptions.BaseQuitException as e:
-                if isinstance(e, exceptions.QuitException):
-                    menu = True
-                if isinstance(e, exceptions.ResetException):
-                    reset = True
+            except exceptions.QuitException:
+                pass
 
-    def _menu(self):
+    def _menu(self, menus, finish_menus):
         """Displays the menu system"""
+        old_menu = None
         current_menu = internal.MenuIdentifiers.MAIN_MENU  # The first menu displayed
-        menus = {internal.MenuIdentifiers.MAIN_MENU: self._main_menu,  # All of the menus
-                 internal.MenuIdentifiers.MAP_SELECT: self._map_select,
-                 internal.MenuIdentifiers.OPTIONS: self._options}
         self.clock.tick()
         with self._use_interface('menu'):
             while True:  # Wait for the user to navigate through the menu system
-                self.out.overlays.menu.reset()
-                callback = menus[current_menu]()  # Set up the current menu
-                self.out.flush()
-                got_input = True
-                while got_input:  # Wait for input from this menu
+                if old_menu != current_menu:
+                    old_menu = current_menu
+                    self.out.reset('menu')
+                    self.inp.reset('menu')
+                    menus[current_menu]()  # Set up the current menu
+                    self.out.flush()
+                while True:  # Wait for input from this menu
                     self.clock.tick(config.RENDER_FRAMERATE)
                     inputs = self.inp()
                     self.out.flush()
-                    for menu_results, input_type in inputs:
-                        if input_type == internal.InputTypes.MENU:  # Once a submit element is activated
-                            current_menu = callback(menu_results)  # Do whatever this menu does
-                            got_input = False
-                            break
-                if current_menu == internal.MenuIdentifiers.GAME_START:
-                    # Start the game
+                    if inputs:
+                        if len([c_m for c_m, input_type in inputs if input_type != internal.InputTypes.MENU]):
+                            # If we have any non-MENU inputs
+                            raise exceptions.ProgrammingException
+                        current_menu = next(c_m for c_m, input_type in inputs if input_type == internal.InputTypes.MENU)
+                        break
+                if current_menu in finish_menus:
                     break
 
     def _main_menu(self):
@@ -204,72 +201,54 @@ class MainGame:
         map_select_button = self.out.overlays.menu.submit(strings.MainMenu.START,
                                                           horz_alignment=internal.Alignment.CENTER,
                                                           vert_alignment=internal.Alignment.CENTER)
+        map_select_button.on_mouseup(lambda menu_results, pos:
+                                     (internal.MenuIdentifiers.MAP_SELECT, False))
 
         options_button = self.out.overlays.menu.submit(strings.MainMenu.OPTIONS,
                                                        horz_alignment=internal.Alignment.CENTER,
                                                        vert_alignment=internal.Alignment.BOTTOM)
-
-        def callback(menu_results):
-            button_menu_map = {map_select_button: internal.MenuIdentifiers.MAP_SELECT,
-                               options_button: internal.MenuIdentifiers.OPTIONS}
-            pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
-            return menu_to_go_to
-
-        return callback
+        options_button.on_mouseup(lambda menu_results, pos:
+                                  (internal.MenuIdentifiers.OPTIONS, False))
 
     def _map_select(self):
         """Displays the menu to select a map."""
         map_names = maps.map_names()
 
         menu_list = self.out.overlays.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
+
         game_start_button = self.out.overlays.menu.submit(strings.MapSelectMenu.SELECT_MAP)
+        def game_start_button_press(menu_results, pos):
+            menu_to_go_to = internal.MenuIdentifiers.GAME_START
+            selected_index = menu_results[menu_list]
+            map_name = map_names[selected_index]
+            try:
+                map_name, tile_data, start_pos = maps.get_map_data_from_map_name(map_name, tiles.all_tiles())
+            except exceptions.MapLoadException:
+                bad_map_message = self.out.overlays.menu.messagebox(strings.FileLoading.BAD_LOAD_TITLE,
+                                                                    strings.FileLoading.BAD_LOAD_MESSAGE)
+                close_messagebox = lambda menu_results_, pos_: (self.inp.enabled_listener.remove(bad_map_message), False)
+                bad_map_message.on_mouseup_button(strings.Menus.OK, close_messagebox)
+                bad_map_message.on_un_mousedown(close_messagebox)
+                self.out.overlays.menu.screen.update_cutouts()
+                self.out.flush()
+                menu_to_go_to = internal.MenuIdentifiers.MAP_SELECT
+            else:
+                self.map.load_tiles(tile_data)
+                # + 0.5 to move the player to center of the tile
+                self.player.set_pos(x=(start_pos.x + 0.5) * tiles.size,
+                                    y=(start_pos.y + 0.5) * tiles.size,
+                                    z=start_pos.z)
+            return menu_to_go_to, False
+        game_start_button.on_mouseup(game_start_button_press)
+
         main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
-
-        def callback(menu_results):
-            button_menu_map = {game_start_button: internal.MenuIdentifiers.GAME_START,
-                               main_menu_button: internal.MenuIdentifiers.MAIN_MENU}
-            pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
-            if pressed_button is game_start_button:
-                selected_index = menu_results[menu_list]
-                map_name = map_names[selected_index]
-                try:
-                    map_name, tile_data, start_pos = maps.get_map_data_from_map_name(map_name, tiles.all_tiles())
-                except exceptions.MapLoadException:
-                    # TODO: Show error window
-                    menu_to_go_to = internal.MenuIdentifiers.MAP_SELECT
-                else:
-                    self.map.load_tiles(tile_data)
-                    # + 0.5 to move the player to center of the tile
-                    self.player.set_pos(x=(start_pos.x + 0.5) * tiles.size,
-                                        y=(start_pos.y + 0.5) * tiles.size,
-                                        z=start_pos.z)
-
-            return menu_to_go_to
-
-        return callback
+        main_menu_button.on_mouseup(lambda menu_results, pos:
+                                    (internal.MenuIdentifiers.MAIN_MENU, False))
 
     def _options(self):
         main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
-
-        def callback(menu_results):
-            button_menu_map = {main_menu_button: internal.MenuIdentifiers.MAIN_MENU}
-            pressed_button, menu_to_go_to = self._standard_menu_movement(menu_results, button_menu_map)
-            return menu_to_go_to
-
-        return callback
-
-    @staticmethod
-    def _standard_menu_movement(menu_results, button_menu_map):
-        pressed_buttons = [key for key in button_menu_map.keys() if menu_results[key]]
-        if len(pressed_buttons) != 1:
-            raise exceptions.ProgrammingException(strings.Exceptions.MENU_MOVE_WRONG)
-        pressed_button = pressed_buttons[0]
-
-        menu_to_go_to = button_menu_map[pressed_button]
-        if menu_to_go_to is None:
-            raise exceptions.ProgrammingException(strings.Exceptions.MENU_MOVE_WRONG)
-
-        return pressed_button, menu_to_go_to
+        main_menu_button.on_mouseup(lambda menu_results, pos:
+                                    (internal.MenuIdentifiers.MAIN_MENU, False))
 
     def _run(self):
         """The main game loop."""
@@ -310,7 +289,7 @@ class MainGame:
 
     def render(self):
         """Outputs the current game state."""
-        self.out.overlays.game.reset()
+        self.out.reset('game')
         self.out.overlays.game(self.map.screens[self.player.z], offset=self.camera_offset)
         self.out.overlays.game(self.player.appearance, (self.player.topleft_x, self.player.topleft_y),
                                offset=self.camera_offset)
