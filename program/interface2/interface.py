@@ -10,7 +10,7 @@ import Game.program.misc.sdl as sdl
 class Interface:
     def __init__(self, overlays):
         self.overlays = overlays
-        self.selected_overlay = None
+        self._selected_overlay = None
 
         self.screen = sdl.display.set_mode(config.SCREEN_SIZE)
         self.screen_size = self.screen.get_rect()
@@ -30,6 +30,21 @@ class Interface:
         else:
             self.overlays[overlay_to_reset].reset()
 
+    @property
+    def selected_overlay(self):
+        if self.overlays.debug.listen_enabled:
+            return self.overlays.debug
+        else:
+            return self._selected_overlay
+
+    @selected_overlay.setter
+    def selected_overlay(self, value):
+        if value is self.overlays.debug:
+            self.overlays.debug.enable_listener()
+        else:
+            self.overlays.debug.disable_listener()
+            self._selected_overlay = value
+
     def out(self, overlay_name, *args, **kwargs):
         self.overlays[overlay_name].output(*args, **kwargs)
 
@@ -39,13 +54,16 @@ class Interface:
         # First get a list of events, and insert events for any keys we're listening to
         events_to_handle = []
         pressed_keys = sdl.key.get_pressed()
-        listened_keys = {x for x in self.selected_overlay.listen_keys if pressed_keys[x.key]}
+        if self.selected_overlay is not None:
+            listened_keys = {x for x in self.selected_overlay.listen_keys if pressed_keys[x.key]}
+        else:
+            listened_keys = set()
         events = sdl.event.get(10, discard_old=True)
         for event in events:
             if sdl.event.is_key(event) and event.key in (x.key for x in listened_keys):
                 # Avoid duplication
                 continue
-            else:
+            elif event.type != sdl.NOEVENT:
                 events_to_handle.append(event)
         for listen_key in listened_keys:
             events_to_handle.append(sdl.event.Event(sdl.KEYDOWN, unicode=listen_key.unicode, key=listen_key.key))
@@ -54,20 +72,20 @@ class Interface:
         for event in events_to_handle:
             handled = False
 
-            # Check if we're opening the debug console
+            # Handle opening the debug console
             if sdl.event.is_key(event):
                 if event.unicode == config.OPEN_CONSOLE:
-                    self.overlays['debug'].toggle()
+                    self.overlays.debug.toggle()
                     handled = True
-                if event.unicode == config.SELECT_CONSOLE and self.overlays['debug'].screen_enabled:
-                    self.overlays['debug'].toggle_listener()
+                if event.unicode == config.SELECT_CONSOLE and self.overlays.debug.screen_enabled:
+                    self.overlays.debug.toggle_listener()
                     handled = True
 
             # Change which overlay is selected for text input
             if event.type == sdl.MOUSEBUTTONDOWN:
                 for overlay in self.overlays.values():
                     if overlay.screen_enabled and overlay.location.collidepoint(event.pos):
-                        overlay.enabled_listener()
+                        overlay.enable_listener()
                         self.selected_overlay = overlay
                         break
 
@@ -90,7 +108,7 @@ class Interface:
                 # If it's a text event...
                 else:
                     # ... let the selected overlay try to handle it.
-                    if self.selected_overlay.listen_enabled:
+                    if self.selected_overlay is not None and self.selected_overlay.listen_enabled:
                         try:
                             inp_result = self.selected_overlay.handle(event)
                         except exceptions.UnhandledInput:

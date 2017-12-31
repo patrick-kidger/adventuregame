@@ -14,10 +14,6 @@ import Game.program.misc.sdl as sdl
 class TextOverlay(base_overlay.BaseOverlay, base.FontMixin):
     """Handles outputting text to the screen."""
 
-    def __init__(self, *args, **kwargs):
-        super(TextOverlay, self).__init__(*args, **kwargs)
-        self._screen_height = self.screen.get_rect().height
-
     def reset(self):
         self.previous_lines = []
         self.text = ''
@@ -196,7 +192,7 @@ class DebugOverlay(TextOverlay):
         except KeyError:
             self.invalid_input()
         else:
-            print_result = command.do(self.game_instance, command_args)
+            print_result = command.do(self._game_instance, command_args)
             if print_result is not None:
                 self.output(print_result, end='\n')
         finally:

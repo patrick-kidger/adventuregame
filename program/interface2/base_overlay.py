@@ -12,6 +12,7 @@ class BaseOverlay:
         self.location = sdl.Rect(location, size)
         # What is is visually, on the screen.
         self.screen = sdl.Surface(size)
+        self._screen_height = self.screen.get_rect().height
         # The background colour of its screen
         self.background_color = background_color
         # The keys (on the keyboard) that should be listened to. (Using a set to avoid duplicates.)
@@ -21,7 +22,7 @@ class BaseOverlay:
         # Whether the interface should listen for inputs
         self.listen_enabled = False
         # The game itself
-        self.game_instance = None
+        self._game_instance = None
 
         self.reset()
 
@@ -30,7 +31,7 @@ class BaseOverlay:
         # Endpoint for super calls.
 
     def register_game(self, game_instance):
-        self.game_instance = game_instance
+        self._game_instance = game_instance
 
     def handle(self, event):
         raise NotImplementedError
@@ -53,8 +54,8 @@ class BaseOverlay:
 
     def toggle(self):
         """Toggles whether the overlay is enabled."""
-        self.screen_enabled = not self.screen_enabled
         self.listen_enabled = not self.screen_enabled  # Deliberately screen_enabled, not listen_enabled
+        self.screen_enabled = not self.screen_enabled
 
     def enable_listener(self, state=True):
         """Sets the listener_enabled attribute to 'state', or True if no 'state' argument is passed."""

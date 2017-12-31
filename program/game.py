@@ -128,9 +128,8 @@ class MainGame:
 
     def __init__(self, interface):
         self.clock = sdl.time.Clock()
-        self.out = interface.out  # Output to screen
-        self.inp = interface.inp  # Receive input from user
         interface.register_game(self)
+        self.interface = interface
 
         # Immediately redefined in reset()
         # Just defined here for clarity about what instance properties we have
@@ -140,13 +139,10 @@ class MainGame:
         
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
-        self.map = Map(self.out.overlays.game.background_color)
+        self.map = Map(self.interface.overlays.game.background_color)
         self.player = entities.Player()
 
-        # Must reset output before input, as input might wish to feed something to the output as part of its reset.
-        # (e.g. the prompt in the debug console)
-        self.out.reset()
-        self.inp.reset()
+        self.interface.reset()
 
         self.debug_mode = False
         
@@ -175,18 +171,17 @@ class MainGame:
         old_menu = None
         current_menu = internal.MenuIdentifiers.MAIN_MENU  # The first menu displayed
         self.clock.tick()
-        with self._use_interface('menu'):
+        with self.interface.use('menu'):
             while True:  # Wait for the user to navigate through the menu system
                 if old_menu != current_menu:
                     old_menu = current_menu
-                    self.out.reset('menu')
-                    self.inp.reset('menu')
+                    self.interface.reset('menu')
                     menus[current_menu]()  # Set up the current menu
-                    self.out.flush()
+                    self.interface.flush()
                 while True:  # Wait for input from this menu
                     self.clock.tick(config.RENDER_FRAMERATE)
-                    inputs = self.inp()
-                    self.out.flush()
+                    inputs = self.interface.inp()
+                    self.interface.flush()
                     if inputs:
                         if len([c_m for c_m, input_type in inputs if input_type != internal.InputTypes.MENU]):
                             # If we have any non-MENU inputs
@@ -198,15 +193,15 @@ class MainGame:
 
     def _main_menu(self):
         """Displays the main menu"""
-        map_select_button = self.out.overlays.menu.submit(strings.MainMenu.START,
-                                                          horz_alignment=internal.Alignment.CENTER,
-                                                          vert_alignment=internal.Alignment.CENTER)
+        map_select_button = self.interface.overlays.menu.submit(strings.MainMenu.START,
+                                                                horz_alignment=internal.Alignment.CENTER,
+                                                                vert_alignment=internal.Alignment.CENTER)
         map_select_button.on_mouseup(lambda menu_results, pos:
                                      (internal.MenuIdentifiers.MAP_SELECT, False))
 
-        options_button = self.out.overlays.menu.submit(strings.MainMenu.OPTIONS,
-                                                       horz_alignment=internal.Alignment.CENTER,
-                                                       vert_alignment=internal.Alignment.BOTTOM)
+        options_button = self.interface.overlays.menu.submit(strings.MainMenu.OPTIONS,
+                                                             horz_alignment=internal.Alignment.CENTER,
+                                                             vert_alignment=internal.Alignment.BOTTOM)
         options_button.on_mouseup(lambda menu_results, pos:
                                   (internal.MenuIdentifiers.OPTIONS, False))
 
@@ -214,9 +209,9 @@ class MainGame:
         """Displays the menu to select a map."""
         map_names = maps.map_names()
 
-        menu_list = self.out.overlays.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
+        menu_list = self.interface.overlays.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
 
-        game_start_button = self.out.overlays.menu.submit(strings.MapSelectMenu.SELECT_MAP)
+        game_start_button = self.interface.overlays.menu.submit(strings.MapSelectMenu.SELECT_MAP)
         def game_start_button_press(menu_results, pos):
             menu_to_go_to = internal.MenuIdentifiers.GAME_START
             selected_index = menu_results[menu_list]
@@ -224,13 +219,13 @@ class MainGame:
             try:
                 map_name, tile_data, start_pos = maps.get_map_data_from_map_name(map_name, tiles.all_tiles())
             except exceptions.MapLoadException:
-                bad_map_message = self.out.overlays.menu.messagebox(strings.FileLoading.BAD_LOAD_TITLE,
-                                                                    strings.FileLoading.BAD_LOAD_MESSAGE)
-                close_messagebox = lambda menu_results_, pos_: (self.inp.enabled_listener.remove(bad_map_message), False)
+                bad_map_message = self.interface.overlays.menu.messagebox(strings.FileLoading.BAD_LOAD_TITLE,
+                                                                          strings.FileLoading.BAD_LOAD_MESSAGE)
+                close_messagebox = lambda menu_results_, pos_: (self.interface.overlays.menu.remove(bad_map_message), False)
                 bad_map_message.on_mouseup_button(strings.Menus.OK, close_messagebox)
                 bad_map_message.on_un_mousedown(close_messagebox)
-                self.out.overlays.menu.screen.update_cutouts()
-                self.out.flush()
+                self.interface.overlays.menu.screen.update_cutouts()
+                self.interface.flush()
                 menu_to_go_to = internal.MenuIdentifiers.MAP_SELECT
             else:
                 self.map.load_tiles(tile_data)
@@ -241,34 +236,30 @@ class MainGame:
             return menu_to_go_to, False
         game_start_button.on_mouseup(game_start_button_press)
 
-        main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
+        main_menu_button = self.interface.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
         main_menu_button.on_mouseup(lambda menu_results, pos:
                                     (internal.MenuIdentifiers.MAIN_MENU, False))
 
     def _options(self):
-        main_menu_button = self.out.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
+        main_menu_button = self.interface.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
         main_menu_button.on_mouseup(lambda menu_results, pos:
                                     (internal.MenuIdentifiers.MAIN_MENU, False))
 
     def _run(self):
         """The main game loop."""
-        with self._use_interface('game'):
+        with self.interface.use('game'):
             accumulator = 0
             physics_framelength = 1000 / config.PHYSICS_FRAMERATE
             self.clock.tick(config.RENDER_FRAMERATE)
             self.render()
             while True:
                 while accumulator >= 0:
-                    inputs = self.inp()
+                    inputs = self.interface.inp()
                     self._tick(inputs)
                     accumulator -= physics_framelength
                 accumulator += self.clock.tick(config.RENDER_FRAMERATE)
                 self.render()
 
-    def _use_interface(self, interface_name):
-        """For use in 'with' statements. Enables both the listener and the overlay with the name :interface_name:"""
-        return self.out.use(interface_name) + self.inp.use(interface_name)
-    
     def _tick(self, inputs):
         """A single tick of the game."""
         # We should only handle falling once per tick
@@ -289,16 +280,16 @@ class MainGame:
 
     def render(self):
         """Outputs the current game state."""
-        self.out.reset('game')
-        self.out.overlays.game(self.map.screens[self.player.z], offset=self.camera_offset)
-        self.out.overlays.game(self.player.appearance, (self.player.topleft_x, self.player.topleft_y),
-                               offset=self.camera_offset)
-        self.out.flush()
+        self.interface.reset('game')
+        self.interface.out('game', self.map.screens[self.player.z], offset=self.camera_offset)
+        self.interface.out('game', self.player.appearance, (self.player.topleft_x, self.player.topleft_y),
+                           offset=self.camera_offset)
+        self.interface.flush()
 
     @property
     def camera_offset(self):
-        x = self.player.pos.x - self.out.screen_size.width / 2
-        y = self.player.pos.y - self.out.screen_size.height / 2
+        x = self.player.pos.x - self.interface.screen_size.width / 2
+        y = self.player.pos.y - self.interface.screen_size.height / 2
         return tools.Object(x=x, y=y)
 
     def _action_entity(self, action, entity):
