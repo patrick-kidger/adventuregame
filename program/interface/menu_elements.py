@@ -172,7 +172,7 @@ class MultipleComponentMixin(MenuElement):
             return None
 
 
-class Button(MenuElement, base.FontMixin, helpers.AlignmentMixin):
+class Button(MenuElement, base.FontMixin, base.AlignmentMixin):
     """A button with text on it."""
 
     size_image = 'button_base'

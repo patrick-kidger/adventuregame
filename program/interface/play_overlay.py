@@ -4,12 +4,12 @@ import collections
 import Game.config.config as config
 import Game.config.internal as internal
 
-import Game.program.interface2.base_overlay as base_overlay
+import Game.program.interface.base as base
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
 
 
-class PlayOverlay(base_overlay.GraphicsOverlay):
+class PlayOverlay(base.GraphicsOverlay):
     _input_to_action = {sdl.key.code(config.Move.UP): internal.Move.UP,
                         sdl.key.code(config.Move.DOWN): internal.Move.DOWN,
                         sdl.key.code(config.Move.LEFT): internal.Move.LEFT,

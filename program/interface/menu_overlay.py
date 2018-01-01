@@ -5,14 +5,13 @@ import Tools as tools
 import Game.config.strings as strings
 import Game.config.internal as internal
 
-import Game.program.interface.base as base
 import Game.program.interface.menu_elements as menu_elements
-import Game.program.interface2.base_overlay as base_overlay
+import Game.program.interface.base as base
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
 
 
-class MenuOverlay(base_overlay.GraphicsOverlay, base.FontMixin, base_overlay.AlignmentMixin):
+class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
     """A graphics overlay for menus. This overlay is rather special, in that it does not define a __call__ method.
     Instead it provides methods for placing menu elements on the screen. Subsequently making a call to an associated
     menu listener will then determine which of these menu elements are interacted with."""

@@ -6,10 +6,10 @@ import Game.config.config as config
 
 import Game.program.game as game
 import Game.program.interface.base as base
-import Game.program.interface2.interface as interface_
-import Game.program.interface2.menu_overlay as menu_overlay_
-import Game.program.interface2.play_overlay as play_overlay_
-import Game.program.interface2.text_overlay as text_overlay_
+import Game.program.interface.interface as interface_
+import Game.program.interface.menu_overlay as menu_overlay_
+import Game.program.interface.play_overlay as play_overlay_
+import Game.program.interface.text_overlay as text_overlay_
 
 import Game.tools.map_editor as map_editor
 

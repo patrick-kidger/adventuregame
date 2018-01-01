@@ -5,19 +5,17 @@ import Game.config.config as config
 import Game.config.strings as strings
 
 import Game.program.interface.base as base
-import Game.program.interface2.base_overlay as base_overlay
 import Game.program.misc.commands as commands
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
 
 
-class TextOverlay(base_overlay.BaseOverlay, base.FontMixin):
+class TextOverlay(base.BaseOverlay, base.FontMixin):
     """Handles outputting text to the screen."""
 
     def reset(self):
-        self.previous_lines = []
-        self.text = ''
         self.editable_text = ''
+        self.text = ''
         super(TextOverlay, self).reset()
 
     def handle(self, event):
@@ -48,22 +46,20 @@ class TextOverlay(base_overlay.BaseOverlay, base.FontMixin):
         if width is not None:
             output_val = '{{:{}}}'.format(width).format(output_val)
         output_val += end
-        text = self.text + output_val
+        self.text += output_val
 
         # Handle backspaces
-        text = tools.re_sub_recursive(r'[^\x08]\x08', '', text)  # \x08 = backspace. \b doesn't work.
-        text.lstrip('\b')
+        self.text = tools.re_sub_recursive(r'[^\x08]\x08', '', self.text)  # \x08 = backspace. \b doesn't work.
+        self.text.lstrip('\b')
 
-        new_previous_lines = []
-        split_text = text.split('\n')
+        text_with_newlines = []
+        split_text = self.text.split('\n')
         for line in split_text:
-            new_previous_lines.extend(list(tools.slice_pieces(line, config.CONSOLE_LINE_LENGTH)))
-        self.previous_lines.extend(new_previous_lines[:-1])
-        self.text = new_previous_lines[-1]
+            text_with_newlines.extend(list(tools.slice_pieces(line, config.CONSOLE_LINE_LENGTH)))
 
         self.wipe()
 
-        text = self.render_text_with_newlines(self.previous_lines + [self.text], background=self.background_color)
+        text = self.render_text_with_newlines(text_with_newlines, background=self.background_color)
         self.screen.blit(text, (0, self._screen_height - text.get_rect().height))
 
     def sep(self, length, **kwargs):
@@ -184,7 +180,7 @@ class DebugOverlay(TextOverlay):
 
     def _debug_command(self):
         """Finds and executes the debug command corresponding to currently stored text."""
-        command_split = self.text.split(' ')
+        command_split = self.editable_text.split(' ')
         command_name = command_split[0]
         command_args = tools.qlist(command_split[1:], except_val='')
         try:
@@ -196,7 +192,8 @@ class DebugOverlay(TextOverlay):
             if print_result is not None:
                 self.output(print_result, end='\n')
         finally:
-            self.reset()
+            self.editable_text = ''
+            self.output(config.CONSOLE_PROMPT)
 
     def invalid_input(self):
         """Gives an error message indicating that the input is invalid."""

@@ -34,7 +34,7 @@ class SpecialInput(tools.SubclassTrackerMixin('inp')):
                     # __func__ to get the original (not bound) method
                     return old_do.__func__(cls_, game_instance, inp_args)
                 else:
-                    game_instance.out.overlays.debug(strings.Debug.DEBUG_NOT_ENABLED, end='\n')
+                    game_instance.interface.out('debug', strings.Debug.DEBUG_NOT_ENABLED, end='\n')
 
             cls.do = classmethod(do)
 
@@ -67,9 +67,9 @@ class Variable(SpecialInput):
                     return strings.Debug.VARIABLE_SET_FAILED.format(value=variable_value_to_set,
                                                                     variable_type=cls.variable_type)
             tools.deepsetattr(game_instance, variable_name, variable_value)
-            game_instance.out.overlays.debug(strings.Debug.VARIABLE_SET.format(variable=variable_name,
-                                                                               value=variable_value),
-                                             end='\n')
+            game_instance.interface.out('debug', strings.Debug.VARIABLE_SET.format(variable=variable_name,
+                                                                                   value=variable_value),
+                                        end='\n')
         
     @staticmethod
     def bool_(inp):
@@ -98,7 +98,7 @@ class Help(SpecialInput):
             if commands_matched:
                 commands_matched_values = (command_dict[x] for x in commands_matched)
                 command_help_strings = [x.description for x in commands_matched_values]
-                game_instance.out.overlays.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
+                game_instance.interface.overlays.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
                 
         output_matched_commands(Help.commands, strings.Debug.HEADER)
         if game_instance.debug_mode:
@@ -116,7 +116,7 @@ class Clear(SpecialInput):
 
     @classmethod
     def do(cls, game_instance, inp_args):
-        game_instance.out.overlays.debug.reset()
+        game_instance.interface.out.overlays.debug.reset()
 
 
 @tools.register(config.DebugCommands.DEBUG, Help.commands)
@@ -192,6 +192,7 @@ class CurrentTile(SpecialInput):
     tile itself is printed."""
     inp = config.DebugCommands.CURRENT_TILE
     needs_debug = True
+    description = "Get an attribute of the tile that the player is currently over."
 
     @classmethod
     def do(cls, game_instance, inp_args):
@@ -223,4 +224,4 @@ class Get(SpecialInput):
         except (AttributeError, sdl.error):
             return strings.Debug.VARIABLE_GET_FAILED.format(variable=variable_name)
         else:
-            return strings.Debug.VARIABLE_GET.format(variable=variable_name, value=variable_value)
+            return strings.Debug.VARIABLE_GET.format(variable=variable_name, value=repr(variable_value))

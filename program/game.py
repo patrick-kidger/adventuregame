@@ -247,7 +247,7 @@ class MainGame:
 
     def _run(self):
         """The main game loop."""
-        with self.interface.use('game'):
+        with self.interface.use('game') + self.interface.select_overlay('game'):
             accumulator = 0
             physics_framelength = 1000 / config.PHYSICS_FRAMERATE
             self.clock.tick(config.RENDER_FRAMERATE)
