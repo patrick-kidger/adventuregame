@@ -196,6 +196,7 @@ KEYDOWN = pygame.KEYDOWN
 MOUSEBUTTONDOWN = pygame.MOUSEBUTTONDOWN
 MOUSEBUTTONUP = pygame.MOUSEBUTTONUP
 MOUSEMOTION = pygame.MOUSEMOTION
+MOUSEPRESENCE = 100
 # And top-level keycodes
 K_LSHIFT = pygame.K_LSHIFT
 K_RSHIFT = pygame.K_RSHIFT
@@ -251,6 +252,7 @@ class draw:
 
 class event:
     clear = pygame.event.clear
+    set_grab = pygame.event.set_grab
     wait = pygame.event.wait
     poll = pygame.event.poll
     Event = pygame.event.Event
@@ -322,6 +324,11 @@ class freetype:
 class image:
     load = pygame.image.load
     tostring = pygame.image.tostring
+
+
+class mouse:
+    get_pressed = pygame.mouse.get_pressed
+    get_pos = pygame.mouse.get_pos
 
 
 class time:

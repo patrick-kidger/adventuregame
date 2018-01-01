@@ -1,4 +1,5 @@
 import collections
+import Tools as tools
 
 
 import Game.config.config as config
@@ -24,9 +25,21 @@ class PlayOverlay(base.GraphicsOverlay):
         # Normally I'd use tools.Object here, but they're not hashable.
         Key = collections.namedtuple('Key', ['unicode', 'key'])
         self.listen_keys.update(Key(unicode=sdl.key.name(code), key=code) for code in listen_codes)
+        self.listen_mouse.add(3)
+        self.screen_size = self.screen.get_rect()
+        self._inner_rect = sdl.Rect(config.SCREEN_EDGE_WIDTH, config.SCREEN_EDGE_WIDTH,
+                                    self.screen_size.width - 2 * config.SCREEN_EDGE_WIDTH,
+                                    self.screen_size.height - 2 * config.SCREEN_EDGE_WIDTH)
+
+    def _in_screen_edge(self, pos):
+        return self.screen_size.collidepoint(pos) and not self._inner_rect.collidepoint(pos)
 
     def handle(self, event):
         if sdl.event.is_key(event) and event.key in self._input_to_action:
             return self._input_to_action[event.key], internal.InputTypes.ACTION
+        elif event.type == sdl.MOUSEPRESENCE and self._in_screen_edge(event.pos):
+            return tools.Object(x=event.pos[0], y=event.pos[1]), internal.InputTypes.MOVE_CAMERA
+        elif event.type == sdl.MOUSEBUTTONDOWN and event.button == 3:  # Right click
+            return tools.Object(x=event.pos[0], y=event.pos[1]), internal.InputTypes.MOVE_ABS
         else:
             raise exceptions.UnhandledInput

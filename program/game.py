@@ -138,15 +138,18 @@ class MainGame:
         self.map = None
         self.player = None
         self.debug_mode = None
+        self.abs_move_command = None
+        self._camera_offset = tools.Object(x=0, y=0)
 
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
+        self.interface.reset()
+
         self.map = Map(self.game.background_color)
         self.player = entities.Player()
 
-        self.interface.reset()
-
         self.debug_mode = False
+        self.abs_move_command = None
         
     def start(self):
         """Starts the game."""
@@ -236,6 +239,7 @@ class MainGame:
                 self.player.set_pos(x=(start_pos.x + 0.5) * tiles.size,
                                     y=(start_pos.y + 0.5) * tiles.size,
                                     z=start_pos.z)
+                self.camera_offset = self.player.pos
             return menu_to_go_to, False
         game_start_button.on_mouseup(game_start_button_press)
 
@@ -276,24 +280,48 @@ class MainGame:
             # But the result of some inputs might put us in a falling position, in which case we shouldn't evaluate the
             # other inputs
             if not self.map.fall(self.player):
-                if input_type == internal.InputTypes.ACTION:
+                if input_type == internal.InputTypes.MOVE_ABS:
+                    pos_rel_to_camera = tools.Object(x=play_inp.x + self.camera_topleft.x,
+                                                     y=play_inp.y + self.camera_topleft.y)
+                    self.abs_move_command = pos_rel_to_camera
+                elif input_type == internal.InputTypes.ACTION:
+                    self.abs_move_command = None
                     self._action_entity(play_inp, self.player)
+                elif input_type == internal.InputTypes.MOVE_CAMERA:
+                    self._move_camera(play_inp)
                 else:
                     raise exceptions.ProgrammingException
+
+        if self.abs_move_command is not None:
+            self._move_entity_abs(self.abs_move_command, self.player)
 
     def render(self):
         """Outputs the current game state."""
         self.interface.reset('game')
-        self.game.output(self.map.screens[self.player.z], offset=self.camera_offset)
+        self.game.output(self.map.screens[self.player.z], offset=self.camera_topleft)
         self.game.output(self.player.appearance, (self.player.topleft_x, self.player.topleft_y),
-                         offset=self.camera_offset)
+                         offset=self.camera_topleft)
         self.interface.flush()
 
     @property
-    def camera_offset(self):
-        x = self.player.pos.x - self.interface.screen_size.width / 2
-        y = self.player.pos.y - self.interface.screen_size.height / 2
+    def camera_topleft(self):
+        x = self.player.x + self._camera_offset.x - self.interface.screen_size.width / 2
+        y = self.player.y + self._camera_offset.y - self.interface.screen_size.height / 2
         return tools.Object(x=x, y=y)
+
+    def move_camera_offset(self, x, y):
+        self._camera_offset.x = tools.clamp(self._camera_offset.x + x, -1 * config.MAX_CAMERA_OFFSET,
+                                            config.MAX_CAMERA_OFFSET)
+        self._camera_offset.y = tools.clamp(self._camera_offset.y + y, -1 * config.MAX_CAMERA_OFFSET,
+                                            config.MAX_CAMERA_OFFSET)
+
+    def _move_camera(self, pos):
+        dir_x = pos.x - self.interface.screen_size.width / 2
+        dir_y = pos.y - self.interface.screen_size.height / 2
+        scaling = config.CAMERA_SPEED / math.sqrt(dir_x ** 2 + dir_y ** 2)
+        x = dir_x * scaling
+        y = dir_y * scaling
+        self.move_camera_offset(x, y)
 
     def _action_entity(self, action, entity):
         vert_actions = {internal.Action.VERTICAL_UP, internal.Action.VERTICAL_DOWN}
@@ -325,14 +353,24 @@ class MainGame:
                         internal.Move.UP: tools.Object(x=0, y=-1),
                         internal.Move.DOWN: tools.Object(x=0, y=1)}
         direction = horz_actions[action]
-        scaling = entity.speed / math.sqrt(direction.x ** 2 + direction.y ** 2)
-        new_entity_pos = tools.Object(x=entity.x + direction.x * scaling,
-                                      y=entity.y + direction.y * scaling,
-                                      z=entity.z)
-        if not self.map.wall_collide(entity, new_entity_pos):
-            entity.x = new_entity_pos.x
-            entity.y = new_entity_pos.y
+        self._move_entity(direction, entity)
 
     def _move_entity_abs(self, pos, entity):
         direction = tools.Object(x=pos.x - entity.x, y=pos.y - entity.y)
-        self._move_entity_rel(direction, entity)
+        if direction.x ** 2 + direction.y ** 2 < internal.move_tolerance:
+            self.abs_move_command = None
+        else:
+            self._move_entity(direction, entity)
+
+    def _move_entity(self, direction, entity):
+        scaling = entity.speed / math.sqrt(direction.x ** 2 + direction.y ** 2)
+        move_x = direction.x * scaling
+        move_y = direction.y * scaling
+        new_entity_pos = tools.Object(x=entity.x + move_x, y=entity.y + move_y, z=entity.z)
+        if self.map.wall_collide(entity, new_entity_pos):
+            self.abs_move_command = None
+        else:
+            entity.x = new_entity_pos.x
+            entity.y = new_entity_pos.y
+            if entity is self.player:
+                self.move_camera_offset(-1 * move_x, -1 * move_y)

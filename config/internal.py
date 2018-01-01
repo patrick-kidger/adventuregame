@@ -1,4 +1,4 @@
-"""Internal values an constants for the program. These are essentially just here to ensure they are consistent
+"""Internal values and constants for the program. Most of these are essentially just here to ensure they are consistent
 throughout the program. """
 
 import os
@@ -6,6 +6,10 @@ import Tools as tools
 
 
 import Game.config.config as config
+
+
+# How many pixels of tolerance we allow ourselves when completing move commands.
+move_tolerance = 1
 
 
 class Move(tools.Container):
@@ -44,6 +48,8 @@ class InputTypes(tools.Container):
 
     MENU = 'menu'
     ACTION = 'action'
+    MOVE_ABS = 'move_abs'
+    MOVE_CAMERA = 'move_camera'
 
 
 class Alignment(tools.Container):

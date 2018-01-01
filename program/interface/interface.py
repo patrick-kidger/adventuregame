@@ -13,7 +13,11 @@ class Interface:
         self._selected_overlay = None
 
         self.screen = sdl.display.set_mode(config.SCREEN_SIZE)
+        sdl.event.set_grab(True)
         self.screen_size = self.screen.get_rect()
+        self._inner_rect = sdl.Rect(config.SCREEN_EDGE_WIDTH, config.SCREEN_EDGE_WIDTH,
+                                    self.screen_size.width - 2 * config.SCREEN_EDGE_WIDTH,
+                                    self.screen_size.height - 2 * config.SCREEN_EDGE_WIDTH)
         sdl.display.set_caption(config.WINDOW_NAME)
 
     def register_game(self, game_instance):
@@ -52,21 +56,32 @@ class Interface:
         inp_results = []
 
         # First get a list of events, and insert events for any keys we're listening to
+        events = sdl.event.get(10, discard_old=True)
+
         events_to_handle = []
         pressed_keys = sdl.key.get_pressed()
+        pressed_mouse = sdl.mouse.get_pressed()
         if self.selected_overlay is not None:
             listened_keys = {x for x in self.selected_overlay.listen_keys if pressed_keys[x.key]}
+            listened_mouse = {x for x in self.selected_overlay.listen_mouse if pressed_mouse[x - 1]}
         else:
             listened_keys = set()
-        events = sdl.event.get(10, discard_old=True)
+            listened_mouse = set()
+
         for event in events:
+            # Avoid duplication
             if sdl.event.is_key(event) and event.key in (x.key for x in listened_keys):
-                # Avoid duplication
+                continue
+            elif sdl.event.is_mouse(event, valid_buttons=listened_mouse) and event.type == sdl.MOUSEBUTTONDOWN:
                 continue
             elif event.type != sdl.NOEVENT:
                 events_to_handle.append(event)
         for listen_key in listened_keys:
             events_to_handle.append(sdl.event.Event(sdl.KEYDOWN, unicode=listen_key.unicode, key=listen_key.key))
+        mouse_pos = sdl.mouse.get_pos()
+        for listen_mouse in listened_mouse:
+            events_to_handle.append(sdl.event.Event(sdl.MOUSEBUTTONDOWN, button=listen_mouse, pos=mouse_pos))
+        events_to_handle.append(sdl.event.Event(sdl.MOUSEPRESENCE, pos=mouse_pos))
 
         # Now run through all the events we're handling this tick
         for event in events_to_handle:

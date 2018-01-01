@@ -14,6 +14,13 @@ RENDER_FRAMERATE = 60
 # How many physics ticks it should take to fall through one z-level
 FALL_TICKS = 15
 
+# The maximum camera offset, in pixels, from the player's position
+MAX_CAMERA_OFFSET = 400
+# How fast the camera should move
+CAMERA_SPEED = 3.0
+# How wide (in pixels) the region around the edge of the screen for moving the camera should be
+SCREEN_EDGE_WIDTH = 5
+
 ### Menu Settings ###
 
 # How many pixels to scroll in menus when using the scroll wheel

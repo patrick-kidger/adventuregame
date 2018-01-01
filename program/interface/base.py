@@ -19,8 +19,10 @@ class BaseOverlay:
         self._screen_height = self.screen.get_rect().height
         # The background colour of its screen
         self.background_color = background_color
-        # The keys (on the keyboard) that should be listened to. (Using a set to avoid duplicates.)
+        # The keys (on the keyboard) that should give KEYDOWN events whilst being *held* down.
         self.listen_keys = set()
+        # The mouse buttons that should give MOUSEBUTTONDOWN events whilst being *held* down.
+        self.listen_mouse = set()
         # Whether the screen is visible
         self.screen_enabled = False
         # Whether the interface should listen for inputs

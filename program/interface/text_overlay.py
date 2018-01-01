@@ -137,6 +137,22 @@ class TextOverlay(base.BaseOverlay, base.FontMixin):
 
 
 class DebugOverlay(TextOverlay):
+    def __init__(self, **kwargs):
+        self._screen_enabled = False
+        super(DebugOverlay, self).__init__(**kwargs)
+
+    @property
+    def screen_enabled(self):
+        return self._screen_enabled
+
+    @screen_enabled.setter
+    def screen_enabled(self, value):
+        if value:
+            sdl.event.set_grab(False)
+        else:
+            sdl.event.set_grab(True)
+        self._screen_enabled = value
+
     def reset(self, prompt=True):
         super(DebugOverlay, self).reset()
         self.command_memory = tools.nonneg_deque([], config.CONSOLE_MEMORY_SIZE)
