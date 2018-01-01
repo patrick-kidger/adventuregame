@@ -39,6 +39,8 @@ class MenuElement(helpers.HasAppearances, appearance_files_location=config.INTER
         self.on_mousemotion_func = lambda menu_results, pos: (None, False)
         self.on_mouseover_func = lambda menu_results, pos: (None, False)
         self.on_scroll_func = lambda menu_results, is_scroll_up, pos: (None, False)
+        self.on_submit_func = lambda menu_results, pos: (None, False)
+        self.on_back_func = lambda menu_results, pos: (None, False)
 
     def __str__(self):
         return '{cls}({{args}}) at {id_}'.format(cls=self.__class__.__name__, id_=hex(id(self)))
@@ -81,6 +83,14 @@ class MenuElement(helpers.HasAppearances, appearance_files_location=config.INTER
         """Runs when this element is moused over."""
         return self.on_mouseover_func(menu_results, pos)
 
+    def submit(self, menu_results, pos):
+        """Runs when submit-ing from this menu element."""
+        return self.on_submit_func(menu_results, pos)
+
+    def back(self, menu_results, pos):
+        """Runs when back-ing from this menu element."""
+        return self.on_back_func(menu_results, pos)
+
     def scroll(self, menu_results, is_scroll_up, pos):
         """Runs when the scroll wheel is used on this element. :is_scroll_up: should be True if the action was to scroll
         the scroll wheel upwards, and False if the action was to scroll the scroll wheel downwards."""
@@ -109,6 +119,14 @@ class MenuElement(helpers.HasAppearances, appearance_files_location=config.INTER
     def on_mouseup(self, func):
         """Registers a function to be run when mouseup-ing on this element"""
         self.on_mouseup_func = func
+
+    def on_submit(self, func):
+        """Registers a function to be run when submit-ing from this element"""
+        self.on_submit_func = func
+
+    def on_back(self, func):
+        """Registers a function to be run when back-ing on this element"""
+        self.on_back_func = func
 
 
 class MultipleComponentMixin(MenuElement):

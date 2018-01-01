@@ -76,6 +76,7 @@ class Debug(tools.Container):
     VARIABLE_GET_FAILED = 'variable {variable} could not be found'
     DEBUG_NOT_ENABLED = 'Debug mode must be enabled to use this command: debug True'
     INVALID_INPUT = 'Invalid input, please try again. Type \'help\' for help.'
+    GAME_NOT_STARTED = 'Can not run command; game has not yet started.'
     HEADER = "Commands:"
     DEBUG_HEADER = "Debug commands:"
 

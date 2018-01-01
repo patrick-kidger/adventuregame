@@ -36,9 +36,6 @@ class BaseOverlay:
         self.wipe()
         # Endpoint for super calls.
 
-    def register_game(self, game_instance):
-        self._game_instance = game_instance
-
     def handle(self, event):
         raise NotImplementedError
 

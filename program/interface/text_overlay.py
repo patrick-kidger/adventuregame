@@ -4,7 +4,6 @@ import Tools as tools
 import Game.config.config as config
 import Game.config.strings as strings
 
-import Game.program.misc.commands as commands
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
 
@@ -161,6 +160,9 @@ class DebugOverlay(TextOverlay):
         if prompt:
             self.output(config.CONSOLE_PROMPT)
 
+    def register_commands(self, commands):
+        self._commands = commands
+
     def handle(self, event):
         if sdl.event.is_key(event):
             if event.key in (sdl.K_UP, sdl.K_DOWN):
@@ -204,15 +206,7 @@ class DebugOverlay(TextOverlay):
         command_split = self.current_command.strip().split(' ')
         command_name = command_split[0]
         command_args = tools.qlist(command_split[1:], except_val='')
-        try:
-            command = commands.get_command(command_name)
-        except KeyError:
-            self._invalid_input()
-        else:
-            print_result = command.do(self._game_instance, command_args)
-            if print_result is not None:
-                self.output(print_result, end='\n')
 
-    def _invalid_input(self):
-        """Gives an error message indicating that the input is invalid."""
-        self.output(strings.Debug.INVALID_INPUT, end='\n')
+        print_str = self._commands.run_command(command_name, command_args)
+        if print_str is not None:
+            self.output(print_str, end='\n')

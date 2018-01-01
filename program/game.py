@@ -19,24 +19,24 @@ class Map:
     visual depiction on the screen, etc."""
     
     def __init__(self, background_color):
-        self.tile_data = None  # The tiles making up the map
         self.screens = None  # The visual depiction of the map
-        self.background_color = background_color  # The background color to use where no tile is defined.
-        self.max_z = -math.inf
-        self.max_y = -math.inf
-        self.max_x = -math.inf
-        self.min_z = math.inf
-        self.min_y = math.inf
-        self.min_x = math.inf
+        self._tile_data = None  # The tiles making up the map
+        self._background_color = background_color  # The background color to use where no tile is defined.
+        self._max_z = -math.inf
+        self._max_y = -math.inf
+        self._max_x = -math.inf
+        self._min_z = math.inf
+        self._min_y = math.inf
+        self._min_x = math.inf
         super(Map, self).__init__()
 
     def __getitem__(self, item):
         try:
-            return self.tile_data[item.z][(item.x, item.y)]
+            return self._tile_data[item.z][(item.x, item.y)]
         except KeyError:
-            if item.z > self.max_z or item.z < self.min_z \
-                    or item.y > self.max_y or item.y < self.min_y \
-                    or item.x > self.max_x or item.x < self.min_x:
+            if item.z > self._max_z or item.z < self._min_z \
+                    or item.y > self._max_y or item.y < self._min_y \
+                    or item.x > self._max_x or item.x < self._min_x:
                 return tiles.Boundary(pos=tools.Object(x=item.x, y=item.y, z=item.z))
             else:
                 return tiles.Empty(pos=tools.Object(x=item.x, y=item.y, z=item.z))
@@ -44,9 +44,12 @@ class Map:
     def __iter__(self):
         """Iterates over all tiles."""
 
-        for z_level in self.tile_data.values():
+        for z_level in self._tile_data.values():
             for tile in z_level.values():
                 yield tile
+
+    def __bool__(self):
+        return self._tile_data is not None
 
     def local(self, radius, pos):
         tile_radius = math.ceil(radius / tiles.size)
@@ -58,17 +61,17 @@ class Map:
     def load_tiles(self, tile_data):
         """Loads the specified map from the given tile data."""
 
-        self.tile_data = tile_data
+        self._tile_data = tile_data
         self.screens = {}
-        self.max_z = -math.inf
-        self.max_y = -math.inf
-        self.max_x = -math.inf
-        self.min_z = math.inf
-        self.min_y = math.inf
-        self.min_x = math.inf
+        self._max_z = -math.inf
+        self._max_y = -math.inf
+        self._max_x = -math.inf
+        self._min_z = math.inf
+        self._min_y = math.inf
+        self._min_x = math.inf
         for z, z_level in tile_data.items():
-            self.max_z = max(z, self.max_z)
-            self.min_z = min(z, self.min_z)
+            self._max_z = max(z, self._max_z)
+            self._min_z = min(z, self._min_z)
             level_max_x = -math.inf
             level_max_y = -math.inf
             level_min_x = math.inf
@@ -78,15 +81,15 @@ class Map:
                 level_max_y = max(y, level_max_y)
                 level_min_x = min(x, level_min_x)
                 level_min_y = min(y, level_min_y)
-            self.max_x = max(level_max_x, self.max_x)
-            self.min_x = min(level_min_x, self.min_x)
-            self.max_y = max(level_max_y, self.max_y)
-            self.min_y = min(level_min_y, self.min_y)
+            self._max_x = max(level_max_x, self._max_x)
+            self._min_x = min(level_min_x, self._min_x)
+            self._max_y = max(level_max_y, self._max_y)
+            self._min_y = min(level_min_y, self._min_y)
             width = level_max_x - level_min_x + 1
             height = level_max_y - level_min_y + 1
             surf = sdl.Surface((width * tiles.size, height * tiles.size))
             surf.set_offset((level_min_x * tiles.size, level_min_y * tiles.size))
-            surf.fill(self.background_color)
+            surf.fill(self._background_color)
             self.screens[z] = surf
 
         for tile in self:
@@ -123,55 +126,23 @@ class Map:
         return any(tile.suspend_collide(entity, pos) for tile in self.local(entity.radius, pos))
 
 
-class MainGame:
-    """Main game instance."""
-
-    def __init__(self, interface):
-        self.clock = sdl.time.Clock()
-        interface.register_game(self)
+class Menus:
+    def __init__(self, interface, clock, **kwargs):
         self.interface = interface
-        # Shortcuts to the three main overlays
-        self.menu = self.interface.overlays.menu
-        self.game = self.interface.overlays.game
-        self.debug = self.interface.overlays.debug
+        self.clock = clock
 
-        self.map = None
-        self.player = None
-        self.debug_mode = None
-        self.abs_move_command = None
-        self._camera_offset = tools.Object(x=0, y=0)
+        # Shortcut for convenience
+        self.menu_overlay = interface.overlays.menu
+        super(Menus, self).__init__(**kwargs)
 
-    def reset(self):
-        """Resets the game. (But does not start a new one.)"""
-        self.interface.reset()
+    def start_menu(self, game_objects):
+        menus = {internal.MenuIdentifiers.MAIN_MENU: self._main_menu,
+                 internal.MenuIdentifiers.MAP_SELECT: self._map_select,
+                 internal.MenuIdentifiers.OPTIONS: self._options}
+        game_start_menu = {internal.MenuIdentifiers.GAME_START}
+        self._menu(menus, game_start_menu, game_objects)
 
-        self.map = Map(self.game.background_color)
-        self.player = entities.Player()
-
-        self.debug_mode = False
-        self.abs_move_command = None
-        
-    def start(self):
-        """Starts the game."""
-        while True:
-            try:
-                self.reset()
-
-                menus = {internal.MenuIdentifiers.MAIN_MENU: self._main_menu,
-                         internal.MenuIdentifiers.MAP_SELECT: self._map_select,
-                         internal.MenuIdentifiers.OPTIONS: self._options}
-                game_start_menu = {internal.MenuIdentifiers.GAME_START}
-                self._menu(menus, game_start_menu)
-
-                self._run()
-                break
-            except exceptions.CloseException:
-                sdl.quit()
-                break
-            except exceptions.QuitException:
-                pass
-
-    def _menu(self, menus, finish_menus):
+    def _menu(self, menus, finish_menus, game_objects):
         """Displays the menu system"""
         old_menu = None
         current_menu = internal.MenuIdentifiers.MAIN_MENU  # The first menu displayed
@@ -181,7 +152,7 @@ class MainGame:
                 if old_menu != current_menu:
                     old_menu = current_menu
                     self.interface.reset('menu')
-                    menus[current_menu]()  # Set up the current menu
+                    menus[current_menu](game_objects)  # Set up the current menu
                     self.interface.flush()
                 while True:  # Wait for input from this menu
                     self.clock.tick(config.RENDER_FRAMERATE)
@@ -196,27 +167,27 @@ class MainGame:
                 if current_menu in finish_menus:
                     break
 
-    def _main_menu(self):
+    def _main_menu(self, game_objects):
         """Displays the main menu"""
-        map_select_button = self.menu.submit(strings.MainMenu.START,
-                                             horz_alignment=internal.Alignment.CENTER,
-                                             vert_alignment=internal.Alignment.CENTER)
-        map_select_button.on_mouseup(lambda menu_results, pos:
-                                     (internal.MenuIdentifiers.MAP_SELECT, False))
+        map_select_button = self.menu_overlay.submit(strings.MainMenu.START,
+                                                     horz_alignment=internal.Alignment.CENTER,
+                                                     vert_alignment=internal.Alignment.CENTER)
+        map_select_button.on_submit(lambda menu_results, pos:
+                                    (internal.MenuIdentifiers.MAP_SELECT, False))
 
-        options_button = self.menu.submit(strings.MainMenu.OPTIONS,
-                                          horz_alignment=internal.Alignment.CENTER,
-                                          vert_alignment=internal.Alignment.BOTTOM)
-        options_button.on_mouseup(lambda menu_results, pos:
-                                  (internal.MenuIdentifiers.OPTIONS, False))
+        options_button = self.menu_overlay.submit(strings.MainMenu.OPTIONS,
+                                                  horz_alignment=internal.Alignment.CENTER,
+                                                  vert_alignment=internal.Alignment.BOTTOM)
+        options_button.on_submit(lambda menu_results, pos:
+                                 (internal.MenuIdentifiers.OPTIONS, False))
 
-    def _map_select(self):
+    def _map_select(self, game_objects):
         """Displays the menu to select a map."""
         map_names = maps.map_names()
 
-        menu_list = self.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
+        menu_list = self.menu_overlay.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
 
-        game_start_button = self.menu.submit(strings.MapSelectMenu.SELECT_MAP)
+        game_start_button = self.menu_overlay.submit(strings.MapSelectMenu.SELECT_MAP)
         def game_start_button_press(menu_results, pos):
             menu_to_go_to = internal.MenuIdentifiers.GAME_START
             selected_index = menu_results[menu_list]
@@ -224,92 +195,109 @@ class MainGame:
             try:
                 map_name, tile_data, start_pos = maps.get_map_data_from_map_name(map_name, tiles.all_tiles())
             except exceptions.MapLoadException:
-                bad_map_message = self.menu.messagebox(strings.FileLoading.BAD_LOAD_TITLE,
-                                                       strings.FileLoading.BAD_LOAD_MESSAGE,
-                                                       select=True)
-                close_messagebox = lambda *args, **kwargs: (self.menu.remove(bad_map_message), False)
+                bad_map_message = self.menu_overlay.messagebox(strings.FileLoading.BAD_LOAD_TITLE,
+                                                               strings.FileLoading.BAD_LOAD_MESSAGE,
+                                                               select=True)
+                close_messagebox = lambda *args, **kwargs: (self.menu_overlay.remove(bad_map_message), False)
                 bad_map_message.on_mouseup_button(strings.Menus.OK, close_messagebox)
                 bad_map_message.on_un_mousedown(close_messagebox)
-                self.menu.screen.update_cutouts()
+                self.menu_overlay.screen.update_cutouts()
                 self.interface.flush()
                 menu_to_go_to = internal.MenuIdentifiers.MAP_SELECT
             else:
-                self.map.load_tiles(tile_data)
+                game_objects.map.load_tiles(tile_data)
                 # + 0.5 to move the player to center of the tile
-                self.player.set_pos(x=(start_pos.x + 0.5) * tiles.size,
-                                    y=(start_pos.y + 0.5) * tiles.size,
-                                    z=start_pos.z)
-                self.camera_offset = self.player.pos
+                game_objects.player.set_pos(x=(start_pos.x + 0.5) * tiles.size,
+                                            y=(start_pos.y + 0.5) * tiles.size,
+                                            z=start_pos.z)
             return menu_to_go_to, False
-        game_start_button.on_mouseup(game_start_button_press)
+        game_start_button.on_submit(game_start_button_press)
 
-        main_menu_button = self.menu.back(strings.MapSelectMenu.MAIN_MENU)
-        main_menu_button.on_mouseup(lambda menu_results, pos:
-                                    (internal.MenuIdentifiers.MAIN_MENU, False))
+        main_menu_button = self.menu_overlay.back(strings.MapSelectMenu.MAIN_MENU)
+        main_menu_button.on_back(lambda menu_results, pos:
+                                 (internal.MenuIdentifiers.MAIN_MENU, False))
 
-    def _options(self):
-        main_menu_button = self.menu.back(strings.MapSelectMenu.MAIN_MENU)
-        main_menu_button.on_mouseup(lambda menu_results, pos:
-                                    (internal.MenuIdentifiers.MAIN_MENU, False))
+    def _options(self, game_objects):
+        main_menu_button = self.menu_overlay.back(strings.MapSelectMenu.MAIN_MENU)
+        main_menu_button.on_back(lambda menu_results, pos:
+                                 (internal.MenuIdentifiers.MAIN_MENU, False))
 
-    def _run(self):
+
+class Simulation:
+    def __init__(self, game_objects, interface, clock, **kwargs):
+        self.game_objects = game_objects
+        self.interface = interface
+        self.clock = clock
+
+        self._abs_move_command = None
+        self._camera_offset = None
+        super(Simulation, self).__init__(**kwargs)
+
+    def reset(self):
+        self._abs_move_command = None
+        self._camera_offset = tools.Object(x=0, y=0)
+
+    def run(self):
         """The main game loop."""
         with self.interface.use('game') + self.interface.select_overlay('game'):
             accumulator = 0
             physics_framelength = 1000 / config.PHYSICS_FRAMERATE
             self.clock.tick(config.RENDER_FRAMERATE)
-            self.render()
+            self._render()
             while True:
                 while accumulator >= 0:
                     inputs = self.interface.inp()
                     self._tick(inputs)
                     accumulator -= physics_framelength
                 accumulator += self.clock.tick(config.RENDER_FRAMERATE)
-                self.render()
+                self._render()
 
     def _tick(self, inputs):
         """A single tick of the game."""
         # We should only handle falling once per tick
-        if self.map.fall(self.player):
-            self.player.fall_counter += 1
-            if self.player.fall_counter == self.player.fall_speed:
-                self._move_entity_vert(internal.Action.VERTICAL_DOWN, self.player)
-                self.player.fall_counter = 0
+        if self.game_objects.map.fall(self.game_objects.player):
+            self._abs_move_command = None
+            self.game_objects.player.fall_counter += 1
+            if self.game_objects.player.fall_counter == self.game_objects.player.fall_speed:
+                self._move_entity_vert(internal.Action.VERTICAL_DOWN, self.game_objects.player)
+                self.game_objects.player.fall_counter = 0
 
         for play_inp, input_type in inputs:
             # But the result of some inputs might put us in a falling position, in which case we shouldn't evaluate the
             # other inputs
-            if not self.map.fall(self.player):
+            if not self.game_objects.map.fall(self.game_objects.player):
                 if input_type == internal.InputTypes.MOVE_ABS:
-                    pos_rel_to_camera = tools.Object(x=play_inp.x + self.camera_topleft.x,
-                                                     y=play_inp.y + self.camera_topleft.y)
-                    self.abs_move_command = pos_rel_to_camera
+                    pos_rel_to_camera = tools.Object(x=play_inp.x + self._camera_topleft.x,
+                                                     y=play_inp.y + self._camera_topleft.y)
+                    self._abs_move_command = pos_rel_to_camera
                 elif input_type == internal.InputTypes.ACTION:
-                    self.abs_move_command = None
-                    self._action_entity(play_inp, self.player)
+                    self._abs_move_command = None
+                    self._action_entity(play_inp, self.game_objects.player)
                 elif input_type == internal.InputTypes.MOVE_CAMERA:
                     self._move_camera(play_inp)
                 else:
                     raise exceptions.ProgrammingException
 
-        if self.abs_move_command is not None:
-            self._move_entity_abs(self.abs_move_command, self.player)
+        if self._abs_move_command is not None:
+            self._move_entity_abs(self._abs_move_command, self.game_objects.player)
 
-    def render(self):
+    def _render(self):
         """Outputs the current game state."""
         self.interface.reset('game')
-        self.game.output(self.map.screens[self.player.z], offset=self.camera_topleft)
-        self.game.output(self.player.appearance, (self.player.topleft_x, self.player.topleft_y),
-                         offset=self.camera_topleft)
+        self.interface.out('game', self.game_objects.map.screens[self.game_objects.player.z],
+                           offset=self._camera_topleft)
+        self.interface.out('game', self.game_objects.player.appearance, (self.game_objects.player.topleft_x,
+                                                                         self.game_objects.player.topleft_y),
+                           offset=self._camera_topleft)
         self.interface.flush()
 
     @property
-    def camera_topleft(self):
-        x = self.player.x + self._camera_offset.x - self.interface.screen_size.width / 2
-        y = self.player.y + self._camera_offset.y - self.interface.screen_size.height / 2
+    def _camera_topleft(self):
+        x = self.game_objects.player.x + self._camera_offset.x - self.interface.screen_size.width / 2
+        y = self.game_objects.player.y + self._camera_offset.y - self.interface.screen_size.height / 2
         return tools.Object(x=x, y=y)
 
-    def move_camera_offset(self, x, y):
+    def _move_camera_offset(self, x, y):
         self._camera_offset.x = tools.clamp(self._camera_offset.x + x, -1 * config.MAX_CAMERA_OFFSET,
                                             config.MAX_CAMERA_OFFSET)
         self._camera_offset.y = tools.clamp(self._camera_offset.y + y, -1 * config.MAX_CAMERA_OFFSET,
@@ -321,7 +309,7 @@ class MainGame:
         scaling = config.CAMERA_SPEED / math.sqrt(dir_x ** 2 + dir_y ** 2)
         x = dir_x * scaling
         y = dir_y * scaling
-        self.move_camera_offset(x, y)
+        self._move_camera_offset(x, y)
 
     def _action_entity(self, action, entity):
         vert_actions = {internal.Action.VERTICAL_UP, internal.Action.VERTICAL_DOWN}
@@ -339,10 +327,12 @@ class MainGame:
         direction = vert_actions[action]
         new_entity_pos = tools.Object(x=entity.x, y=entity.y, z=entity.z + direction)
         if direction == 1:
-            if self.map.wall_collide(entity, new_entity_pos) or self.map.floor_collide(entity, new_entity_pos):
+            if self.game_objects.map.wall_collide(entity, new_entity_pos) or \
+                    self.game_objects.map.floor_collide(entity, new_entity_pos):
                 return
         if direction == -1:
-            if self.map.wall_collide(entity, new_entity_pos) or self.map.floor_collide(entity, entity.pos):
+            if self.game_objects.map.wall_collide(entity, new_entity_pos) or \
+                    self.game_objects.map.floor_collide(entity, entity.pos):
                 return
 
         entity.z += direction
@@ -358,7 +348,7 @@ class MainGame:
     def _move_entity_abs(self, pos, entity):
         direction = tools.Object(x=pos.x - entity.x, y=pos.y - entity.y)
         if direction.x ** 2 + direction.y ** 2 < internal.move_tolerance:
-            self.abs_move_command = None
+            self._abs_move_command = None
         else:
             self._move_entity(direction, entity)
 
@@ -367,10 +357,54 @@ class MainGame:
         move_x = direction.x * scaling
         move_y = direction.y * scaling
         new_entity_pos = tools.Object(x=entity.x + move_x, y=entity.y + move_y, z=entity.z)
-        if self.map.wall_collide(entity, new_entity_pos):
-            self.abs_move_command = None
+        if self.game_objects.map.wall_collide(entity, new_entity_pos):
+            self._abs_move_command = None
         else:
             entity.x = new_entity_pos.x
             entity.y = new_entity_pos.y
-            if entity is self.player:
-                self.move_camera_offset(-1 * move_x, -1 * move_y)
+
+            if entity is self.game_objects.player:
+                self._move_camera_offset(-1 * move_x, -1 * move_y)
+
+
+class GameObjects:
+    def __init__(self, map_background_color):
+        self.map = None
+        self.player = None
+        self._map_background_color = map_background_color
+
+    def reset(self):
+        self.map = Map(self._map_background_color)
+        self.player = entities.Player()
+
+
+class GameRunner:
+    """Main game instance."""
+
+    def __init__(self, menus, simulation, interface, game_objects, **kwargs):
+        self.menus = menus
+        self.simulation = simulation
+        self.interface = interface
+        self.game_objects = game_objects
+
+        super(GameRunner, self).__init__(**kwargs)
+
+    def reset(self):
+        """Resets the game. (But does not start a new one.)"""
+        self.interface.reset()
+        self.game_objects.reset()
+        self.simulation.reset()
+
+    def start(self):
+        """Starts the game."""
+        while True:
+            try:
+                self.reset()
+                self.menus.start_menu(self.game_objects)
+                self.simulation.run()
+                break
+            except exceptions.CloseException:
+                sdl.quit()
+                break
+            except exceptions.QuitException:
+                pass

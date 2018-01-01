@@ -4,20 +4,30 @@ import Tools as tools
 
 import Game.config.config as config
 
-import Game.program.game as game
+import Game.program.misc.commands as commands
+import Game.program.misc.sdl as sdl
+
 import Game.program.interface.base as base
 import Game.program.interface.interface as interface
 import Game.program.interface.menu_overlay as menu_overlay
 import Game.program.interface.play_overlay as play_overlay
 import Game.program.interface.text_overlay as text_overlay
 
+import Game.program.game as game
+
 import Game.tools.map_editor as map_editor
 
 
 def play_game(start_game=True):
     """Creates a game instance."""
-    interface = interface_factory()
-    game_instance = game.MainGame(interface)
+    clock = sdl.time.Clock()
+    interface_ = interface_factory()
+    menus = game.Menus(interface=interface_, clock=clock)
+    game_objects = game.GameObjects(map_background_color=interface_.overlays.game.background_color)
+    simulation = game.Simulation(game_objects=game_objects, interface=interface_, clock=clock)
+    command_runner = commands.CommandRunner(game_objects, interface_)
+    interface_.overlays.debug.register_commands(command_runner)
+    game_instance = game.GameRunner(menus=menus, simulation=simulation, interface=interface_, game_objects=game_objects)
     if start_game:
         game_instance.start()
     return game_instance

@@ -20,10 +20,6 @@ class Interface:
                                     self.screen_size.height - 2 * config.SCREEN_EDGE_WIDTH)
         sdl.display.set_caption(config.WINDOW_NAME)
 
-    def register_game(self, game_instance):
-        for overlay in self.overlays.values():
-            overlay.register_game(game_instance)
-
     def reset(self, overlay_to_reset=None):
         """Resets and disables all overlays. If passed an argument, it will instead reset (and not disable) just that
         overlay."""
@@ -104,7 +100,7 @@ class Interface:
                         self.selected_overlay = overlay
                         break
 
-            # This looks a bit messy: here we let the various overlays try to handle the event.
+            # Here we let the various overlays try to handle the event.
             if not handled:
                 inp_result = None
                 # If it's a mouse event...
@@ -120,7 +116,7 @@ class Interface:
                                 pass
                             else:
                                 break
-                # If it's a text event...
+                # If it's not (probably a text event) ...
                 else:
                     # ... let the selected overlay try to handle it.
                     if self.selected_overlay is not None and self.selected_overlay.listen_enabled:

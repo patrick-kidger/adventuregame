@@ -125,9 +125,15 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
                         break  # Necessary element doesn't have data
                 else:
                     # All necessary elements have data; we're done here.
-                    return click_result
+                    submit_click_result, store_result = self._selected_element.submit(self._menu_results, element_pos)
+                    if store_result:
+                        self._menu_results[self._selected_element] = click_result
+                    return submit_click_result
             elif self._selected_element in self.back_elements:
-                return click_result
+                back_click_result, store_result = self._selected_element.back(self._menu_results, element_pos)
+                if store_result:
+                    self._menu_results[self._selected_element] = click_result
+                return back_click_result
         else:
             raise exceptions.UnhandledInput
 

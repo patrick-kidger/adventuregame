@@ -8,8 +8,22 @@ import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
 
 
-def get_command(command_name):
-    return SpecialInput.find_subclass(command_name)
+class CommandRunner:
+    def __init__(self, game_objects, interface):
+        self.game_objects = game_objects
+        self.interface = interface
+        self.debug_mode = False
+
+    def run_command(self, command_name, command_args):
+        try:
+            command = SpecialInput.find_subclass(command_name)
+        except KeyError:
+            return strings.Debug.INVALID_INPUT
+        else:
+            if self.debug_mode or not command.needs_debug:
+                return command.do(command_args, self)
+            else:
+                return strings.Debug.DEBUG_NOT_ENABLED
 
 
 class SpecialInput(tools.SubclassTrackerMixin('inp')):
@@ -17,44 +31,27 @@ class SpecialInput(tools.SubclassTrackerMixin('inp')):
     inp = ''             # What string should inputted to get this input
     needs_debug = False  # Whether this input needs debug mode enabled to work
 
-    # Evil hackery to make debug commands only work when in debug mode.
-    def __init_subclass__(cls, **kwargs):
-        super(SpecialInput, cls).__init_subclass__(**kwargs)
-
-        # If this command needs debug mode enabled...
-        if cls.needs_debug:
-            old_do = cls.do
-
-            # ... then wrap the command in a function to check if debug is enabled
-            def do(cls_, game_instance, inp_args):
-                if game_instance.debug_mode:
-                    # __func__ to get the original (not bound) method
-                    return old_do.__func__(cls_, game_instance, inp_args)
-                else:
-                    game_instance.debug.output(strings.Debug.DEBUG_NOT_ENABLED, end='\n')
-
-            cls.do = classmethod(do)
-
     @tools.classproperty
     def description(cls):
         """Default description for a special input is its docstring."""
         return cls.__doc__
     
     @classmethod
-    def do(cls, game_instance, inp_args):
+    def do(cls, inp_args, command_runner):
         """This is the function that should be called to invoke a special action."""
-    
-        
+        # Does not raise NotImplementedError as this is called when running an empty command.
+
+
 class Variable(SpecialInput):
     """Provides a simple base class for setting variables."""
     variables = tuple()   # The name of the variables to set
     variable_type = bool  # The type of the variable that this command sets
     
     @classmethod
-    def do(cls, game_instance, inp_args):
+    def do(cls, inp_args, command_runner):
         variable_value_to_set = inp_args[0]
         for variable_name in cls.variables:
-            current_variable_value = tools.deepgetattr(game_instance, variable_name)
+            current_variable_value = tools.deepgetattr(command_runner, variable_name)
             if cls.variable_type is bool:
                 variable_value = cls.toggle(variable_value_to_set, current_variable_value)
             else:
@@ -63,10 +60,10 @@ class Variable(SpecialInput):
                 except ValueError:
                     return strings.Debug.VARIABLE_SET_FAILED.format(value=variable_value_to_set,
                                                                     variable_type=cls.variable_type)
-            tools.deepsetattr(game_instance, variable_name, variable_value)
-            game_instance.debug.output(strings.Debug.VARIABLE_SET.format(variable=variable_name,
-                                                                         value=variable_value),
-                                       end='\n')
+            tools.deepsetattr(command_runner, variable_name, variable_value)
+            command_runner.interface.out('debug', strings.Debug.VARIABLE_SET.format(variable=variable_name,
+                                                                                    value=variable_value),
+                                         end='\n')
         
     @staticmethod
     def bool_(inp):
@@ -87,7 +84,7 @@ class Help(SpecialInput):
     description = "Displays this help menu."
     
     @classmethod
-    def do(cls, game_instance, inp_args):
+    def do(cls, inp_args, command_runner):
         command_searched_for = inp_args[0]
         
         def output_matched_commands(command_dict, table_header):
@@ -95,10 +92,11 @@ class Help(SpecialInput):
             if commands_matched:
                 commands_matched_values = (command_dict[x] for x in commands_matched)
                 command_help_strings = [x.description for x in commands_matched_values]
-                game_instance.interface.overlays.debug.table(title=table_header, columns=[commands_matched, command_help_strings])
+                command_runner.interface.overlays.debug.table(title=table_header,
+                                                              columns=[commands_matched, command_help_strings])
                 
         output_matched_commands(Help.commands, strings.Debug.HEADER)
-        if game_instance.debug_mode:
+        if command_runner.debug_mode:
             output_matched_commands(Debug.commands, strings.Debug.DEBUG_HEADER)
 
 
@@ -112,8 +110,8 @@ class Clear(SpecialInput):
     inp = config.DebugCommands.CLEAR
 
     @classmethod
-    def do(cls, game_instance, inp_args):
-        game_instance.interface.overlays.debug.reset(prompt=False)
+    def do(cls, inp_args, command_runner):
+        command_runner.interface.overlays.debug.reset(prompt=False)
 
 
 @tools.register(config.DebugCommands.DEBUG, Help.commands)
@@ -128,7 +126,7 @@ class Debug(Variable):
 class NoClip(Variable):
     """Sets whether the player is incorporeal and can fly or not."""
     inp = config.DebugCommands.NOCLIP
-    variables = ('player.incorporeal', 'player.flight')
+    variables = ('game_objects.player.incorporeal', 'game_objects.player.flight')
     needs_debug = True
     
  
@@ -136,7 +134,7 @@ class NoClip(Variable):
 class Fly(Variable):
     """Sets whether the player can fly or not."""
     inp = config.DebugCommands.FLY
-    variables = ('player.flight',)
+    variables = ('game_objects.player.flight',)
     needs_debug = True
 
 
@@ -144,7 +142,7 @@ class Fly(Variable):
 class Ghost(Variable):
     """Sets whether the player is incorporeal or not."""
     inp = config.DebugCommands.GHOST
-    variables = ('player.incorporeal',)
+    variables = ('game_objects.player.incorporeal',)
     needs_debug = True
 
 
@@ -152,7 +150,7 @@ class Ghost(Variable):
 class SetSpeed(Variable):
     """Sets the player's speed."""
     inp = config.DebugCommands.SETSPEED
-    variables = ('player.speedmult',)
+    variables = ('game_objects.player.speedmult',)
     variable_type = float
     needs_debug = True
 
@@ -163,7 +161,7 @@ class Close(SpecialInput):
     inp = config.DebugCommands.CLOSE
 
     @classmethod
-    def do(cls, game_instance, inp_args):
+    def do(cls, inp_args, command_runner):
         raise exceptions.CloseException()
 
 
@@ -173,7 +171,7 @@ class Quit(SpecialInput):
     inp = config.DebugCommands.QUIT
 
     @classmethod
-    def do(cls, game_instance, inp_args):
+    def do(cls, inp_args, command_runner):
         raise exceptions.QuitException()
 
 
@@ -192,17 +190,20 @@ class CurrentTile(SpecialInput):
     description = "Get an attribute of the tile that the player is currently over."
 
     @classmethod
-    def do(cls, game_instance, inp_args):
-        tile = game_instance.map[game_instance.player.tile_pos]
+    def do(cls, inp_args, command_runner):
+        if command_runner.game_objects.map:
+            tile = command_runner.game_objects.map[command_runner.game_objects.player.tile_pos]
 
-        variable_name = inp_args[0]
-        if variable_name == '':
-            return str(tile)
+            variable_name = inp_args[0]
+            if variable_name == '':
+                return str(tile)
+            else:
+                try:
+                    return str(tools.deepgetattr(tile, variable_name))
+                except (AttributeError, sdl.error):
+                    return strings.Debug.VARIABLE_GET_FAILED.format(variable=variable_name)
         else:
-            try:
-                return str(tools.deepgetattr(tile, variable_name))
-            except (AttributeError, sdl.error):
-                return strings.Debug.VARIABLE_GET_FAILED.format(variable=variable_name)
+            return strings.Debug.GAME_NOT_STARTED
 
 
 @tools.register(config.DebugCommands.GET, Debug.commands)
@@ -212,10 +213,10 @@ class Get(SpecialInput):
     needs_debug = True
     
     @classmethod
-    def do(cls, game_instance, inp_args):
+    def do(cls, inp_args, command_runner):
         variable_name = inp_args[0]
         try:
-            variable_value = tools.deepgetattr(game_instance, variable_name)
+            variable_value = tools.deepgetattr(command_runner, variable_name)
         except (AttributeError, sdl.error):
             return strings.Debug.VARIABLE_GET_FAILED.format(variable=variable_name)
         else:
