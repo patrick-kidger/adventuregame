@@ -1,9 +1,12 @@
+import math
 import Tools as tools
 
 
 import Game.config.config as config
 
 import Game.program.misc.helpers as helpers
+
+import Game.program.tiles as tiles
 
 
 class Entity(helpers.HasAppearances, tools.HasPositionMixin, appearance_files_location=config.ENTITY_FOLDER):
@@ -36,6 +39,18 @@ class Entity(helpers.HasAppearances, tools.HasPositionMixin, appearance_files_lo
     @property
     def topleft_y(self):
         return self.pos.y - self.radius
+
+    @property
+    def tile_x(self):
+        return math.floor(self.x / tiles.size)
+
+    @property
+    def tile_y(self):
+        return math.floor(self.y / tiles.size)
+
+    @property
+    def tile_pos(self):
+        return tools.Object(x=self.tile_x, y=self.tile_y, z=self.z)
 
 
 class Player(Entity):

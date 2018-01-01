@@ -26,10 +26,8 @@ def play_game(start_game=True):
 def interface_factory():
     """Convenience function to set up the input and outputs of an interface."""
     # Fonts
-    menu_font = base.Font(font_name=config.MENU_FONT_NAME, font_size=config.MENU_FONT_SIZE,
-                          font_color=config.MENU_FONT_COLOR)
-    debug_font = base.Font(font_name=config.DEBUG_FONT_NAME, font_size=config.DEBUG_FONT_SIZE,
-                           font_color=config.DEBUG_FONT_COLOR)
+    menu_font = base.font(config.MENU_FONT, config.MENU_FONT_SIZE, config.MENU_FONT_COLOR)
+    debug_font = base.font(config.DEBUG_FONT, config.DEBUG_FONT_SIZE, config.DEBUG_FONT_COLOR)
 
     # Overlays
     menu_overlay_ = menu_overlay.MenuOverlay(name='menu',

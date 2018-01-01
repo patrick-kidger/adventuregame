@@ -6,14 +6,14 @@ import Game.config.config as config
 import Game.config.internal as internal
 import Game.config.strings as strings
 
-import Game.data.maps as maps
-
 import Game.program.misc.exceptions as exceptions
+import Game.program.misc.maps as maps
 import Game.program.misc.sdl as sdl
+
 import Game.program.entities as entities
 import Game.program.tiles as tiles
 
-    
+
 class Map:
     """Holds all map data - the tiles that make up the map, plus associated information such as the map's name, its
     visual depiction on the screen, etc."""
@@ -130,21 +130,14 @@ class MainGame:
         self.clock = sdl.time.Clock()
         interface.register_game(self)
         self.interface = interface
+        # Shortcuts to the three main overlays
+        self.menu = self.interface.overlays.menu
+        self.game = self.interface.overlays.game
+        self.debug = self.interface.overlays.debug
 
-        # Immediately redefined in reset()
-        # Just defined here for clarity about what instance properties we have
         self.map = None
         self.player = None
-        self.debug_mode = None  # Whether or not cheaty debug commands can be executed
-
-    # Shortcuts to the two main overlays
-    @property
-    def menu(self):
-        return self.interface.overlays.menu
-
-    @property
-    def game(self):
-        return self.interface.overlays.game
+        self.debug_mode = None
 
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
@@ -291,9 +284,9 @@ class MainGame:
     def render(self):
         """Outputs the current game state."""
         self.interface.reset('game')
-        self.interface.out('game', self.map.screens[self.player.z], offset=self.camera_offset)
-        self.interface.out('game', self.player.appearance, (self.player.topleft_x, self.player.topleft_y),
-                           offset=self.camera_offset)
+        self.game.output(self.map.screens[self.player.z], offset=self.camera_offset)
+        self.game.output(self.player.appearance, (self.player.topleft_x, self.player.topleft_y),
+                         offset=self.camera_offset)
         self.interface.flush()
 
     @property

@@ -4,9 +4,10 @@ import Tools as tools
 
 import Game.config.config as config
 
-import Game.program.interface.base as base
 import Game.program.misc.helpers as helpers
 import Game.program.misc.sdl as sdl
+
+import Game.program.interface.base as base
 
 
 class MenuElement(helpers.HasAppearances, appearance_files_location=config.INTERFACE_FOLDER):

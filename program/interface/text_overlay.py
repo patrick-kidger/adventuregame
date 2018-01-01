@@ -4,10 +4,11 @@ import Tools as tools
 import Game.config.config as config
 import Game.config.strings as strings
 
-import Game.program.interface.base as base
 import Game.program.misc.commands as commands
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
+
+import Game.program.interface.base as base
 
 
 class TextOverlay(base.BaseOverlay, base.FontMixin):

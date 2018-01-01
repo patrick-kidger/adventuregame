@@ -2,7 +2,7 @@
 
 import math
 import pygame
-import pygame.ftfont
+import pygame.freetype
 
 
 import Game.config.config as config
@@ -11,7 +11,7 @@ import Game.config.strings as strings
 import Game.program.misc.exceptions as exceptions
 
 # Initialise the pygame modules
-pygame.ftfont.init()
+pygame.freetype.init()
 pygame.display.init()
 pygame.event.set_allowed(None)
 pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION])
@@ -314,8 +314,9 @@ class event:
         return True
 
 
-class ftfont:
-    SysFont = pygame.ftfont.SysFont
+class freetype:
+    SysFont = pygame.freetype.SysFont
+    Font = pygame.freetype.Font
 
 
 class image:

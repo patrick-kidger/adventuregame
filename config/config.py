@@ -27,12 +27,12 @@ WINDOW_NAME = 'Maze Game'
 MAP_FILE_EXTENSION = 'map'
 
 # The name of the folder containing the map data
-MAP_FOLDER = 'data/map_data'
+MAP_FOLDER = 'maps'
 
 # The names of the folders containing the interface / tile / entity images respectively
-INTERFACE_FOLDER = 'images/interface'
-TILE_FOLDER = 'images/tiles'
-ENTITY_FOLDER = 'images/entities'
+INTERFACE_FOLDER = 'data/images/interface'
+TILE_FOLDER = 'data/images/tiles'
+ENTITY_FOLDER = 'data/images/entities'
 
 
 ### Output ###
@@ -48,7 +48,7 @@ GRAPHICS_SCREEN_LOC = (0, 0)  # The location of the graphics overlay on hte main
 GRAPHICS_BACKGROUND_COLOR = (255, 255, 255)  # White
 
 # Debug overlay options
-DEBUG_FONT_NAME = "Monospace"
+DEBUG_FONT = "fonts/Source_Code_Pro/SourceCodePro-Light.ttf"
 DEBUG_FONT_SIZE = 20
 DEBUG_FONT_COLOR = (0, 0, 0)  # Black
 
@@ -57,7 +57,7 @@ DEBUG_SCREEN_LOC = (0, 300)  # The location of the debug overlay on the main scr
 DEBUG_BACKGROUND_COLOR = (200, 200, 200)  # Grey
 
 # Menu overlay text options
-MENU_FONT_NAME = "Monospace"
+MENU_FONT = "fonts/Roboto/Roboto-Light.ttf"
 MENU_FONT_SIZE = 20
 MENU_FONT_COLOR = (0, 0, 0)  # Black
 

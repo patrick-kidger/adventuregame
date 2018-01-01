@@ -4,9 +4,10 @@ import collections
 import Game.config.config as config
 import Game.config.internal as internal
 
-import Game.program.interface.base as base
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
+
+import Game.program.interface.base as base
 
 
 class PlayOverlay(base.GraphicsOverlay):

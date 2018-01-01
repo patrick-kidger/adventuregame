@@ -40,4 +40,3 @@ class SdlException(BaseGameException):
 class ListenerRemovalException(BaseGameException):
     """Raised due to not being able to correctly remove a listener. Can mean that a listener added with add_listener
     was not properly removed with remove_listener once it was finished with."""
-

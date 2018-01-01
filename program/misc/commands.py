@@ -1,4 +1,3 @@
-import math
 import Tools as tools
 
 
@@ -7,8 +6,6 @@ import Game.config.strings as strings
 
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
-
-import Game.program.tiles as tiles
 
 
 def get_command(command_name):
@@ -34,7 +31,7 @@ class SpecialInput(tools.SubclassTrackerMixin('inp')):
                     # __func__ to get the original (not bound) method
                     return old_do.__func__(cls_, game_instance, inp_args)
                 else:
-                    game_instance.interface.out('debug', strings.Debug.DEBUG_NOT_ENABLED, end='\n')
+                    game_instance.debug.output(strings.Debug.DEBUG_NOT_ENABLED, end='\n')
 
             cls.do = classmethod(do)
 
@@ -67,9 +64,9 @@ class Variable(SpecialInput):
                     return strings.Debug.VARIABLE_SET_FAILED.format(value=variable_value_to_set,
                                                                     variable_type=cls.variable_type)
             tools.deepsetattr(game_instance, variable_name, variable_value)
-            game_instance.interface.out('debug', strings.Debug.VARIABLE_SET.format(variable=variable_name,
-                                                                                   value=variable_value),
-                                        end='\n')
+            game_instance.debug.output(strings.Debug.VARIABLE_SET.format(variable=variable_name,
+                                                                         value=variable_value),
+                                       end='\n')
         
     @staticmethod
     def bool_(inp):
@@ -196,9 +193,7 @@ class CurrentTile(SpecialInput):
 
     @classmethod
     def do(cls, game_instance, inp_args):
-        tile_x = math.floor(game_instance.player.x / tiles.size)
-        tile_y = math.floor(game_instance.player.y / tiles.size)
-        tile = game_instance.map[tools.Object(x=tile_x, y=tile_y, z=game_instance.player.z)]
+        tile = game_instance.map[game_instance.player.tile_pos]
 
         variable_name = inp_args[0]
         if variable_name == '':

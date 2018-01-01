@@ -1,5 +1,9 @@
+import os
+
+
 import Game.config.internal as internal
 
+import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
 
 
@@ -130,15 +134,13 @@ class AlignmentMixin:
         self.screen.cutout(cutout_rect, target)
 
 
-class Font:
+def font(font_filepath, font_size, font_color):
     """Wrapper around pygame's fonts."""
-    def __init__(self, font_name, font_size, font_color):
-        self.font = sdl.ftfont.SysFont(font_name, font_size)
-        self.color = font_color
-
-    def render(self, text):
-        """Takes the given text and renders it in this font, returning a pygame.Surface object of the rendered text."""
-        return self.font.render(text, False, self.color)
+    abs_font_filepath = os.path.join(os.path.dirname(__file__), '..', '..', 'data', font_filepath)
+    font = sdl.freetype.Font(abs_font_filepath, font_size)
+    font.fgcolor = font_color
+    font.pad = True
+    return font
 
 
 class FontMixin:
@@ -148,22 +150,24 @@ class FontMixin:
         super(FontMixin, self).__init__(*args, **kwargs)
 
     def render_text(self, text):
-        return self.font.render(text)
+        surf, rect = self.font.render(text)
+        return surf
 
     def render_text_with_newlines(self, text_pieces, background=(255, 255, 255)):
+        if len(text_pieces) == 0:
+            raise exceptions.ProgrammingException
         rendered_pieces = []
-        total_height = 0
+        font_height = self.font.get_sized_height()
+        total_height = font_height * len(text_pieces)
         max_width = 0
         for piece in text_pieces:
             rendered_piece = self.render_text(piece)
-            piece_rect = rendered_piece.get_rect()
-            max_width = max(max_width, piece_rect.width)
-            total_height += piece_rect.height
+            max_width = max(max_width, rendered_piece.get_rect().width)
             rendered_pieces.append(rendered_piece)
         return_surf = sdl.Surface((max_width, total_height))
         return_surf.fill(background)
         cursor = 0
         for rendered_piece in rendered_pieces:
             return_surf.blit(rendered_piece, (0, cursor))
-            cursor += rendered_piece.get_rect().height
+            cursor += font_height
         return return_surf

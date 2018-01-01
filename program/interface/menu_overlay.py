@@ -5,10 +5,11 @@ import Tools as tools
 import Game.config.strings as strings
 import Game.config.internal as internal
 
-import Game.program.interface.menu_elements as menu_elements
-import Game.program.interface.base as base
 import Game.program.misc.exceptions as exceptions
 import Game.program.misc.sdl as sdl
+
+import Game.program.interface.base as base
+import Game.program.interface.menu_elements as menu_elements
 
 
 class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):

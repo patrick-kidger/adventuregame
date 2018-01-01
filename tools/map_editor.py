@@ -4,20 +4,19 @@ import itertools
 import math
 import PIL.Image
 import PIL.ImageTk
+import Tools as tools
 import tkinter
 import tkinter.filedialog
 import tkinter.messagebox
-import Tools as tools
-
 
 import Game.config.internal as internal
 import Game.config.strings as strings
 
-import Game.data.maps as maps
+import Game.program.misc.exceptions as exceptions
+import Game.program.misc.maps as maps
+import Game.program.misc.sdl as sdl
 
 import Game.program.tiles as tiles
-import Game.program.misc.exceptions as exceptions
-import Game.program.misc.sdl as sdl
 
 
 class TkTileMixin(tiles.TileBase):
