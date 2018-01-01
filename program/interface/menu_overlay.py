@@ -31,7 +31,7 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
         self.back_elements = set()
 
         # The last element that we clicked
-        self._clicked_element = None
+        self._selected_element = None
         # Whether we are currently still clicking the element. (i.e. we are in between mousedown and mouseup)
         self._mouse_is_down = False
         # The current state of all the menu elements
@@ -44,8 +44,8 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
         self.submit_elements.discard(element)
         self.back_elements.discard(element)
 
-        if element is self._clicked_element:
-            self._clicked_element = None
+        if element is self._selected_element:
+            self._selected_element = None
         del self._menu_results[element]
 
     def handle(self, event):
@@ -82,12 +82,10 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
         self._mouse_is_down = True
 
         # Unclick the previous menu element
-        if self._clicked_element is not None and self._clicked_element is not menu_element:
-            element_pos = self._clicked_element.screen_pos(event.pos)
-            self._clicked_element.un_mousedown(self._menu_results, element_pos)
+        self._un_mousedown(menu_element)
 
         # Click this menu element
-        self._clicked_element = menu_element
+        self._selected_element = menu_element
         if menu_element is not None:
             element_pos = menu_element.screen_pos(event.pos)
             click_result, store_result = menu_element.mousedown(self._menu_results, element_pos)
@@ -95,6 +93,10 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
                 self._menu_results[menu_element] = click_result
         else:
             raise exceptions.UnhandledInput
+
+    def _un_mousedown(self, menu_element):
+        if self._selected_element is not None and self._selected_element is not menu_element:
+            self._selected_element.un_mousedown(self._menu_results)
 
     def _scroll(self, event, menu_element):
         if menu_element is not None:
@@ -108,14 +110,14 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
 
     def _mouseup(self, event, menu_element):
         self._mouse_is_down = False
-        if self._clicked_element is not None:
-            element_pos = self._clicked_element.screen_pos(event.pos)
-            click_result, store_result = self._clicked_element.mouseup(self._menu_results, element_pos)
+        if self._selected_element is not None:
+            element_pos = self._selected_element.screen_pos(event.pos)
+            click_result, store_result = self._selected_element.mouseup(self._menu_results, element_pos)
             if store_result:
-                self._menu_results[self._clicked_element] = click_result
+                self._menu_results[self._selected_element] = click_result
 
             # We potentially return data if we click a submit or back element
-            if self._clicked_element in self.submit_elements:
+            if self._selected_element in self.submit_elements:
                 # Make sure all necessary elements have data
                 for necessary_element in self.necessary_elements:
                     if self._menu_results[necessary_element] is None:
@@ -123,17 +125,17 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
                 else:
                     # All necessary elements have data; we're done here.
                     return click_result
-            elif self._clicked_element in self.back_elements:
+            elif self._selected_element in self.back_elements:
                 return click_result
         else:
             raise exceptions.UnhandledInput
 
     def _mousemotion(self, event, menu_element):
-        if self._mouse_is_down and self._clicked_element is not None:
-            element_pos = self._clicked_element.screen_pos(event.pos)
-            click_result, store_result = self._clicked_element.mousemotion(self._menu_results, element_pos)
+        if self._mouse_is_down and self._selected_element is not None:
+            element_pos = self._selected_element.screen_pos(event.pos)
+            click_result, store_result = self._selected_element.mousemotion(self._menu_results, element_pos)
             if store_result:
-                self._menu_results[self._clicked_element] = click_result
+                self._menu_results[self._selected_element] = click_result
         else:
             raise exceptions.UnhandledInput
 
@@ -176,7 +178,7 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
             self.necessary_elements.add(created_list)
         return created_list
 
-    def messagebox(self, title, text, buttons=(strings.Menus.OK,), **kwargs):
+    def messagebox(self, title, text, buttons=(strings.Menus.OK,), select=False, **kwargs):
         # Not specified as arguments above so that they automatically use the default argument values in self._view
         align_kwargs = tools.extract_keys(kwargs, ['horz_alignment', 'vert_alignment'])
         messagebox_screen = sdl.Surface.from_rect(menu_elements.MessageBox.size)
@@ -185,6 +187,9 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
         created_messagebox = menu_elements.MessageBox(screen=messagebox_screen, title=title, text=text, buttons=buttons,
                                                       font=self.font)
         self.menu_elements.appendleft(created_messagebox)
+        if select:
+            self._un_mousedown(None)
+            self._selected_element = created_messagebox
         return created_messagebox
 
     def button(self, text, necessary=False, **kwargs):

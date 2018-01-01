@@ -116,7 +116,7 @@ class Clear(SpecialInput):
 
     @classmethod
     def do(cls, game_instance, inp_args):
-        game_instance.interface.out.overlays.debug.reset()
+        game_instance.interface.overlays.debug.reset(prompt=False)
 
 
 @tools.register(config.DebugCommands.DEBUG, Help.commands)

@@ -34,7 +34,7 @@ class MenuElement(helpers.HasAppearances, appearance_files_location=config.INTER
         self.screen = screen
         self.on_mouseup_func = lambda menu_results, pos: (None, False)
         self.on_mousedown_func = lambda menu_results, pos: (None, False)
-        self.on_un_mousedown_func = lambda menu_results, pos: (None, False)
+        self.on_un_mousedown_func = lambda menu_results: (None, False)
         self.on_mousemotion_func = lambda menu_results, pos: (None, False)
         self.on_mouseover_func = lambda menu_results, pos: (None, False)
         self.on_scroll_func = lambda menu_results, is_scroll_up, pos: (None, False)
@@ -64,9 +64,9 @@ class MenuElement(helpers.HasAppearances, appearance_files_location=config.INTER
         """Runs when this menu element is clicked on."""
         return self.on_mousedown_func(menu_results, pos)
 
-    def un_mousedown(self, menu_results, pos):
+    def un_mousedown(self, menu_results):
         """Runs when some other menu element is clicked on; i.e. to deselect this element."""
-        return self.on_un_mousedown_func(menu_results, pos)
+        return self.on_un_mousedown_func(menu_results)
 
     def mouseup(self, menu_results, pos):
         """Runs when the mouse is released when over this menu element."""
@@ -123,8 +123,7 @@ class MultipleComponentMixin(MenuElement):
 
         # Unclick the previous component
         if self._clicked_component is not None and self._clicked_component is not clicked_component:
-            element_pos = self._clicked_component.screen_pos(pos)
-            self._clicked_component.un_mousedown(menu_results, element_pos)
+            self._clicked_component.un_mousedown(menu_results)
 
         # Click this component
         self._clicked_component = clicked_component
@@ -202,9 +201,9 @@ class Button(MenuElement, base.FontMixin, base.AlignmentMixin):
         self.screen.blit(self.appearances.button_select)
         return super(Button, self).mousedown(menu_results, pos)
 
-    def un_mousedown(self, menu_results, pos):
+    def un_mousedown(self, menu_results):
         self.screen.blit(self.appearances.button_deselect)
-        return super(Button, self).un_mousedown(menu_results, pos)
+        return super(Button, self).un_mousedown(menu_results)
 
 
 class Entry(Button):

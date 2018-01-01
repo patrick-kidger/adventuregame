@@ -14,23 +14,13 @@ class TextOverlay(base.BaseOverlay, base.FontMixin):
     """Handles outputting text to the screen."""
 
     def reset(self):
-        self.editable_text = ''
         self.text = ''
+        self.flush = True
         super(TextOverlay, self).reset()
 
     def handle(self, event):
         if sdl.event.is_key(event):
-            should_output = True
-            if event.key == sdl.K_BACKSPACE:
-                # Disable outputting backspaces if we're not actually modifying the text with them.
-                if len(self.editable_text) == 0:
-                    should_output = False
-                self.editable_text = self.editable_text[:-1]
-            else:
-                self.editable_text += event.unicode
-
-            if should_output:
-                self.output(event.unicode)
+            self.output(event.unicode)
         else:
             raise exceptions.UnhandledInput
 
@@ -48,6 +38,10 @@ class TextOverlay(base.BaseOverlay, base.FontMixin):
         output_val += end
         self.text += output_val
 
+        if self.flush:
+            self.flush_output()
+
+    def flush_output(self):
         # Handle backspaces
         self.text = tools.re_sub_recursive(r'[^\x08]\x08', '', self.text)  # \x08 = backspace. \b doesn't work.
         self.text.lstrip('\b')
@@ -61,6 +55,9 @@ class TextOverlay(base.BaseOverlay, base.FontMixin):
 
         text = self.render_text_with_newlines(text_with_newlines, background=self.background_color)
         self.screen.blit(text, (0, self._screen_height - text.get_rect().height))
+
+    def bulk_output(self):
+        return tools.set_context_variables(self, ('flush',), False, self.flush_output)
 
     def sep(self, length, **kwargs):
         """Outputs a separator of the given length."""
@@ -101,51 +98,51 @@ class TextOverlay(base.BaseOverlay, base.FontMixin):
 
         rows = zip(*columns)
 
-        self.output(strings.Sep.DR_SEP)
-        self.sep(overall_width)
-        self.output(strings.Sep.DL_SEP, end='\n')
-        self.output(strings.Sep.UD_SEP)
-        self.output(edge_space + title + edge_space, width=overall_width)
-        self.output(strings.Sep.UD_SEP, end='\n')
-        self.output(strings.Sep.UDR_SEP)
-        self.sep(overall_width)
-        self.output(strings.Sep.UDL_SEP, end='\n')
-        if headers is not None:
+        with self.bulk_output():
+            self.output(strings.Sep.DR_SEP)
+            self.sep(overall_width)
+            self.output(strings.Sep.DL_SEP, end='\n')
             self.output(strings.Sep.UD_SEP)
-            for header, column_width in zip(headers, column_widths):
-                self.output(edge_space)
-                self.output(header, width=column_width)
-                self.output(edge_space)
-                self.output(strings.Sep.UD_SEP)
-            self.output('\n')
-            self.output(strings.Sep.UD_SEP)
-            for column_width in column_widths[:-1]:
-                self.sep(column_width)
-                self.output(strings.Sep.UDLR_SEP)
-            self.sep(column_widths[-1])
+            self.output(edge_space + title + edge_space, width=overall_width)
             self.output(strings.Sep.UD_SEP, end='\n')
-        for row in rows:
-            self.output(strings.Sep.UD_SEP)
-            for entry, column_width in zip(row, column_widths):
-                self.output(edge_space)
-                self.output(entry, width=column_width)
-                self.output(edge_space)
+            self.output(strings.Sep.UDR_SEP)
+            self.sep(overall_width)
+            self.output(strings.Sep.UDL_SEP, end='\n')
+            if headers is not None:
                 self.output(strings.Sep.UD_SEP)
-            self.output('\n')
-        self.output(strings.Sep.UR_SEP)
-        self.sep(overall_width)
-        self.output(strings.Sep.UL_SEP, end='\n')
+                for header, column_width in zip(headers, column_widths):
+                    self.output(edge_space)
+                    self.output(header, width=column_width)
+                    self.output(edge_space)
+                    self.output(strings.Sep.UD_SEP)
+                self.output('\n')
+                self.output(strings.Sep.UD_SEP)
+                for column_width in column_widths[:-1]:
+                    self.sep(column_width)
+                    self.output(strings.Sep.UDLR_SEP)
+                self.sep(column_widths[-1])
+                self.output(strings.Sep.UD_SEP, end='\n')
+            for row in rows:
+                self.output(strings.Sep.UD_SEP)
+                for entry, column_width in zip(row, column_widths):
+                    self.output(edge_space)
+                    self.output(entry, width=column_width)
+                    self.output(edge_space)
+                    self.output(strings.Sep.UD_SEP)
+                self.output('\n')
+            self.output(strings.Sep.UR_SEP)
+            self.sep(overall_width)
+            self.output(strings.Sep.UL_SEP, end='\n')
 
 
 class DebugOverlay(TextOverlay):
-    def __init__(self, *args, **kwargs):
-        super(DebugOverlay, self).__init__(*args, **kwargs)
+    def reset(self, prompt=True):
+        super(DebugOverlay, self).reset()
         self.command_memory = tools.nonneg_deque([], config.CONSOLE_MEMORY_SIZE)
         self.command_memory_cursor = -1
-
-    def reset(self):
-        super(DebugOverlay, self).reset()
-        self.output(config.CONSOLE_PROMPT)
+        self.current_command = ''
+        if prompt:
+            self.output(config.CONSOLE_PROMPT)
 
     def handle(self, event):
         if sdl.event.is_key(event):
@@ -158,43 +155,47 @@ class DebugOverlay(TextOverlay):
                 except IndexError:
                     pass
                 else:
-                    self.output('\b' * len(self.editable_text))
-                    self.editable_text = text_from_memory
+                    self.output('\b' * len(self.current_command))
+                    self.current_command = text_from_memory
                     self.command_memory_cursor = moved_text_memory_cursor
-                    self.output(self.editable_text)
+                    self.output(self.current_command)
             else:
                 self.command_memory_cursor = -1
 
                 if event.key in sdl.K_ENTER:
-                    if self.editable_text != '':
-                        self.command_memory.appendleft(self.editable_text)
+                    if self.current_command != '':
+                        self.command_memory.appendleft(self.current_command)
                     self.output('\n')
                     self._debug_command()
+                    self.current_command = ''
+                    self.output(config.CONSOLE_PROMPT)
                 elif event.key == sdl.K_ESCAPE:
                     self.output.enabled = False
                     self.disable_listener()
+                elif event.key == sdl.K_BACKSPACE:
+                    if self.current_command != '':
+                        super(DebugOverlay, self).handle(event)
+                        self.current_command = self.current_command[:-1]
                 else:
                     super(DebugOverlay, self).handle(event)
+                    self.current_command += event.unicode
         else:
             raise exceptions.UnhandledInput
 
     def _debug_command(self):
         """Finds and executes the debug command corresponding to currently stored text."""
-        command_split = self.editable_text.split(' ')
+        command_split = self.current_command.strip().split(' ')
         command_name = command_split[0]
         command_args = tools.qlist(command_split[1:], except_val='')
         try:
             command = commands.get_command(command_name)
         except KeyError:
-            self.invalid_input()
+            self._invalid_input()
         else:
             print_result = command.do(self._game_instance, command_args)
             if print_result is not None:
                 self.output(print_result, end='\n')
-        finally:
-            self.editable_text = ''
-            self.output(config.CONSOLE_PROMPT)
 
-    def invalid_input(self):
+    def _invalid_input(self):
         """Gives an error message indicating that the input is invalid."""
         self.output(strings.Debug.INVALID_INPUT, end='\n')

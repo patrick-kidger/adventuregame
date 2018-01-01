@@ -136,10 +136,19 @@ class MainGame:
         self.map = None
         self.player = None
         self.debug_mode = None  # Whether or not cheaty debug commands can be executed
-        
+
+    # Shortcuts to the two main overlays
+    @property
+    def menu(self):
+        return self.interface.overlays.menu
+
+    @property
+    def game(self):
+        return self.interface.overlays.game
+
     def reset(self):
         """Resets the game. (But does not start a new one.)"""
-        self.map = Map(self.interface.overlays.game.background_color)
+        self.map = Map(self.game.background_color)
         self.player = entities.Player()
 
         self.interface.reset()
@@ -193,15 +202,15 @@ class MainGame:
 
     def _main_menu(self):
         """Displays the main menu"""
-        map_select_button = self.interface.overlays.menu.submit(strings.MainMenu.START,
-                                                                horz_alignment=internal.Alignment.CENTER,
-                                                                vert_alignment=internal.Alignment.CENTER)
+        map_select_button = self.menu.submit(strings.MainMenu.START,
+                                             horz_alignment=internal.Alignment.CENTER,
+                                             vert_alignment=internal.Alignment.CENTER)
         map_select_button.on_mouseup(lambda menu_results, pos:
                                      (internal.MenuIdentifiers.MAP_SELECT, False))
 
-        options_button = self.interface.overlays.menu.submit(strings.MainMenu.OPTIONS,
-                                                             horz_alignment=internal.Alignment.CENTER,
-                                                             vert_alignment=internal.Alignment.BOTTOM)
+        options_button = self.menu.submit(strings.MainMenu.OPTIONS,
+                                          horz_alignment=internal.Alignment.CENTER,
+                                          vert_alignment=internal.Alignment.BOTTOM)
         options_button.on_mouseup(lambda menu_results, pos:
                                   (internal.MenuIdentifiers.OPTIONS, False))
 
@@ -209,9 +218,9 @@ class MainGame:
         """Displays the menu to select a map."""
         map_names = maps.map_names()
 
-        menu_list = self.interface.overlays.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
+        menu_list = self.menu.list(title=strings.MapSelectMenu.TITLE, entry_text=map_names, necessary=True)
 
-        game_start_button = self.interface.overlays.menu.submit(strings.MapSelectMenu.SELECT_MAP)
+        game_start_button = self.menu.submit(strings.MapSelectMenu.SELECT_MAP)
         def game_start_button_press(menu_results, pos):
             menu_to_go_to = internal.MenuIdentifiers.GAME_START
             selected_index = menu_results[menu_list]
@@ -219,12 +228,13 @@ class MainGame:
             try:
                 map_name, tile_data, start_pos = maps.get_map_data_from_map_name(map_name, tiles.all_tiles())
             except exceptions.MapLoadException:
-                bad_map_message = self.interface.overlays.menu.messagebox(strings.FileLoading.BAD_LOAD_TITLE,
-                                                                          strings.FileLoading.BAD_LOAD_MESSAGE)
-                close_messagebox = lambda menu_results_, pos_: (self.interface.overlays.menu.remove(bad_map_message), False)
+                bad_map_message = self.menu.messagebox(strings.FileLoading.BAD_LOAD_TITLE,
+                                                       strings.FileLoading.BAD_LOAD_MESSAGE,
+                                                       select=True)
+                close_messagebox = lambda *args, **kwargs: (self.menu.remove(bad_map_message), False)
                 bad_map_message.on_mouseup_button(strings.Menus.OK, close_messagebox)
                 bad_map_message.on_un_mousedown(close_messagebox)
-                self.interface.overlays.menu.screen.update_cutouts()
+                self.menu.screen.update_cutouts()
                 self.interface.flush()
                 menu_to_go_to = internal.MenuIdentifiers.MAP_SELECT
             else:
@@ -236,12 +246,12 @@ class MainGame:
             return menu_to_go_to, False
         game_start_button.on_mouseup(game_start_button_press)
 
-        main_menu_button = self.interface.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
+        main_menu_button = self.menu.back(strings.MapSelectMenu.MAIN_MENU)
         main_menu_button.on_mouseup(lambda menu_results, pos:
                                     (internal.MenuIdentifiers.MAIN_MENU, False))
 
     def _options(self):
-        main_menu_button = self.interface.overlays.menu.back(strings.MapSelectMenu.MAIN_MENU)
+        main_menu_button = self.menu.back(strings.MapSelectMenu.MAIN_MENU)
         main_menu_button.on_mouseup(lambda menu_results, pos:
                                     (internal.MenuIdentifiers.MAIN_MENU, False))
 
