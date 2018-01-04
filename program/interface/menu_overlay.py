@@ -158,7 +158,7 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
     def _find_element(self, pos):
         """Returns the menu element that the given position is over, or None if it is not over any menu element."""
         for menu_element in self.menu_elements:
-            if menu_element.screen.point_within_offset(pos):
+            if menu_element.screen.point_within_abs_offset(pos):
                 return menu_element
 
     def list(self, title, entry_text, necessary=False, **kwargs):
@@ -238,3 +238,27 @@ class MenuOverlay(base.FontMixin, base.AlignmentMixin, base.GraphicsOverlay):
         back_button = self.button(text, horz_alignment=horz_alignment, vert_alignment=vert_alignment)
         self.back_elements.add(back_button)
         return back_button
+
+
+class EscapeOverlay(MenuOverlay):
+    def __init__(self, **kwargs):
+        self.must_be_top = True
+        super(EscapeOverlay, self).__init__(**kwargs)
+
+    def reset(self):
+        super(EscapeOverlay, self).reset()
+        quit_button = self.button(strings.EscapeMenu.QUIT)
+        def quit(menu_results, pos):
+            raise exceptions.QuitException
+        quit_button.on_mouseup(quit)
+
+        close_button = self.button(strings.EscapeMenu.CLOSE, vert_alignment=internal.Alignment.BOTTOM)
+        def close(menu_results, pos):
+            raise exceptions.CloseException
+        close_button.on_mouseup(close)
+
+    def handle(self, event):
+        if sdl.event.is_key(event) and event.key == sdl.K_ESCAPE:
+            self.disable()
+        else:
+            super(EscapeOverlay, self).handle(event)

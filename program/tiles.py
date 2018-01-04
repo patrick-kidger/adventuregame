@@ -1,4 +1,5 @@
 import collections
+import math
 import Tools as tools
 
 
@@ -96,6 +97,7 @@ _tile_size = Empty.appearances[None].get_rect()
 size = _tile_size.width
 if size != _tile_size.height:
     raise exceptions.ProgrammingException(strings.Exceptions.NON_SQUARE_TILE)
+diag = math.sqrt(2) * size
 
 
 class Rotatable(TileBase):
@@ -251,13 +253,13 @@ class Wall(Rotatable, Floor, TileBase):
 
         if self.geometry == internal.Geometry.ANGLED:
             if self.rotation == internal.TileRotation.UP:
-                irat_kwargs = {'pos': tools.Object(x=(self.x + 1) * size, y=(self.y + 1) * size), 'upleft': True}
+                irat_kwargs = {'pos': helpers.XYPos(x=(self.x + 1) * size, y=(self.y + 1) * size), 'upleft': True}
             elif self.rotation == internal.TileRotation.LEFT:
-                irat_kwargs = {'pos': tools.Object(x=(self.x + 1) * size, y=self.y * size), 'downleft': True}
+                irat_kwargs = {'pos': helpers.XYPos(x=(self.x + 1) * size, y=self.y * size), 'downleft': True}
             elif self.rotation == internal.TileRotation.DOWN:
-                irat_kwargs = {'pos': tools.Object(x=self.x * size, y=self.y * size), 'downright': True}
+                irat_kwargs = {'pos': helpers.XYPos(x=self.x * size, y=self.y * size), 'downright': True}
             elif self.rotation == internal.TileRotation.RIGHT:
-                irat_kwargs = {'pos': tools.Object(x=self.x * size, y=(self.y + 1) * size), 'upright': True}
+                irat_kwargs = {'pos': helpers.XYPos(x=self.x * size, y=(self.y + 1) * size), 'upright': True}
             else:
                 raise exceptions.ProgrammingException
             self._geom_irat = tools.Irat(size, **irat_kwargs)
@@ -288,7 +290,7 @@ class Wall(Rotatable, Floor, TileBase):
                 else:
                     raise exceptions.ProgrammingException
                 radius = size / 2
-            circle_center = tools.Object(x=(self.x + x_offset) * size, y=(self.y + y_offset) * size)
+            circle_center = helpers.XYPos(x=(self.x + x_offset) * size, y=(self.y + y_offset) * size)
             self._geom_circle = tools.Disc(radius, circle_center)
 
             if self.geometry == internal.Geometry.CONCAVE:

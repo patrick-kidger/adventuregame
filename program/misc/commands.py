@@ -191,8 +191,9 @@ class CurrentTile(SpecialInput):
 
     @classmethod
     def do(cls, inp_args, command_runner):
-        if command_runner.game_objects.map:
-            tile = command_runner.game_objects.map[command_runner.game_objects.player.tile_pos]
+        if command_runner.game_objects.map.initialised:
+            player = command_runner.game_objects.player
+            tile = command_runner.game_objects.map.get(player.tile_x, player.tile_y, player.z)
 
             variable_name = inp_args[0]
             if variable_name == '':

@@ -1,3 +1,4 @@
+import collections
 import os
 import Tools as tools
 
@@ -93,3 +94,9 @@ class HasAppearances:
 
         appearance_file_path = os.path.join(internal.Helpers.IMAGE_LOC, *file_location.split('/'), *filename.split('/'))
         return sdl.image.load(appearance_file_path)
+
+
+# It's about twice as quick to use namedtuples over tools.Object, so it feels like we should probably use these where
+# possible!
+XYZPos = collections.namedtuple('XYZPos', ('x', 'y', 'z'))
+XYPos = collections.namedtuple('XYPos', ('x', 'y'))

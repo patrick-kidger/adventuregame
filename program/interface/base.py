@@ -16,7 +16,7 @@ class BaseOverlay:
         self.location = sdl.Rect(location, size)
         # What is is visually, on the screen.
         self.screen = sdl.Surface(size)
-        self._screen_height = self.screen.get_rect().height
+        self.screen.set_offset(location)
         # The background colour of its screen
         self.background_color = background_color
         # The keys (on the keyboard) that should give KEYDOWN events whilst being *held* down.
@@ -29,12 +29,19 @@ class BaseOverlay:
         self.listen_enabled = False
         # The game itself
         self._game_instance = None
+        # An interface (technical term) to the overall interface (non-technical term) (!)
+        self._interface_overlayer = None
+        # Whether an overlay should be closed if it loses the selection
+        self.must_be_top = False
 
         self.reset()
 
     def reset(self):
         self.wipe()
         # Endpoint for super calls.
+
+    def register_interface(self, interface_overlayer):
+        self._interface_overlayer = interface_overlayer
 
     def handle(self, event):
         raise NotImplementedError

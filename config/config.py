@@ -50,9 +50,14 @@ ENTITY_FOLDER = 'data/images/entities'
 SCREEN_SIZE = (1600, 900)  # The overall size of the screen
 
 # Graphics overlay options
-GRAPHICS_SCREEN_SIZE = (1600, 900)  # The size of the debug overlay
-GRAPHICS_SCREEN_LOC = (0, 0)  # The location of the graphics overlay on hte main screen
+GRAPHICS_SCREEN_SIZE = (1600, 900)           # The size of the overlay
+GRAPHICS_SCREEN_LOC = (0, 0)                 # The location of the overlay on the main screen
 GRAPHICS_BACKGROUND_COLOR = (255, 255, 255)  # White
+
+# Escape overlay options (the menu that appears when pressing escape in the main game)
+ESCAPE_SCREEN_SIZE = (800, 700)
+ESCAPE_SCREEN_LOC = (400, 100)
+ESCAPE_BACKGROUND_COLOR = (227, 216, 255)  # A pleasing shade of lilac
 
 # Debug overlay options
 DEBUG_FONT = "fonts/Source_Code_Pro/SourceCodePro-Light.ttf"

@@ -4,20 +4,6 @@ import Tools as tools
 class Exceptions(tools.Container):
     """The error messages in exceptions raised by the program."""
 
-    # Menu navigation
-    MENU_MOVE_WRONG = ("MENU event given - i.e. a submit or back element was used - without any of those elements "
-                       "having registered interactions, or with more than one of those elements having registered "
-                       "interactions.")
-    # Loading map data
-    NO_MAP_NAME = "Map with name {map_name} does not exist."
-    NO_ENTRY = "Required field {entry} cannot be found on map {map_name}."
-    MISCONFIGURED_MAP_DATA = "Map data not formatted correctly on map {map_name}."
-    # Interpreting map data
-    NO_TILE_DEFINITION = 'Cannot find a tile with definition "{definition}".'
-    BAD_TILE_GEOMETRY = 'Cannot interpret geometry "{geometry}".'
-    # Listeners
-    NO_LISTENER = 'No listener enabled.'
-    INVALID_LISTENER_REMOVAL = 'Tried to remove listener "{listener}", which is not the currently enabled listener.'
     # Appearance
     NO_APPEARANCE_LOOKUP = 'No appearance lookup set, despite tile having multiple appearances.'
     NON_SQUARE_TILE = 'Tile images must be squares.'
@@ -51,6 +37,7 @@ class Sep(tools.Container):
 class Menus(tools.Container):
     MAIN_MENU = 'Main menu'
     OK = 'Ok'
+    CLOSE = 'Exit to desktop'
 
 
 class MainMenu(Menus):
@@ -66,6 +53,10 @@ class MapSelectMenu(Menus):
     OPTION_NUMBER = "{number:02}"
     PROMPT = "Select code: "
     SELECT_MAP = 'Select map'
+
+
+class EscapeMenu(Menus):
+    QUIT = 'Exit to menu'
 
 
 class Debug(tools.Container):

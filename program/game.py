@@ -7,6 +7,7 @@ import Game.config.internal as internal
 import Game.config.strings as strings
 
 import Game.program.misc.exceptions as exceptions
+import Game.program.misc.helpers as helpers
 import Game.program.misc.maps as maps
 import Game.program.misc.sdl as sdl
 
@@ -21,6 +22,7 @@ class Map:
     def __init__(self, background_color):
         self.screens = None  # The visual depiction of the map
         self._tile_data = None  # The tiles making up the map
+        self.initialised = False  # Whether the map has been loaded yet
         self._background_color = background_color  # The background color to use where no tile is defined.
         self._max_z = -math.inf
         self._max_y = -math.inf
@@ -30,38 +32,50 @@ class Map:
         self._min_x = math.inf
         super(Map, self).__init__()
 
-    def __getitem__(self, item):
-        try:
-            return self._tile_data[item.z][(item.x, item.y)]
-        except KeyError:
-            if item.z > self._max_z or item.z < self._min_z \
-                    or item.y > self._max_y or item.y < self._min_y \
-                    or item.x > self._max_x or item.x < self._min_x:
-                return tiles.Boundary(pos=tools.Object(x=item.x, y=item.y, z=item.z))
-            else:
-                return tiles.Empty(pos=tools.Object(x=item.x, y=item.y, z=item.z))
-
     def __iter__(self):
         """Iterates over all tiles."""
-
         for z_level in self._tile_data.values():
             for tile in z_level.values():
                 yield tile
 
-    def __bool__(self):
-        return self._tile_data is not None
-
     def local(self, radius, pos):
-        tile_radius = math.ceil(radius / tiles.size)
-        tile_center = tools.Object(x=math.floor(pos.x / tiles.size), y=math.floor(pos.y / tiles.size))
-        for x in range(tile_center.x - tile_radius, tile_center.x + tile_radius + 1):
-            for y in range(tile_center.y - tile_radius, tile_center.y + tile_radius + 1):
-                yield self[tools.Object(x=x, y=y, z=pos.z)]
+        tile_radius = 2 * math.ceil(radius / tiles.diag)
+        tile_center_x = math.floor(pos.x / tiles.size)
+        tile_center_y = math.floor(pos.y / tiles.size)
+        disc = tools.Disc(radius, pos)
+        for dist in range(0, tile_radius + 1):
+            for tile_x, tile_y in self._shell(tile_center_x, tile_center_y, dist):
+                if disc.colliderect(sdl.Rect(tile_x * tiles.size, tile_y * tiles.size, tiles.size, tiles.size)):
+                    yield self.get(tile_x, tile_y, pos.z)
+
+    @staticmethod
+    def _shell(tile_center_x, tile_center_y, dist):
+        if dist == 0:
+            yield tile_center_x, tile_center_y
+        else:
+            for i in range(0, dist):
+                j = dist - i
+                yield tile_center_x + i, tile_center_y + j
+                yield tile_center_x - j, tile_center_y + i
+                yield tile_center_x - i, tile_center_y - j
+                yield tile_center_x + j, tile_center_y - i
+
+    def get(self, item_x, item_y, item_z):
+        try:
+            return self._tile_data[item_z][(item_x, item_y)]
+        except KeyError:
+            if item_z > self._max_z or item_z < self._min_z \
+                    or item_y > self._max_y or item_y < self._min_y \
+                    or item_x > self._max_x or item_x < self._min_x:
+                return tiles.Boundary(pos=helpers.XYZPos(x=item_x, y=item_y, z=item_z))
+            else:
+                return tiles.Empty(pos=helpers.XYZPos(x=item_x, y=item_y, z=item_z))
 
     def load_tiles(self, tile_data):
         """Loads the specified map from the given tile data."""
 
         self._tile_data = tile_data
+        self.initialised = True
         self.screens = {}
         self._max_z = -math.inf
         self._max_y = -math.inf
@@ -100,7 +114,7 @@ class Map:
         
         False means that they will not fall. True means that they will."""
 
-        below_pos = tools.Object(x=entity.pos.x, y=entity.pos.y, z=entity.pos.z - 1)
+        below_pos = helpers.XYZPos(x=entity.pos.x, y=entity.pos.y, z=entity.pos.z - 1)
         # If the entity can't fly
         if entity.flight:
             return False
@@ -181,6 +195,13 @@ class Menus:
         options_button.on_submit(lambda menu_results, pos:
                                  (internal.MenuIdentifiers.OPTIONS, False))
 
+        close_button = self.menu_overlay.button(strings.EscapeMenu.CLOSE,
+                                                horz_alignment=internal.Alignment.RIGHT,
+                                                vert_alignment=internal.Alignment.BOTTOM)
+        def close(menu_results, pos):
+            raise exceptions.CloseException
+        close_button.on_mouseup(close)
+
     def _map_select(self, game_objects):
         """Displays the menu to select a map."""
         map_names = maps.map_names()
@@ -207,9 +228,9 @@ class Menus:
             else:
                 game_objects.map.load_tiles(tile_data)
                 # + 0.5 to move the player to center of the tile
-                game_objects.player.set_pos(x=(start_pos.x + 0.5) * tiles.size,
-                                            y=(start_pos.y + 0.5) * tiles.size,
-                                            z=start_pos.z)
+                game_objects.player.pos = helpers.XYZPos(x=(start_pos.x + 0.5) * tiles.size,
+                                                         y=(start_pos.y + 0.5) * tiles.size,
+                                                         z=start_pos.z)
             return menu_to_go_to, False
         game_start_button.on_submit(game_start_button_press)
 
@@ -239,7 +260,7 @@ class Simulation:
 
     def run(self):
         """The main game loop."""
-        with self.interface.use('game') + self.interface.select_overlay('game'):
+        with self.interface.use('game'):
             accumulator = 0
             physics_framelength = 1000 / config.PHYSICS_FRAMERATE
             self.clock.tick(config.RENDER_FRAMERATE)
@@ -267,9 +288,9 @@ class Simulation:
             # other inputs
             if not self.game_objects.map.fall(self.game_objects.player):
                 if input_type == internal.InputTypes.MOVE_ABS:
-                    pos_rel_to_camera = tools.Object(x=play_inp.x + self._camera_topleft.x,
-                                                     y=play_inp.y + self._camera_topleft.y)
-                    self._abs_move_command = pos_rel_to_camera
+                    # play_inp is relative to the camera, so here we convert it to absolute coordinates.
+                    self._abs_move_command = helpers.XYPos(x=play_inp.x + self._camera_topleft.x,
+                                                           y=play_inp.y + self._camera_topleft.y)
                 elif input_type == internal.InputTypes.ACTION:
                     self._abs_move_command = None
                     self._action_entity(play_inp, self.game_objects.player)
@@ -295,7 +316,7 @@ class Simulation:
     def _camera_topleft(self):
         x = self.game_objects.player.x + self._camera_offset.x - self.interface.screen_size.width / 2
         y = self.game_objects.player.y + self._camera_offset.y - self.interface.screen_size.height / 2
-        return tools.Object(x=x, y=y)
+        return helpers.XYPos(x=x, y=y)
 
     def _move_camera_offset(self, x, y):
         self._camera_offset.x = tools.clamp(self._camera_offset.x + x, -1 * config.MAX_CAMERA_OFFSET,
@@ -325,7 +346,7 @@ class Simulation:
         vert_actions = {internal.Action.VERTICAL_UP: 1,
                         internal.Action.VERTICAL_DOWN: -1}
         direction = vert_actions[action]
-        new_entity_pos = tools.Object(x=entity.x, y=entity.y, z=entity.z + direction)
+        new_entity_pos = helpers.XYZPos(x=entity.x, y=entity.y, z=entity.z + direction)
         if direction == 1:
             if self.game_objects.map.wall_collide(entity, new_entity_pos) or \
                     self.game_objects.map.floor_collide(entity, new_entity_pos):
@@ -334,19 +355,18 @@ class Simulation:
             if self.game_objects.map.wall_collide(entity, new_entity_pos) or \
                     self.game_objects.map.floor_collide(entity, entity.pos):
                 return
-
         entity.z += direction
 
     def _move_entity_rel(self, action, entity):
-        horz_actions = {internal.Move.LEFT: tools.Object(x=-1, y=0),
-                        internal.Move.RIGHT: tools.Object(x=1, y=0),
-                        internal.Move.UP: tools.Object(x=0, y=-1),
-                        internal.Move.DOWN: tools.Object(x=0, y=1)}
+        horz_actions = {internal.Move.LEFT: helpers.XYPos(x=-1, y=0),
+                        internal.Move.RIGHT: helpers.XYPos(x=1, y=0),
+                        internal.Move.UP: helpers.XYPos(x=0, y=-1),
+                        internal.Move.DOWN: helpers.XYPos(x=0, y=1)}
         direction = horz_actions[action]
         self._move_entity(direction, entity)
 
     def _move_entity_abs(self, pos, entity):
-        direction = tools.Object(x=pos.x - entity.x, y=pos.y - entity.y)
+        direction = helpers.XYPos(x=pos.x - entity.x, y=pos.y - entity.y)
         if direction.x ** 2 + direction.y ** 2 < internal.move_tolerance:
             self._abs_move_command = None
         else:
@@ -356,7 +376,7 @@ class Simulation:
         scaling = entity.speed / math.sqrt(direction.x ** 2 + direction.y ** 2)
         move_x = direction.x * scaling
         move_y = direction.y * scaling
-        new_entity_pos = tools.Object(x=entity.x + move_x, y=entity.y + move_y, z=entity.z)
+        new_entity_pos = helpers.XYZPos(x=entity.x + move_x, y=entity.y + move_y, z=entity.z)
         if self.game_objects.map.wall_collide(entity, new_entity_pos):
             self._abs_move_command = None
         else:

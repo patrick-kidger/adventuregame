@@ -50,7 +50,7 @@ class Entity(helpers.HasAppearances, tools.HasPositionMixin, appearance_files_lo
 
     @property
     def tile_pos(self):
-        return tools.Object(x=self.tile_x, y=self.tile_y, z=self.z)
+        return helpers.XYZPos(x=self.tile_x, y=self.tile_y, z=self.z)
 
 
 class Player(Entity):

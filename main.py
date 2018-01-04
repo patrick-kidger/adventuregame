@@ -54,10 +54,16 @@ def interface_factory():
                                               size=config.DEBUG_SCREEN_SIZE,
                                               background_color=config.DEBUG_BACKGROUND_COLOR,
                                               font=debug_font)
+    escape_overlay = menu_overlay.EscapeOverlay(name='escape',
+                                                location=config.ESCAPE_SCREEN_LOC,
+                                                size=config.ESCAPE_SCREEN_SIZE,
+                                                background_color=config.ESCAPE_BACKGROUND_COLOR,
+                                                font=menu_font)
     overlays = tools.OrderedObject()
-    overlays.debug = debug_overlay  # Done after object creation to ensure they are in the correct order.
-    overlays.menu = menu_overlay_   #
-    overlays.game = game_overlay    #
+    overlays.debug = debug_overlay    # Done after object creation to ensure they are in the correct order.
+    overlays.escape = escape_overlay  #
+    overlays.menu = menu_overlay_     #
+    overlays.game = game_overlay      #
 
     # Interface
     interface_ = interface.Interface(overlays)

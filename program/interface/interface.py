@@ -10,7 +10,10 @@ import Game.program.misc.sdl as sdl
 class Interface:
     def __init__(self, overlays):
         self.overlays = overlays
-        self._selected_overlay = None
+        interface_overlayer = InterfaceOverlayer(self)
+        for overlay in overlays.values():
+            overlay.register_interface(interface_overlayer)
+        self._selected_overlay = [None]
 
         self.screen = sdl.display.set_mode(config.SCREEN_SIZE)
         sdl.event.set_grab(True)
@@ -24,6 +27,7 @@ class Interface:
         """Resets and disables all overlays. If passed an argument, it will instead reset (and not disable) just that
         overlay."""
         if overlay_to_reset is None:
+            self._selected_overlay = [None]
             for overlay in self.overlays.values():
                 overlay.reset()
                 overlay.disable()
@@ -35,15 +39,21 @@ class Interface:
         if self.overlays.debug.listen_enabled:
             return self.overlays.debug
         else:
-            return self._selected_overlay
+            return [x for x in self._selected_overlay if x is None or x.screen_enabled][-1]
 
     @selected_overlay.setter
     def selected_overlay(self, value):
         if value is self.overlays.debug:
             self.overlays.debug.enable_listener()
-        else:
+        elif value is not self.selected_overlay:
             self.overlays.debug.disable_listener()
-            self._selected_overlay = value
+            if self.selected_overlay is not None and self.selected_overlay.must_be_top:
+                self.selected_overlay.disable()
+            try:
+                self._selected_overlay.remove(value)
+            except ValueError:
+                pass
+            self._selected_overlay.append(value)
 
     def out(self, overlay_name, *args, **kwargs):
         self.overlays[overlay_name].output(*args, **kwargs)
@@ -138,9 +148,30 @@ class Interface:
         sdl.display.update()
 
     def use(self, overlay_name):
+        return self.use_background(overlay_name) + self.select_overlay(overlay_name)
+
+    def use_background(self, overlay_name):
         overlay = self.overlays[overlay_name]
         return tools.set_context_variables(overlay, ('screen_enabled', 'listen_enabled'))
 
     def select_overlay(self, overlay_name):
         overlay = self.overlays[overlay_name]
         return tools.set_context_variables(self, ('selected_overlay',), overlay)
+
+
+class InterfaceOverlayer:
+    def __init__(self, interface):
+        self._interface = interface
+
+    def _get_overlay(self, overlay_name):
+        return self._interface.overlays[overlay_name]
+
+    def enable_overlay_background(self, overlay_name):
+        self._get_overlay(overlay_name).enable()
+
+    def enable_overlay(self, overlay_name):
+        self.enable_overlay_background(overlay_name)
+        self._interface.selected_overlay = self._get_overlay(overlay_name)
+
+    def disable_overlay(self, overlay_name):
+        self._get_overlay(overlay_name).disable()

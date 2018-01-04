@@ -57,6 +57,7 @@ class Surface(pygame.Surface):
         self._cutouts = []
         self._is_subsurface = is_subsurface
         self._is_cutout = False
+        self._parent = None
 
     @classmethod
     def from_rect(cls, rect, *args, **kwargs):
@@ -68,6 +69,7 @@ class Surface(pygame.Surface):
 
         target.set_offset(location.topleft)
         target._is_cutout = True
+        target._parent = self
         self._cutout_locations.append(location)
         self._cutouts.append(target)
 
@@ -112,6 +114,18 @@ class Surface(pygame.Surface):
         return_surface._init(viewport=viewport, is_subsurface=True)
         return return_surface
 
+    def get_parent(self):
+        if self._parent is not None:
+            return self._parent
+        else:
+            return super(Surface, self).get_parent()
+
+    def get_abs_parent(self):
+        if self._parent is not None:
+            return self._parent.get_abs_parent()
+        else:
+            return super(Surface, self).get_abs_parent()
+
     def get_offset(self):
         if not self._is_subsurface:
             return self._offset
@@ -119,9 +133,13 @@ class Surface(pygame.Surface):
             return super(Surface, self).get_offset()
 
     def get_abs_offset(self):
-        top_level_offset = self.get_abs_parent().get_offset()
-        subsurface_offset = super(Surface, self).get_abs_offset()
-        return top_level_offset[0] + subsurface_offset[0], top_level_offset[1] + subsurface_offset[1]
+        parent = self.get_parent()
+        if parent is not None:
+            parent_offset = self.get_parent().get_abs_offset()
+        else:
+            parent_offset = (0, 0)
+        my_offset = self.get_offset()
+        return my_offset[0] + parent_offset[0], my_offset[1] + parent_offset[1]
 
     def get_viewport_offset(self):
         return self.viewport.topleft

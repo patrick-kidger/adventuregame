@@ -54,7 +54,7 @@ class TextOverlay(base.BaseOverlay, base.FontMixin):
         self.wipe()
 
         text = self.render_text_with_newlines(text_with_newlines, background=self.background_color)
-        self.screen.blit(text, (0, self._screen_height - text.get_rect().height))
+        self.screen.blit(text, (0, self.screen.get_height() - text.get_rect().height))
 
     def bulk_output(self):
         return tools.set_context_variables(self, ('flush',), False, self.flush_output)

@@ -1,12 +1,12 @@
 import ast
 import os
-import Tools as tools
 
 
 import Game.config.config as config
 import Game.config.internal as internal
 
 import Game.program.misc.exceptions as exceptions
+import Game.program.misc.helpers as helpers
 
 
 _sentinel = object()
@@ -48,7 +48,7 @@ def _get_map_data(file, tile_types):
         start_pos = mapdata['start_pos']
         if any(type(start_pos[i]) is not int for i in (0, 1, 2)):
             raise exceptions.MapLoadException
-        start_pos = tools.Object(x=start_pos[0], y=start_pos[1], z=start_pos[2])
+        start_pos = helpers.XYZPos(x=start_pos[0], y=start_pos[1], z=start_pos[2])
 
         return_tile_data = {}
         tile_data = mapdata['tile_data']
@@ -60,7 +60,7 @@ def _get_map_data(file, tile_types):
             for (x, y), tile_def in z_level_data.items():
                 if any(type(i) is not int for i in (x, y, z)):
                     raise exceptions.MapLoadException
-                return_tile_data.setdefault(z, {})[(x, y)] = tile_types[tile_def](pos=tools.Object(x=x, y=y, z=z))
+                return_tile_data.setdefault(z, {})[(x, y)] = tile_types[tile_def](pos=helpers.XYZPos(x=x, y=y, z=z))
 
     # SyntaxError from ast.literal_eval
     except (KeyError, TypeError, ValueError, SyntaxError) as e:

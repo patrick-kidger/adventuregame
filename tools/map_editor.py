@@ -1,5 +1,6 @@
 """A map editor for the game!"""
 
+import collections
 import itertools
 import math
 import PIL.Image
@@ -13,10 +14,13 @@ import Game.config.internal as internal
 import Game.config.strings as strings
 
 import Game.program.misc.exceptions as exceptions
+import Game.program.misc.helpers as helpers
 import Game.program.misc.maps as maps
 import Game.program.misc.sdl as sdl
 
 import Game.program.tiles as tiles
+
+XYTilePos = collections.namedtuple('XYTilePos', ('tile_x', 'tile_y'))
 
 
 class TkTileMixin(tiles.TileBase):
@@ -123,7 +127,7 @@ class MainApplication:
         self._config_callback = None
         # The last grid location we placed a tile in, so we know we don't have to place another one there during every
         # tick of a mouse drag.
-        self._last_grid_loc = tools.Object(tile_x=None, tile_y=None)
+        self._last_grid_loc = XYTilePos(tile_x=None, tile_y=None)
 
         # The menu on the right
         self._menu = tkinter.Frame(tk, relief=tkinter.RIDGE, borderwidth=2)
@@ -225,7 +229,7 @@ class MainApplication:
         # The current z level we're displaying and working on
         self._z = None
         # The starting position of the player
-        self._start_pos = None
+        self.start_pos = None
         # The image on the canvas marking the starting position of the player.
         self._start_pos_marker = None
         # The grid lines on the canvas
@@ -241,7 +245,7 @@ class MainApplication:
         self.have_saved = True
         self._tile_data_dict = {}
         self._z = 0
-        self._start_pos = None
+        self.start_pos = None
         self._start_pos_marker = None
         self._grid_lines = []
         self._canvas_images = {}
@@ -296,19 +300,15 @@ class MainApplication:
         self.place_start_pos_marker()
         self.canvas_tile_grid()
 
-    def set_start_pos(self, x, y, z):
-        """Sets the starting position."""
-        self._start_pos = tools.Object(x=x, y=y, z=z)
-
     def place_start_pos_marker(self):
         """Place the marker for the starting position"""
 
         if self._start_pos_marker is not None:
             self._canvas.delete(self._start_pos_marker)
-        if self._start_pos is not None:
-            if self._start_pos.z == self._z:
-                self._start_pos_marker = self._canvas.create_image((self._start_pos.x * tiles.size,
-                                                                    self._start_pos.y * tiles.size),
+        if self.start_pos is not None:
+            if self.start_pos.z == self._z:
+                self._start_pos_marker = self._canvas.create_image((self.start_pos.x * tiles.size,
+                                                                    self.start_pos.y * tiles.size),
                                                                    image=self._start_pos_image, anchor=tkinter.NW)
 
     def on_config(self, event):
@@ -367,7 +367,7 @@ class MainApplication:
             for tile_x in range(x_min, x_max + 1):
                 for tile_y in range(y_min, y_max + 1):
                     for z in range(z_min, z_max + 1):
-                        self._place_tile(tools.Object(tile_x=tile_x, tile_y=tile_y), z)
+                        self._place_tile(XYTilePos(tile_x=tile_x, tile_y=tile_y), z)
             self._place_rect_marker = None
             self._cuboid_label.lower(self._cuboid_label_hide)
 
@@ -377,7 +377,7 @@ class MainApplication:
         self._last_grid_loc = grid_loc
 
         if self._current_tile == internal.MapEditor.START_POS:  # Place the start marker
-            self.set_start_pos(x=grid_loc.tile_x, y=grid_loc.tile_y, z=z)
+            self.start_pos = helpers.XYZPos(x=grid_loc.tile_x, y=grid_loc.tile_y, z=z)
             self.place_start_pos_marker()
         else:
             # If we're not placing the start marker, then delete the image that was already there.
@@ -441,7 +441,7 @@ class MainApplication:
         tile_x = math.floor(canvas_x / tiles.size)
         tile_y = math.floor(canvas_y / tiles.size)
         # tile_x, tile_y are the grid coordinates
-        return tools.Object(tile_x=tile_x, tile_y=tile_y)
+        return XYTilePos(tile_x=tile_x, tile_y=tile_y)
 
     def canvas_tile_grid(self):
         """Draw a grid on the canvas."""
@@ -467,7 +467,7 @@ class MainApplication:
 
         x = self._canvas.canvasx(0)
         y = self._canvas.canvasy(0)
-        return tools.Object(x=x, y=y)
+        return helpers.XYPos(x=x, y=y)
 
     def canvas_visible_region(self):
         """Returns the canvas coordinates corresponding to the corners of the visible region of the canvas."""
@@ -504,7 +504,7 @@ class MainApplication:
                 self.reset()
                 self._level_name_entry.insert(0, map_name)
                 self._tile_data_dict = tile_data
-                self.set_start_pos(x=start_pos.x, y=start_pos.y, z=start_pos.z)
+                self.start_pos = helpers.XYZPos(x=start_pos.x, y=start_pos.y, z=start_pos.z)
                 self.refresh_canvas()
 
     def save(self):
@@ -534,12 +534,12 @@ class MainApplication:
         """Whether or not we're trying to save a valid map. Will raise a SaveException if the map is invalid. Will
         return the objects for saving if valid."""
 
-        if self._start_pos is None:
+        if self.start_pos is None:
             raise exceptions.SaveException(strings.Exceptions.NO_START_POS)
 
-        if self._start_pos.z not in self._tile_data_dict:
+        if self.start_pos.z not in self._tile_data_dict:
             raise exceptions.SaveException(strings.Exceptions.BAD_START_POS)
-        if (self._start_pos.x, self._start_pos.y) not in self._tile_data_dict[self._start_pos.z]:
+        if (self.start_pos.x, self.start_pos.y) not in self._tile_data_dict[self.start_pos.z]:
             raise exceptions.SaveException(strings.Exceptions.BAD_START_POS)
 
         map_name = self._level_name_entry.get().strip()
@@ -557,7 +557,7 @@ class MainApplication:
         if math.inf in {x_min, y_min, z_min}:
             raise exceptions.SaveException(strings.Exceptions.NO_TILES)
 
-        start_pos = (self._start_pos.x - x_min, self._start_pos.y - y_min, self._start_pos.z - z_min)
+        start_pos = (self.start_pos.x - x_min, self.start_pos.y - y_min, self.start_pos.z - z_min)
 
         tile_data = {}
         tile_types = []
