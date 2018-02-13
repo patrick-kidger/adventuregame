@@ -39,7 +39,7 @@ class Interface:
         if self.overlays.debug.listen_enabled:
             return self.overlays.debug
         else:
-            return [x for x in self._selected_overlay if x is None or x.screen_enabled][-1]
+            return [x for x in self._selected_overlay if x is None or x.listen_enabled][-1]
 
     @selected_overlay.setter
     def selected_overlay(self, value):

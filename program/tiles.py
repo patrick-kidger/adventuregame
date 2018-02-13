@@ -304,7 +304,7 @@ class Wall(Rotatable, Floor, TileBase):
                     theta = 90
                 else:
                     raise exceptions.ProgrammingException
-                self._geom_arc = tools.Arc.from_circle(self._geom_circle, theta, theta + 90)
+                self._geom_arc = tools.Arc.from_disc(self._geom_circle, theta, theta + 90)
             elif self.geometry == internal.Geometry.DOUBLE_CONCAVE:
                 if self.rotation == internal.TileRotation.UP:
                     theta = 180
@@ -316,7 +316,7 @@ class Wall(Rotatable, Floor, TileBase):
                     theta = -90
                 else:
                     raise exceptions.ProgrammingException
-                self._geom_arc = tools.Arc.from_circle(self._geom_circle, theta, theta + 180)
+                self._geom_arc = tools.Arc.from_disc(self._geom_circle, theta, theta + 180)
 
         self._collision_func = self.CollisionFunctions.lookup[self.geometry]
 
